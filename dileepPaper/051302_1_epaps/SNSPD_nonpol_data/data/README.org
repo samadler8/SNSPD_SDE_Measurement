@@ -1,0 +1,164 @@
+#+OPTIONS: title:nil date:nil email:nil H:3 num:t toc:nil author:nil
+This text file is best viewed in Emacs with org-mode enabled.
+Alternatively, consider opening the file [[./README.pdf]].
+
+* Contents of folders and brief descriptions
+
+- [[./10_03_1550nm_pwrrecord.dat]]: Contains power meter readings of the laser
+  recorded at roughly 4 Hz over several hours. It is used for estimating
+  laser stability.
+- [[./instrument_IDs.txt]]: Contains the company serial numbers of all of the
+  instruments used in the experimental setup.
+- [[./README.org]]: This file.
+
+** [[./1550_WSi3_R_spectra]]
+
+Contains reflectometry measurements off of the active areas of various
+device-dies on the 3-inch substrate wafer.
+
+** [[./calibration]]
+
+Contains some NIST-calibration data for the calibrated power meter.
+
+** [[./code]]
+
+- [[./code/neo_calc_nonlinear.py]]: Script that processes the data taken for
+  nonlinearity calibration (all the files with =.dat= extension in folder
+  [[./neo_nonlinear_last]]). The processed results are store in the same folder
+  with extension =.analysis.neo.yaml=.
+- [[./code/neo_config.yaml]]: Stores location of folders containing processed
+  nonlinear-calibration files, switch-calibration files, and the folders
+  containing detector counts measured for SDE estimation. It also contains
+  the full path location of the NIST-calibration file. This file is used by
+  [[./code/neo_calc_nonlinear.py]] and [[./code/neo_sde_calculator.py]].
+- [[./code/neo_sde_calculator.py]]: Script that processes the detector counts
+  data (files with extension =.dat= in folders named =counts_last_*= and
+  =flux_scan_*=). The output files are stored in the same folders, with
+  suffixes =_de_analysis.neo.dat=. This script uses the NIST-calibration
+  data for the power meter, the processed nonlinearity-calibration files,
+  and the switch-calibration files if available.
+- [[./code/measurement_scripts]]: Folder containing =python= scripts used to
+  perform measurements in the experiment. Inoperable without the setup and
+  instrument-control drivers. Provided for perusal.
+
+** [[./counts_last_2223]], [[./counts_last_2226]], [[./counts_last_2234]]
+
+Folders containing the detector counts measured at both count-minimized and
+count-maximized input-polarization settings for various wavelengths (files
+with extension =.dat=). Also contains SDEs in the processed files (suffix
+=_de_analysis.neo.dat=). The detector numbers 2223, 2226, and 2234 are
+designated as D1, D2, and D3 respectively in the manuscript.
+
+** [[./flux_scan_2223]], [[./flux_scan_2226]], [[./flux_scan_2234]]
+
+Folders containing the detector counts measured at various incident photon
+fluxes for wavelength 1550 nm (files with extension =.dat=). Also contains
+SDEs in the processed files (suffix =_de_analysis.neo.dat=). The detector
+numbers 2223, 2226, and 2234 are designated as D1, D2, and D3 respectively in
+the manuscript.
+
+** [[./neo_nonlinear_last]]
+
+Folder containing the nonlinearity correction measurements (extension
+=.dat=) as well as processed files (extension =.analysis.neo.yaml=) for a
+number of wavelengths.
+
+** [[./neo_run12]]
+
+Folder containing switch-calibration measurements for select wavelengths
+performed as a test 40 days prior to final detector measurements.
+
+** [[./neo_switch_calib_run14]]
+
+Folder containing switch-calibration measurements for various wavelengths
+performed during the final experiment.
+
+** [[./polscan_2223]], [[./polscan_2226]], [[./polscan_2234]]
+
+Folders containing the Bloch-sphere polarization scans and
+polarization-controller calibrations. The detector numbers 2223, 2226, and
+2234 are designated as D1, D2, and D3 respectively in the manuscript.
+
+** [[./pulse_traces]]
+
+Folder containing oscilloscope traces of both raw detection pulses as well
+as conditioned "square" pulses from detector number 2223 (designated as D1
+in the manuscript).
+
+** [[./timetagger_jitter_data]]
+
+Folder containing some time tagged arrival time data (measured using a
+=HydraHarp 400=) when the incident photons are derived from a pulsed laser.
+This was used for estimating timing jitter. The data is not presented as a
+plot in the manuscript. The code for generating a plot is present in the
+file named =plot_funcs.py= in the parent folder to this one.
+
+** [[./WSi_nk]]
+
+Folder containing the transmittance and reflectance measurements (extension
+=.asc=) off of a 2.2 nm tungsten silicide film with a 2 nm amorphous
+silicon capping layer on top, all deposited onto a UV-fused silica
+substrate wafer. These were measured using a =LAMBDA 1050=
+spectrophotometer. Also included is a file containing a refractive index
+(n, k) fit (extension =.dat=).
+
+* =python= virtual environment list of packages and version numbers
+
+These are the packages and versions used for data processing and plotting.
+Please use this environment to reproduce the results in this manuscript.
+
+|--------------------+---------|
+| Package            | Version |
+|--------------------+---------|
+| python             |   3.7.3 |
+| algopy             |   0.5.7 |
+| AllanTools         |  2019.9 |
+| asteval            |  0.9.25 |
+| backcall           |   0.2.0 |
+| CODATA             |     1.2 |
+| cycler             |  0.10.0 |
+| decorator          |   5.0.9 |
+| et-xmlfile         |   1.1.0 |
+| future             |  0.18.2 |
+|--------------------+---------|
+
+|--------------------+---------|
+| importlib-metadata |  4.10.0 |
+| ipython            |  7.24.1 |
+| ipython-genutils   |   0.2.0 |
+| jedi               |  0.18.0 |
+| kiwisolver         |   1.3.1 |
+| lmfit              |   1.0.3 |
+| matplotlib         |   3.4.2 |
+| matplotlib-inline  |   0.1.2 |
+| numdifftools       |  0.9.40 |
+| numpy              |  1.20.3 |
+| openpyxl           |   3.0.9 |
+| packaging          |    21.3 |
+| pandas             |   1.3.5 |
+| parso              |   0.8.2 |
+| patsy              |   0.5.2 |
+| pexpect            |   4.8.0 |
+| pickleshare        |   0.7.5 |
+| Pillow             |   8.2.0 |
+| pip                |  21.1.2 |
+| pkg-resources      |   0.0.0 |
+| prompt-toolkit     |  3.0.18 |
+| ptyprocess         |   0.7.0 |
+| Pygments           |   2.9.0 |
+| pyparsing          |   2.4.7 |
+| python-dateutil    |   2.8.1 |
+| pytz               |  2021.3 |
+| PyYAML             |     6.0 |
+| qutip              |   4.6.2 |
+| scipy              |   1.6.3 |
+| setuptools         |  57.0.0 |
+| six                |  1.16.0 |
+| statsmodels        |  0.13.1 |
+| traitlets          |   5.0.5 |
+| typing-extensions  |   4.0.1 |
+| uncertainties      |   3.1.6 |
+| wcwidth            |   0.2.5 |
+| wheel              |  0.36.2 |
+| zipp               |   3.7.0 |
+|--------------------+---------|

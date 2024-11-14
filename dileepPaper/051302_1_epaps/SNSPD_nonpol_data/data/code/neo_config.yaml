@@ -1,0 +1,4 @@
+CF_calib_file: ../calibration/SWN HP81521B 2933G05261.xlsx
+nonlinearity_folder: ../neo_nonlinear_last
+switch_calib_folder: ../neo_switch_calib_run14
+counts_folder: ../*_last_22*

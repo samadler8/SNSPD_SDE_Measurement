@@ -1,0 +1,13 @@
+pmcal: HP 81533B head, serial no. 2933 G 05261
+
+Mainframe: AQ8201A
+Laser: AQ8201-13B
+Att1: AQ8201-33M
+Att2: AQ8201-33
+Att3: AQ8201-33M
+Switch: AQ8201-422
+pm1, pm2: AQ8201-22
+
+Vsrc: Keithley 213
+dmm: Keithley 199
+counter: SR400
