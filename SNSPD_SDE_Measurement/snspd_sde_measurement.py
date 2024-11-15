@@ -1,7 +1,9 @@
 import os
 import time
+import pickle
 
 import numpy as np
+import pandas as pd
 
 srs = srs_('GPIB0::2::INSTR')
 ando = AndoAQ8204('GPIB0::5::INSTR')
@@ -36,6 +38,10 @@ att_setting = {}
 for rng in [-10, -20, -30, -40, -50, -60]:
     att_setting[rng] = base_array - (rng+10) -3
 
+
+data = []
+
+# Iterate through the ranges and settings
 for rng in [-10, -20, -30, -40, -50, -60]:
     ando.aq820121_set_range(pm_ch, rng)
     ando.aq820121_zero(pm_ch)
@@ -43,10 +49,18 @@ for rng in [-10, -20, -30, -40, -50, -60]:
         ando.aq820133_set_att(att1_ch, a)
         for att_step in [0, 3]:
             ando.aq820133_set_att(att2_ch, att_step)
-            for i in range(1, N):
+            for i in range(N):
                 power = ando.aq820121_get_power(pm_ch)
-                write(a, att_step, rng, power)
+                # Append the data as a tuple
+                data.append((rng, a, att_step, i, power))
 
+# Convert the data to a pandas DataFrame
+columns = ['Range', 'Attenuation Setting', 'Attenuation Step', 'Iteration', 'Power']
+df = pd.DataFrame(data, columns=columns)
+
+# Save the DataFrame as a pickle file
+pickle_file = 'power_data.pkl'
+df.to_pickle(pickle_file)
 
 #%% Algorithm S2. Attenuator calibration
 N = 5
@@ -62,7 +76,7 @@ for att_ch in att_list:
     for att_ch_ in att_list:
         ando.aq820133_enable(att_ch_)
     powers = {}
-    for i in range(1, N):
+    for i in range(N):
         powers.append(ando.aq820121_get_power(pm_ch))
     write(att_list.get_att(), powers, init_rng)
     
@@ -74,7 +88,7 @@ for att_ch in att_list:
     for att_ch_ in att_list:
         ando.aq820133_enable(att_ch_)
     powers = {}
-    for i in range(1, N):
+    for i in range(N):
         powers.append(ando.aq820121_get_power(pm_ch))
     write(att_list.get_att(), powers, init_rng)
     ando.aq820133_set_att(att_ch, 0)
@@ -129,6 +143,18 @@ Maxpol_Count_Array = get_counts(Cur_Array)
 
 pc.set(minpol_settings)
 Minpol_Count_Array = get_counts(Cur_Array)
+
+data_dict = {
+    'Cur_Array': list(Cur_Array),
+    'Dark_Count_Array': list(Dark_Count_Array),
+    'Maxpol_Count_Array': list(Maxpol_Count_Array),
+    'Minpol_Count_Array': list(Minpol_Count_Array),
+    }
+data_filename = "data_dict.pkl"
+os.makedirs("data", exist_ok=True)
+data_filepath = os.path.join("data", data_filename)
+with open(data_filepath, "wb") as file:
+    pickle.dump(data_dict, file)
 
 ando.aq820143_set_route(sw_ch, 'monitor_port')
 CONSOLE_CAL(pm, att_list, attval, rngval, out_att) # Slgorithm S2
