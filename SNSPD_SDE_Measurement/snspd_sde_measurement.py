@@ -5,24 +5,25 @@ import pickle
 import numpy as np
 import pandas as pd
 
-srs = srs_('GPIB0::2::INSTR')
+
+srs = SIM928('GPIB0::2::INSTR')
 ando = AndoAQ8204('GPIB0::5::INSTR')
-counter = Agilent53131a('GPIB0::5::INSTR')
+counter = Agilent53131a('GPIB0::3::INSTR')
+pc = FiberControlMPC101('GPIB0::1::INSTR')
 
-att1_ch = 
-att2_ch = 
-att3_ch = 
+att1_ch = 1
+att2_ch = 2
+att3_ch = 3
 att_list = [att1_ch, att2_ch, att3_ch]
-pm_ch = 
-sw_ch = 
-pc_ch = 
+sw_ch = 4
+pm_ch = 5
 
-attval = 
-rngval = 
-ic = 
-vpol = 
+attval = 60 #dB
+rngval = 10
+ic = 10e-6 #A
+vpol = 10
 
-bias_resistor = 
+bias_resistor = 100e3 #Ohms
 
 #%% Algorithm S1. Nonlinearity factor raw power meaurements
 N = 10
@@ -135,8 +136,8 @@ for att_ch in att_list:
     ando.aq820133_enable(att_ch)
 ando.aq820143_set_route(sw_ch, 'detector_port')
 srs.set_volt(vpol)
-maxpol_settings = maximize_counts(pc_ch, counter, out_maxpol)
-minpol_settings = minimize_counts(pc_ch, counter, out_minpol)
+maxpol_settings = maximize_counts(pc, counter, out_maxpol)
+minpol_settings = minimize_counts(pc, counter, out_minpol)
 srs.set_volt(0)
 
 pc.set(maxpol_settings)
