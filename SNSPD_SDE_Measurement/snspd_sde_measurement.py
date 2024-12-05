@@ -8,12 +8,15 @@ import pandas as pd
 from amcc.instruments.srs_sim928 import SIM928
 from amcc.instruments.ando_aq8204 import AndoAQ8204
 from amcc.instruments.agilent_53131a import Agilent53131a
+from amcc.instruments.agilent_8163a import Agilent8163A
 from amcc.instruments.fiberControl_MPC101 import FiberControlMPC101
 
-srs = SIM928('GPIB0::2::INSTR')
-ando = AndoAQ8204('GPIB0::5::INSTR')
-counter = Agilent53131a('GPIB0::3::INSTR')
-pc = FiberControlMPC101('GPIB0::1::INSTR')
+sim900port = 5
+srs = SIM928('GPIB0::2::INSTR', sim900port)
+ando = AndoAQ8204('GPIB0::4::INSTR')
+counter = Agilent53131a('GPIB0::5::INSTR')
+pm_calibrated = Agilent8163A('GPIB0::9::INSTR')
+pc = FiberControlMPC101('GPIB0::3::INSTR')
 
 laser_ch = 1
 att1_ch = 2
@@ -40,9 +43,11 @@ ando.aq82011_enable(laser_ch)
 #%% Algorithm S1. Nonlinearity factor raw power meaurements
 N = 10
 xlist = [20, 15]
-xlist.append(np.arange(10, 0.9, -0.5))
-xlist.append(np.arange(0.95, 0.5, -0.5))
-base_array = round(10 - 10*np.log10(xlist))
+xlist.extend(np.arange(10, 0.9, -0.5))  # Use extend to append elements from the array
+xlist.extend(np.arange(0.95, 0.5, -0.05))  # Fix the step size to avoid empty arrays
+
+xlist = np.array(xlist)  # Convert to a numpy array
+base_array = np.round(10 - 10 * np.log10(xlist))  # Use np.round for rounding
 base_array = base_array - np.min(base_array)
 att_setting = {}
 
