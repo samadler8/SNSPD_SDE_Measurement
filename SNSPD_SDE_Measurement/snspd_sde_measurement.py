@@ -5,18 +5,23 @@ import pickle
 import numpy as np
 import pandas as pd
 
+from amcc.instruments.srs_sim928 import SIM928
+from amcc.instruments.ando_aq8204 import AndoAQ8204
+from amcc.instruments.agilent_53131a import Agilent53131a
+from amcc.instruments.fiberControl_MPC101 import FiberControlMPC101
 
 srs = SIM928('GPIB0::2::INSTR')
 ando = AndoAQ8204('GPIB0::5::INSTR')
 counter = Agilent53131a('GPIB0::3::INSTR')
 pc = FiberControlMPC101('GPIB0::1::INSTR')
 
-att1_ch = 1
-att2_ch = 2
-att3_ch = 3
+laser_ch = 1
+att1_ch = 2
+att2_ch = 3
+att3_ch = 4
 att_list = [att1_ch, att2_ch, att3_ch]
-sw_ch = 4
-pm_ch = 5
+sw_ch = 5
+pm_ch = 6
 
 attval = 60 #dB
 rngval = 10
@@ -24,6 +29,10 @@ ic = 10e-6 #A
 vpol = 10
 
 bias_resistor = 100e3 #Ohms
+
+#%% Initialize and turn of laser
+ando.aq820113_std_init(laser_ch)
+ando.aq82011_enable(laser_ch)
 
 #%% Algorithm S1. Nonlinearity factor raw power meaurements
 N = 10
@@ -159,4 +168,4 @@ with open(data_filepath, "wb") as file:
     pickle.dump(data_dict, file)
 
 ando.aq820143_set_route(sw_ch, 'monitor_port')
-CONSOLE_CAL(pm, att_list, attval, rngval, out_att) # Algorithm S2
+CONSOLE_CAL(pm_ch, att_list, attval, rngval, out_att) # Algorithm S2
