@@ -20,7 +20,6 @@ pc_ch =
 attval = 
 rngval = 
 ic = 
-bias_step = 
 vpol = 
 
 bias_resistor = 
@@ -60,7 +59,9 @@ df = pd.DataFrame(data, columns=columns)
 
 # Save the DataFrame as a pickle file
 pickle_file = 'power_data.pkl'
-df.to_pickle(pickle_file)
+os.makedirs("data", exist_ok=True)
+pickle_filepath = os.path.join("data", pickle_file)
+df.to_pickle(pickle_filepath)
 
 #%% Algorithm S2. Attenuator calibration
 N = 5
@@ -95,11 +96,11 @@ for att_ch in att_list:
 
 
 #%% Algorithm S3. SDE counts measurement
+counting_time = 0.75
 def get_counts(Cur_Array):
-    srs.enable()
     srs.set_volt(0)
+    srs.enable()
 
-    counting_time = 0.3
     Count_Array=np.zeros(len(Cur_Array))
 
     for i in np.arange(len(Cur_Array)):
@@ -109,15 +110,15 @@ def get_counts(Cur_Array):
         
         time.sleep(.1)
         Count_Array[i] = Agilent53131a.timed_count(counting_time=counting_time)
-        print(str(this_volt)+' - '+str(Count_Array[i]))
+        print(f"{this_volt} - {Count_Array[i]}")
     
     srs.set_volt(0)
     srs.disable()
-
     
     return Count_Array
 
-Cur_Array=np.round(np.linspace(0, ic, bias_step), 8)
+num_biases = 100
+Cur_Array=np.round(np.linspace(0, ic*1.1, num_biases), 8)
 
 N = 10
 for att_ch in att_list:
@@ -157,4 +158,4 @@ with open(data_filepath, "wb") as file:
     pickle.dump(data_dict, file)
 
 ando.aq820143_set_route(sw_ch, 'monitor_port')
-CONSOLE_CAL(pm, att_list, attval, rngval, out_att) # Slgorithm S2
+CONSOLE_CAL(pm, att_list, attval, rngval, out_att) # Algorithm S2
