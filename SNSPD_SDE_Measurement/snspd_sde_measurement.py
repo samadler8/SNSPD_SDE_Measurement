@@ -49,7 +49,31 @@ ando.aq82012_set_range(mpm_ch, rngval)
 ando.aq82012_zero(mpm_ch)
 
 ando.aq82011_enable(laser_ch)
+#%% Alforithm S1.1 Missing Algorithm (optical switch calibration)
+# For this section, the "detector" fiber must be spliced to the calibrated polarization controller (cpm)
+def optical_switch_calibration():
+    N = 100
 
+    data = []
+
+    for _ in range(N):
+        ando.aq82014_set_route(sw_ch, monitor_port)
+        power_mpm = ando.aq82012_get_power(mpm_ch)
+
+        ando.aq82014_set_route(sw_ch, detector_port)
+        power_cpm = cpm.read_power()
+
+        data.append((power_mpm, power_cpm))
+
+    columns = ['power_mpm', 'power_cpm']
+    df = pd.DataFrame(data, columns=columns)
+
+    # Save the DataFrame as a pickle file
+    pickle_file = 'optical_switch_calibration_data.pkl'
+    os.makedirs("data", exist_ok=True)
+    pickle_filepath = os.path.join("data", pickle_file)
+    df.to_pickle(pickle_filepath)
+# The "detector" fiber can now be cut and respliced to the SNSPD
 #%% Algorithm S1. Nonlinearity factor raw power meaurements
 def nonlinearity_factor_raw_power_meaurements():
     ando.aq82014_set_route(sw_ch, monitor_port)
@@ -94,29 +118,7 @@ def nonlinearity_factor_raw_power_meaurements():
     pickle_filepath = os.path.join("data", pickle_file)
     df.to_pickle(pickle_filepath)
 
-#%% Alforithm S1.1 Missing Algorithm (optical switch calibration)
-def optical_switch_calibration():
-    N = 100
 
-    data = []
-
-    for _ in range(N):
-        ando.aq82014_set_route(sw_ch, monitor_port)
-        power_mpm = ando.aq82012_get_power(mpm_ch)
-
-        ando.aq82014_set_route(sw_ch, detector_port)
-        power_cpm = cpm.read_power()
-
-        data.append((power_mpm, power_cpm))
-
-    columns = ['power_mpm', 'power_cpm']
-    df = pd.DataFrame(data, columns=columns)
-
-    # Save the DataFrame as a pickle file
-    pickle_file = 'optical_switch_calibration_data.pkl'
-    os.makedirs("data", exist_ok=True)
-    pickle_filepath = os.path.join("data", pickle_file)
-    df.to_pickle(pickle_filepath)
 
 #%% Algorithm S2. Attenuator Calibration
 def attenuator_calibration():
@@ -196,7 +198,10 @@ def attenuator_calibration():
     with open(output_path, 'wb') as f:
         pickle.dump(powers_data, f)
 
+
 #%% Algorithm S3. SDE Counts Measurement
+# At this point, the "detector" fiber MUST be spliced to the SNSPD
+# If you have not done that yet, do so now
 counting_time = 0.75
 
 def get_counts(Cur_Array):
