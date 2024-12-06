@@ -26,46 +26,77 @@ att_list = [att1_ch, att2_ch, att3_ch]
 sw_ch = 5
 mpm_ch = 6
 
-monitor_port = '1'
-detector_port = '2'
+monitor_port = 1
+detector_port = 2
 
-attval = 60 #dB
-rngval = 10
-ic = 10e-6 #A
+attval = 10 #dBm - for each attenuator
+rngval = 'G' #Set the ranges. See below
+# rng_dict = {'A': 'AUTO',
+#     'C': +30,
+#     'D': +20,
+#     'E': +10,
+#     'F': 0,
+#     'G': -10,
+#     'H': -20,
+#     'I' : -30,
+#     'J' : -40,
+#     'K': -50,
+#     'L' : -60,
+#     'Z' : 'HOLD'
+# }
+ic = 10e-6 #A - SNSPD critical current
 vpol = 10
 
 bias_resistor = 100e3 #Ohms
 
 #%% Initialize and turn on laser
-laser_wavelength = 1566.314  # nm
+
+wavelength = 1566.314  # nm
 ando.aq82011_std_init(laser_ch)
-ando.aq82011_set_lambda(laser_ch, laser_wavelength)
+ando.aq82011_set_lambda(laser_ch, wavelength)
 ando.aq82011_disable(laser_ch)
 
-ando.aq82012_set_lambda(mpm_ch, laser_wavelength)
+for att_ch in att_list:
+    ando.aq820133_enable(att_ch)
+for att_ch in att_list:
+    ando.aq820133_set_att(att_ch, 0)
+
+ando.aq82012_set_lambda(mpm_ch, wavelength)
+cpm.set_wavelength(wavelength)
 
 # Set power meter range and zero
 ando.aq82012_set_range(mpm_ch, rngval)
-ando.aq82012_zero(mpm_ch)
+# ando.aq82012_zero(mpm_ch)
 
 ando.aq82011_enable(laser_ch)
-#%% Alforithm S1.1 Missing Algorithm (optical switch calibration)
+
+#%% Algorithm S1.1 Missing Algorithm (optical switch calibration)
 # For this section, the "detector" fiber must be spliced to the calibrated polarization controller (cpm)
+
 def optical_switch_calibration():
     N = 100
+    rgnvals = ['A', 'G']
 
     data = []
 
     for _ in range(N):
-        ando.aq82014_set_route(sw_ch, monitor_port)
-        power_mpm = ando.aq82012_get_power(mpm_ch)
+        for rngval in rgnvals:
+            ando.aq82012_set_range(mpm_ch, rngval)
 
-        ando.aq82014_set_route(sw_ch, detector_port)
-        power_cpm = cpm.read_power()
+            ando.aq8201418_set_route(sw_ch, monitor_port)
+            time.sleep(0.1)
+            power_mpm = ando.aq82012_get_power(mpm_ch)
 
-        data.append((power_mpm, power_cpm))
+            ando.aq8201418_set_route(sw_ch, detector_port)
+            time.sleep(0.1)
+            power_cpm = cpm.read_power()
 
-    columns = ['power_mpm', 'power_cpm']
+            rngval_meas = ando.aq82012_get_range(mpm_ch)
+
+            data.append((power_mpm, power_cpm, rngval_meas))
+            print((power_mpm, power_cpm, rngval_meas))
+
+    columns = ['power_mpm', 'power_cpm', 'rngval']
     df = pd.DataFrame(data, columns=columns)
 
     # Save the DataFrame as a pickle file
@@ -73,10 +104,13 @@ def optical_switch_calibration():
     os.makedirs("data", exist_ok=True)
     pickle_filepath = os.path.join("data", pickle_file)
     df.to_pickle(pickle_filepath)
+optical_switch_calibration()
 # The "detector" fiber can now be cut and respliced to the SNSPD
+
 #%% Algorithm S1. Nonlinearity factor raw power meaurements
+
 def nonlinearity_factor_raw_power_meaurements():
-    ando.aq82014_set_route(sw_ch, monitor_port)
+    ando.aq8201418_set_route(sw_ch, monitor_port)
 
     N = 10
     xlist = [20, 15]
@@ -117,12 +151,13 @@ def nonlinearity_factor_raw_power_meaurements():
     os.makedirs("data", exist_ok=True)
     pickle_filepath = os.path.join("data", pickle_file)
     df.to_pickle(pickle_filepath)
-
+nonlinearity_factor_raw_power_meaurements()
 
 
 #%% Algorithm S2. Attenuator Calibration
+
 def attenuator_calibration():
-    ando.aq82014_set_route(sw_ch, monitor_port)
+    ando.aq8201418_set_route(sw_ch, monitor_port)
 
     # Parameters
     N = 5
@@ -197,11 +232,12 @@ def attenuator_calibration():
 
     with open(output_path, 'wb') as f:
         pickle.dump(powers_data, f)
-
+attenuator_calibration()
 
 #%% Algorithm S3. SDE Counts Measurement
 # At this point, the "detector" fiber MUST be spliced to the SNSPD
 # If you have not done that yet, do so now
+
 counting_time = 0.75
 
 def get_counts(Cur_Array):
@@ -277,13 +313,13 @@ def SDE_Counts_Measurement():
         ando.aq820133_set_att(att_ch, attval)
 
     # Dark counts measurement
-    ando.aq82014_set_route(sw_ch, monitor_port)
+    ando.aq8201418_set_route(sw_ch, monitor_port)
     for att_ch in att_list:
         ando.aq820133_disable(att_ch)
     Dark_Count_Array = get_counts(Cur_Array)
 
     # Max and min polarization measurements
-    ando.aq82014_set_route(sw_ch, detector_port)
+    ando.aq8201418_set_route(sw_ch, detector_port)
     for att_ch in att_list:
         ando.aq820133_enable(att_ch)
     
@@ -321,7 +357,8 @@ def SDE_Counts_Measurement():
         pickle.dump(data_dict, file)
 
     # Reset for further measurements
-    ando.aq82014_set_route(sw_ch, monitor_port)
+    ando.aq8201418_set_route(sw_ch, monitor_port)
+SDE_Counts_Measurement()
 
 # Call Algorithm S2
 attenuator_calibration()
