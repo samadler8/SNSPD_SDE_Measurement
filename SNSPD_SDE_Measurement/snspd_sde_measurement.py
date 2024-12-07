@@ -1,3 +1,4 @@
+#%% Imports and parameters
 import os
 import time
 import pickle
@@ -30,20 +31,19 @@ monitor_port = 1
 detector_port = 2
 
 attval = 10 #dBm - for each attenuator
-rngval = 'G' #Set the ranges. See below
-# rng_dict = {'A': 'AUTO',
-#     'C': +30,
-#     'D': +20,
-#     'E': +10,
-#     'F': 0,
-#     'G': -10,
-#     'H': -20,
-#     'I' : -30,
-#     'J' : -40,
-#     'K': -50,
-#     'L' : -60,
-#     'Z' : 'HOLD'
-# }
+rng_dict = {'A': 'AUTO',
+    'C': +30,
+    'D': +20,
+    'E': +10,
+    'F': 0,
+    'G': -10,
+    'H': -20,
+    'I' : -30,
+    'J' : -40,
+    'K': -50,
+    'L' : -60,
+    'Z' : 'HOLD'
+}
 ic = 10e-6 #A - SNSPD critical current
 vpol = 10
 
@@ -65,7 +65,7 @@ ando.aq82012_set_lambda(mpm_ch, wavelength)
 cpm.set_wavelength(wavelength)
 
 # Set power meter range and zero
-ando.aq82012_set_range(mpm_ch, rngval)
+ando.aq82012_set_range(mpm_ch, 'A')
 # ando.aq82012_zero(mpm_ch)
 
 ando.aq82011_enable(laser_ch)
@@ -75,12 +75,12 @@ ando.aq82011_enable(laser_ch)
 
 def optical_switch_calibration():
     N = 100
-    rgnvals = ['A', 'G']
+    rgnvals = ['A', 'F']
 
     data = []
 
-    for _ in range(N):
-        for rngval in rgnvals:
+    for i in range(N):
+        for j, rngval in enumerate(rgnvals):
             ando.aq82012_set_range(mpm_ch, rngval)
 
             ando.aq8201418_set_route(sw_ch, monitor_port)
@@ -92,9 +92,11 @@ def optical_switch_calibration():
             power_cpm = cpm.read_power()
 
             rngval_meas = ando.aq82012_get_range(mpm_ch)
-
-            data.append((power_mpm, power_cpm, rngval_meas))
-            print((power_mpm, power_cpm, rngval_meas))
+            
+            data_temp = (power_mpm, power_cpm, rngval_meas)
+            # print(data_temp)
+            data.append(data_temp)
+            print(f"{(i*j + j)/(N*len(rgnvals))}%")
 
     columns = ['power_mpm', 'power_cpm', 'rngval']
     df = pd.DataFrame(data, columns=columns)
@@ -104,7 +106,9 @@ def optical_switch_calibration():
     os.makedirs("data", exist_ok=True)
     pickle_filepath = os.path.join("data", pickle_file)
     df.to_pickle(pickle_filepath)
+print("STARTING: Algorithm S1.1 Missing Algorithm (optical switch calibration)")
 optical_switch_calibration()
+print("COMPLETED: Algorithm S1.1 Missing Algorithm (optical switch calibration)")
 # The "detector" fiber can now be cut and respliced to the SNSPD
 
 #%% Algorithm S1. Nonlinearity factor raw power meaurements
@@ -112,35 +116,34 @@ optical_switch_calibration()
 def nonlinearity_factor_raw_power_meaurements():
     ando.aq8201418_set_route(sw_ch, monitor_port)
 
-    N = 10
-    xlist = [20, 15]
-    xlist.extend(np.arange(10, 0.9, -0.5))  # Use extend to append elements from the array
-    xlist.extend(np.arange(0.95, 0.5, -0.05))  # Fix the step size to avoid empty arrays
-
-    xlist = np.array(xlist)  # Convert to a numpy array
-    base_array = np.round(10 - 10 * np.log10(xlist))  # Use np.round for rounding
-    base_array = base_array - np.min(base_array)
+    N = 100
+   
+    base_array = range(16)
     att_setting = {}
 
-    # rng is range setting
-    for rng in [-10, -20, -30, -40, -50, -60]:
-        att_setting[rng] = base_array - (rng+10) -3
+    rng_settings = [0, -10, -20, -30, -40, -50, -60]
 
+    # rng is range setting
+    for rng in rng_settings:
+        att_setting[rng] = [value for value in (val + rng - 3 for val in base_array) if value >= 0]
 
     data = []
 
     # Iterate through the ranges and settings
-    for rng in [-10, -20, -30, -40, -50, -60]:
+    for i, rng in enumerate(rng_settings):
         ando.aq82012_set_range(mpm_ch, rng)
         ando.aq82012_zero(mpm_ch)
-        for a in att_setting[rng]:
+        for j, a in enumerate(att_setting[rng]):
             ando.aq820133_set_att(att1_ch, a)
-            for att_step in [0, 3]:
+            for k, att_step in enumerate([0, 3]):
                 ando.aq820133_set_att(att2_ch, att_step)
-                for i in range(N):
+                for l in range(N):
                     power = ando.aq82012_get_power(mpm_ch)
                     # Append the data as a tuple
-                    data.append((rng, a, att_step, i, power))
+                    data_temp = (rng, a, att_step, l, power)
+                    data.append(data_temp)
+                    # print(f"data_temp: {data_temp}")
+    print(f"{(i)/(len(rng_settings))}%")
 
     # Convert the data to a pandas DataFrame
     columns = ['Range', 'Attenuation Setting', 'Attenuation Step', 'Iteration', 'Power']
@@ -151,8 +154,9 @@ def nonlinearity_factor_raw_power_meaurements():
     os.makedirs("data", exist_ok=True)
     pickle_filepath = os.path.join("data", pickle_file)
     df.to_pickle(pickle_filepath)
+print("STARTING: Algorithm S1. Nonlinearity factor raw power meaurements")
 nonlinearity_factor_raw_power_meaurements()
-
+print("COMPLETED: Algorithm S1. Nonlinearity factor raw power meaurements")
 
 #%% Algorithm S2. Attenuator Calibration
 
@@ -160,8 +164,9 @@ def attenuator_calibration():
     ando.aq8201418_set_route(sw_ch, monitor_port)
 
     # Parameters
-    N = 5
-    init_rng = -10
+    N = 50
+    init_rng = 'F'
+    att_rng = 'G'
     powers_data = []
 
     # Initialize all attenuators to 0 dB
@@ -169,7 +174,7 @@ def attenuator_calibration():
         ando.aq820133_set_att(att_ch, 0)
 
     # Calibrate each attenuator in att_list
-    for att_ch in att_list:
+    for i, att_ch in enumerate(att_list):
         # Step 1: Set initial range and disable all channels
         ando.aq82012_set_range(mpm_ch, init_rng)
         for att_ch_ in att_list:
@@ -189,16 +194,18 @@ def attenuator_calibration():
             initial_powers.append(power)
         
         # Store initial power data
-        powers_data.append({
+        data_temp = {
             'Attenuator': att_ch,
             'Attenuation (dB)': 0,
             'Range': init_rng,
             'Powers': initial_powers
-        })
+        }
+        # print(data_temp)
+        powers_data.append(data_temp)
 
         # Step 4: Apply attenuation and repeat measurements
         ando.aq820133_set_att(att_ch, attval)
-        ando.aq82012_set_range(mpm_ch, rngval)
+        ando.aq82012_set_range(mpm_ch, att_rng)
 
         # Disable and zero again
         for att_ch_ in att_list:
@@ -215,15 +222,19 @@ def attenuator_calibration():
             attenuated_powers.append(power)
         
         # Store attenuated power data
-        powers_data.append({
+        data_temp = {
             'Attenuator': att_ch,
             'Attenuation (dB)': attval,
-            'Range': rngval,
+            'Range': att_rng,
             'Powers': attenuated_powers
-        })
+        }
+        # print(data_temp)
+        powers_data.append(data_temp)
 
         # Reset the attenuator to 0 dB
         ando.aq820133_set_att(att_ch, 0)
+
+        print(f"{i/len(att_list)}%")
 
     # Save the calibration data to a file
     output_file = "attenuator_calibration_data.pkl"
@@ -232,7 +243,9 @@ def attenuator_calibration():
 
     with open(output_path, 'wb') as f:
         pickle.dump(powers_data, f)
+print("STARTING: Algorithm S2. Attenuator Calibration")
 attenuator_calibration()
+print("COMPLETED: Algorithm S2. Attenuator Calibration")
 
 #%% Algorithm S3. SDE Counts Measurement
 # At this point, the "detector" fiber MUST be spliced to the SNSPD
@@ -328,18 +341,22 @@ def SDE_Counts_Measurement():
     srs.set_volt(vpol)
     out_maxpol = {}
     maxpol_settings = maximize_counts(pc, counter, out_maxpol)
+    print("Max polarization settings found")
 
     # Minimize counts
     out_minpol = {}
     minpol_settings = minimize_counts(pc, counter, out_minpol)
+    print("Min polarization settings found")
 
     # Measure counts at max polarization
     pc.set(maxpol_settings)
     Maxpol_Count_Array = get_counts(Cur_Array)
+    print("Got counts for max polarization")
 
     # Measure counts at min polarization
     pc.set(minpol_settings)
     Minpol_Count_Array = get_counts(Cur_Array)
+    print("Got counts for min polarization")
 
     # Save data
     data_dict = {
@@ -358,7 +375,9 @@ def SDE_Counts_Measurement():
 
     # Reset for further measurements
     ando.aq8201418_set_route(sw_ch, monitor_port)
+print("STARTING: Algorithm S3. SDE Counts Measurement")
 SDE_Counts_Measurement()
+print("COMPLETED: Algorithm S3. SDE Counts Measurement")
 
 # Call Algorithm S2
 attenuator_calibration()
