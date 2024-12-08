@@ -106,6 +106,8 @@ def optical_switch_calibration():
     os.makedirs("data", exist_ok=True)
     pickle_filepath = os.path.join("data", pickle_file)
     df.to_pickle(pickle_filepath)
+    return
+
 print("STARTING: Algorithm S1.1 Missing Algorithm (optical switch calibration)")
 optical_switch_calibration()
 print("COMPLETED: Algorithm S1.1 Missing Algorithm (optical switch calibration)")
@@ -154,6 +156,8 @@ def nonlinearity_factor_raw_power_meaurements():
     os.makedirs("data", exist_ok=True)
     pickle_filepath = os.path.join("data", pickle_file)
     df.to_pickle(pickle_filepath)
+    return
+
 print("STARTING: Algorithm S1. Nonlinearity factor raw power meaurements")
 nonlinearity_factor_raw_power_meaurements()
 print("COMPLETED: Algorithm S1. Nonlinearity factor raw power meaurements")
@@ -240,16 +244,16 @@ def attenuator_calibration():
     output_file = "attenuator_calibration_data.pkl"
     os.makedirs("data", exist_ok=True)
     output_path = os.path.join("data", output_file)
-
     with open(output_path, 'wb') as f:
         pickle.dump(powers_data, f)
+    return
 print("STARTING: Algorithm S2. Attenuator Calibration")
 attenuator_calibration()
 print("COMPLETED: Algorithm S2. Attenuator Calibration")
 
-#%% Algorithm S3. SDE Counts Measurement
 # At this point, the "detector" fiber MUST be spliced to the SNSPD
 # If you have not done that yet, do so now
+#%% Algorithm S3.1. SDE Counts Measurement - Polarization Sweep
 
 counting_time = 0.75
 
@@ -263,7 +267,7 @@ def get_counts(Cur_Array):
     Count_Array = np.zeros(len(Cur_Array))
 
     for i in range(len(Cur_Array)):
-        this_volt = round(Cur_Array[i] * 1e-6 * bias_resistor, 3)
+        this_volt = round(Cur_Array[i] * bias_resistor, 3)
         srs.set_volt(this_volt)
         time.sleep(0.1)
         Count_Array[i] = counter.timed_count(counting_time=counting_time)
@@ -273,81 +277,79 @@ def get_counts(Cur_Array):
     srs.disable()
     return Count_Array
 
-def maximize_counts(pc, counter, maxpol_output):
+def sweep_polarizations(step=5.0):
+    """Sweep through all polarizations to find max and min counts.
+    Args:
+        detector (object): Detector object with a `get_counts()` method.
+        step (float): Step size in degrees for the sweep.
+    Returns:
+        dict: A dictionary with max and min polarization settings and counts.
     """
-    Adjusts polarization controller to maximize counts.
-    """
-    best_settings = None
-    max_counts = -np.inf
+    
+    srs.set_volt(0)
+    srs.enable()
+    this_volt = round(ic*0.97 * bias_resistor, 3)
+    srs.set_volt(this_volt)
 
-    # Iterate through polarization settings (example assumes 3D grid search)
-    for setting in pc.generate_settings():
-        pc.set(setting)
-        time.sleep(0.1)  # Allow time for the setting to stabilize
-        counts = counter.timed_count(counting_time=counting_time)
-        print(f"Testing setting: {setting}, Counts: {counts}")
+    N = 10
+    positions = np.arange(-99.0, 100.0, step)
+    pol_counts = []
+    for i, x in enumerate(positions):
+        for j, y in enumerate(positions):
+            for k, z in enumerate(positions):
+                pc.set_waveplate_position('X', x)
+                pc.set_waveplate_position('Y', y)
+                pc.set_waveplate_position('Z', z)
+                time.sleep(0.1)  # Wait for the motion to complete
+                temp_counts = np.empty(N, dtype=float)
+                for l in np.arange(temp_counts.size):
+                    temp_counts[l] = counter.timed_count(counting_time=counting_time)
+                counts = np.mean(temp_counts)
+                pol_counts.append(((x, y, z), counts))
+                print(f"{(i*j*k + j*k + k)/((len(positions))**3)}")
+    
+    pol_counts_filename = "pol_counts.pkl"
+    os.makedirs("data", exist_ok=True)
+    pol_counts_filepath = os.path.join("data", pol_counts_filename)
+    with open(pol_counts_filepath, "wb") as file:
+        pickle.dump(pol_counts, file)
+    return
 
-        if counts > max_counts:
-            max_counts = counts
-            best_settings = setting
+print("STARTING: Algorithm S3.2. SDE Counts Measurement")
+sweep_polarizations()
+print("COMPLETED: Algorithm S3.2. SDE Counts Measurement")
 
-    maxpol_output['counts'] = max_counts
-    return best_settings
-
-def minimize_counts(pc, counter, minpol_output):
-    """
-    Adjusts polarization controller to minimize counts.
-    """
-    best_settings = None
-    min_counts = np.inf
-
-    # Iterate through polarization settings (example assumes 3D grid search)
-    for setting in pc.generate_settings():
-        pc.set(setting)
-        time.sleep(0.1)  # Allow time for the setting to stabilize
-        counts = counter.timed_count(counting_time=counting_time)
-        print(f"Testing setting: {setting}, Counts: {counts}")
-
-        if counts < min_counts:
-            min_counts = counts
-            best_settings = setting
-
-    minpol_output['counts'] = min_counts
-    return best_settings
+#%% Algorithm S3.2. SDE Counts Measurement - True Counting
 
 def SDE_Counts_Measurement():
+    pol_counts_filename = "pol_counts.pkl"
+    pol_counts_filepath = os.path.join("data", pol_counts_filename)
+    with open(pol_counts_filepath, 'rb') as file:
+        pol_counts = pickle.load(file)
+
+    # Find the tuple with the highest count
+    maxpol_settings = max(pol_counts, key=lambda item: item[1])[0]
+    minpol_settings = min(pol_counts, key=lambda item: item[1])[0]
 
     # Perform measurements
     num_biases = 100
-    Cur_Array = np.round(np.linspace(0, ic * 1.1, num_biases), 8)
-
-    # Set all attenuators to `attval`
-    for att_ch in att_list:
-        ando.aq820133_set_att(att_ch, attval)
+    Cur_Array = np.linspace(ic * 0.2, ic * 1.1, num_biases)
 
     # Dark counts measurement
     ando.aq8201418_set_route(sw_ch, monitor_port)
+    ando.aq82011_disable(laser_ch)
     for att_ch in att_list:
         ando.aq820133_disable(att_ch)
     Dark_Count_Array = get_counts(Cur_Array)
+    print("Got dark counts")
 
     # Max and min polarization measurements
     ando.aq8201418_set_route(sw_ch, detector_port)
+    ando.aq82011_enable(laser_ch)
     for att_ch in att_list:
         ando.aq820133_enable(att_ch)
+        ando.aq820133_set_att(att_ch, attval)
     
-
-    # Maximize counts
-    srs.set_volt(vpol)
-    out_maxpol = {}
-    maxpol_settings = maximize_counts(pc, counter, out_maxpol)
-    print("Max polarization settings found")
-
-    # Minimize counts
-    out_minpol = {}
-    minpol_settings = minimize_counts(pc, counter, out_minpol)
-    print("Min polarization settings found")
-
     # Measure counts at max polarization
     pc.set(maxpol_settings)
     Maxpol_Count_Array = get_counts(Cur_Array)
@@ -372,12 +374,11 @@ def SDE_Counts_Measurement():
     data_filepath = os.path.join("data", data_filename)
     with open(data_filepath, "wb") as file:
         pickle.dump(data_dict, file)
+    return
 
-    # Reset for further measurements
-    ando.aq8201418_set_route(sw_ch, monitor_port)
-print("STARTING: Algorithm S3. SDE Counts Measurement")
+print("STARTING: Algorithm S3.2. SDE Counts Measurement")
 SDE_Counts_Measurement()
-print("COMPLETED: Algorithm S3. SDE Counts Measurement")
+print("COMPLETED: Algorithm S3.2. SDE Counts Measurement")
 
 # Call Algorithm S2
 attenuator_calibration()
