@@ -1,12 +1,40 @@
+#%% imports
 import os
 
 import pickle
+import time
 
 import numpy as np
+import pandas as pd
 import matplotlib as plt
 import plotly.graph_objects as go
 
+#%% IV Curve
+time_str = time.strftime("%Y%m%d-%H%M%S")
+pickle_filepath = os.path.join("data", "IV_curve_data.pkl")
+df = pd.read_pickle(pickle_filepath)
+
+# Plot the IV curve
+figname = f'SNSPD_IV_Curve_{time_str}'
+os.makedirs('figs', exist_ok=True)
+figpath = os.path.join("figs", figname)
+plt.figure(figsize=(8, 6))
+plt.plot(df['Current'], df['Voltage'], label="IV Curve", color="blue", linewidth=2)
+
+# Add labels and title
+plt.xlabel("Current (A)", fontsize=14)
+plt.ylabel("Voltage (V)", fontsize=14)
+plt.title("SNSPD IV Curve", fontsize=16)
+plt.grid(True, linestyle='--', alpha=0.7)
+plt.legend(fontsize=12)
+
+# Show the plot
+plt.tight_layout()
+plt.savefig(f'{figpath}.png')
+
+
 #%% Polarization Sweeps
+time_str = time.strftime("%Y%m%d-%H%M%S")
 pol_counts_filename = "pol_counts.pkl"
 pol_counts_filepath = os.path.join("data", pol_counts_filename)
 with open(pol_counts_filepath, 'rb') as file:
@@ -39,12 +67,13 @@ fig.update_layout(
 
 # Save the plot as an image
 os.makedirs('figs', exist_ok=True)
-output_filepath = os.path.join("figs", "polarization_sweep.png")
+output_filepath = os.path.join("figs", f"polarization_sweep_{time_str}.png")
 fig.write_image(output_filepath)
 print(f"Figure saved to {output_filepath}")
 
 
 #%% Counts vs Current
+time_str = time.strftime("%Y%m%d-%H%M%S")
 data_filename = "data_dict.pkl"
 data_filepath = os.path.join("data", data_filename)
 with open(data_filepath, 'rb') as file:
@@ -72,8 +101,8 @@ plt.xlabel('Bias current [uA]')
 plt.ylabel('Counts [per sec]')
 plt.legend(loc='upper left', bbox_to_anchor=(1.04, 1), fontsize=10)
 plt.tight_layout()
-plt.savefig(f'{figpath}.png')
-plt.savefig(f'{figpath}.pdf')
+plt.savefig(f'{figpath}_{time_str}.png')
+plt.savefig(f'{figpath}_{time_str}.pdf')
 
 filename = 'final_counts_vs_current'
 figpath = os.path.join('figs', filename)
@@ -85,5 +114,5 @@ plt.xlabel('Bias current [uA]')
 plt.ylabel('Counts [per sec]')
 plt.legend(loc='upper left', bbox_to_anchor=(1.04, 1), fontsize=10)
 plt.tight_layout()
-plt.savefig(f'{figpath}.png')
-plt.savefig(f'{figpath}.pdf')
+plt.savefig(f'{figpath}_{time_str}.png')
+plt.savefig(f'{figpath}_{time_str}.pdf')
