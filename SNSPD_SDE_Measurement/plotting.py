@@ -6,13 +6,23 @@ import time
 
 import numpy as np
 import pandas as pd
-import matplotlib as plt
+import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 
 #%% IV Curve
 time_str = time.strftime("%Y%m%d-%H%M%S")
-pickle_filepath = os.path.join("data", "IV_curve_data.pkl")
+pickle_filepath = os.path.join("data", "SK3_IV_curve_data_20241209-191713.pkl")
 df = pd.read_pickle(pickle_filepath)
+
+threshold = 1e-5
+filtered_df = df[df['Voltage'] > threshold]  # Filter rows where Voltage > threshold
+
+if not filtered_df.empty:
+    ic = filtered_df['Current'].iloc[0]  # Get the first current value
+    print(f"Got Critical current: {ic}")
+else:
+    print("No voltage exceeded the threshold of 1e-5.")
+    ic = None
 
 # Plot the IV curve
 figname = f'SNSPD_IV_Curve_{time_str}'
@@ -24,7 +34,7 @@ plt.plot(df['Current'], df['Voltage'], label="IV Curve", color="blue", linewidth
 # Add labels and title
 plt.xlabel("Current (A)", fontsize=14)
 plt.ylabel("Voltage (V)", fontsize=14)
-plt.title("SNSPD IV Curve", fontsize=16)
+plt.title(f"SNSPD IV Curve - Critical Current = {round(ic*10**6, 3)} \u03bcA", fontsize=16)
 plt.grid(True, linestyle='--', alpha=0.7)
 plt.legend(fontsize=12)
 
@@ -35,7 +45,7 @@ plt.savefig(f'{figpath}.png')
 
 #%% Polarization Sweeps
 time_str = time.strftime("%Y%m%d-%H%M%S")
-pol_counts_filename = "pol_counts.pkl"
+pol_counts_filename = "SK3_pol_counts_20241209-192806.pkl"
 pol_counts_filepath = os.path.join("data", pol_counts_filename)
 with open(pol_counts_filepath, 'rb') as file:
     pol_counts = pickle.load(file)
@@ -67,29 +77,29 @@ fig.update_layout(
 
 # Save the plot as an image
 os.makedirs('figs', exist_ok=True)
-output_filepath = os.path.join("figs", f"polarization_sweep_{time_str}.png")
-fig.write_image(output_filepath)
-print(f"Figure saved to {output_filepath}")
+figpath = os.path.join("figs", f"polarization_sweep_{time_str}.png")
+fig.write_image(figpath)
+print(f"Figure saved to {figpath}")
 
 
 #%% Counts vs Current
 time_str = time.strftime("%Y%m%d-%H%M%S")
-data_filename = "data_dict.pkl"
+data_filename = "SK3_data_dict_20241209-193932.pkl"
 data_filepath = os.path.join("data", data_filename)
 with open(data_filepath, 'rb') as file:
     data_dict = pickle.load(file)
 
-Cur_Array = data_dict['Cur_Array']
-Dark_Count_Array = data_dict['Dark_Count_Array']
-Maxpol_Count_Array = data_dict['Maxpol_Count_Array']
-Minpol_Count_Array = data_dict['Minpol_Count_Array']
+Cur_Array = np.array(data_dict['Cur_Array'])
+Dark_Count_Array = np.array(data_dict['Dark_Count_Array'])
+Maxpol_Count_Array = np.array(data_dict['Maxpol_Count_Array'])
+Minpol_Count_Array = np.array(data_dict['Minpol_Count_Array'])
 Maxpol_Settings = data_dict['Maxpol_Settings']
 Minpol_Settings = data_dict['Minpol_Settings']
 
 
 os.makedirs('figs', exist_ok=True)
 
-filename = 'counts_vs_current_curves'
+filename = f'counts_vs_current_curves_{time_str}'
 figpath = os.path.join('figs', filename)
 plt.close('all')
 plt.figure(figsize = [20,10])
@@ -101,10 +111,10 @@ plt.xlabel('Bias current [uA]')
 plt.ylabel('Counts [per sec]')
 plt.legend(loc='upper left', bbox_to_anchor=(1.04, 1), fontsize=10)
 plt.tight_layout()
-plt.savefig(f'{figpath}_{time_str}.png')
-plt.savefig(f'{figpath}_{time_str}.pdf')
+plt.savefig(f'{figpath}.png')
+# plt.savefig(f'{figpath}.pdf')
 
-filename = 'final_counts_vs_current'
+filename = f'final_counts_vs_current_{time_str}'
 figpath = os.path.join('figs', filename)
 plt.close('all')
 plt.figure(figsize = [20,10])
@@ -114,5 +124,7 @@ plt.xlabel('Bias current [uA]')
 plt.ylabel('Counts [per sec]')
 plt.legend(loc='upper left', bbox_to_anchor=(1.04, 1), fontsize=10)
 plt.tight_layout()
-plt.savefig(f'{figpath}_{time_str}.png')
-plt.savefig(f'{figpath}_{time_str}.pdf')
+plt.savefig(f'{figpath}.png')
+# plt.savefig(f'{figpath}.pdf')
+
+# %%

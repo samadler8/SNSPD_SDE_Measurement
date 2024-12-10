@@ -48,6 +48,10 @@ rng_dict = {'A': 'AUTO',
 
 attval = 10 #dBm - for each attenuator
 bias_resistor = 100e3 #Ohms
+trigger_voltage = 0.02 #V
+counting_time = 0.75 #s
+pol_step = 5
+
 
 #%% Initialize and turn on laser
 
@@ -98,7 +102,7 @@ def optical_switch_calibration():
         data_temp = (power_mpm_dict, power_cpm)
         print(data_temp)
         data.append(data_temp)
-        print(f"{100*i/N}%")
+        print(f"{round(100*i/N, 2)}%")
 
     columns = ['power_mpm_dict', 'power_cpm']
     df = pd.DataFrame(data, columns=columns)
@@ -113,7 +117,10 @@ def optical_switch_calibration():
 print("STARTING: Algorithm S1.1 Missing Algorithm (optical switch calibration)")
 optical_switch_calibration()
 print("COMPLETED: Algorithm S1.1 Missing Algorithm (optical switch calibration)")
+
+#
 # The "detector" fiber can now be cut and respliced to the SNSPD
+#
 
 #%% Algorithm S1. Nonlinearity factor raw power meaurements
 
@@ -121,7 +128,7 @@ def nonlinearity_factor_raw_power_meaurements():
     time_str = time.strftime("%Y%m%d-%H%M%S")
     ando.aq8201418_set_route(sw_ch, monitor_port)
 
-    N = 50
+    N = 10
    
     base_array = range(-7, 7)
     att_setting = {}
@@ -142,13 +149,14 @@ def nonlinearity_factor_raw_power_meaurements():
             ando.aq820133_set_att(att1_ch, a)
             for k, att_step in enumerate([0, 3]):
                 ando.aq820133_set_att(att2_ch, att_step)
+                time.sleep(0.1)
                 for l in range(N):
                     power = ando.aq82012_get_power(mpm_ch)
                     # Append the data as a tuple
                     data_temp = (rng, a, att_step, l, power)
                     data.append(data_temp)
                     print(f"data_temp: {data_temp}")
-        print(f"{100*(i)/(len(rng_settings))}%")
+        print(f"{round(100*(i)/(len(rng_settings)), 2)}%")
 
     # Convert the data to a pandas DataFrame
     columns = ['Range', 'Attenuation Setting', 'Attenuation Step', 'Iteration', 'Power']
@@ -172,35 +180,35 @@ def attenuator_calibration():
     ando.aq8201418_set_route(sw_ch, monitor_port)
 
     # Parameters
-    N = 100
+    N = 10
     init_rng = -10
     att_rng = -20
     powers_data = []
 
     # Step 1: Set initial range and disable all channels
     ando.aq82012_set_range(mpm_ch, init_rng)
-    for att_ch_ in att_list:
-        ando.aq820133_set_att(att_ch, 0)
-        ando.aq820133_disable(att_ch_)
+    for att_chi in att_list:
+        ando.aq820133_set_att(att_chi, 0)
+        ando.aq820133_disable(att_chi)
     
     # Step 2: Zero the power meter
     # ando.aq82012_zero(mpm_ch)
 
     # Step 3: Enable all channels and measure initial power
-    for att_ch in att_list:
-        ando.aq820133_enable(att_ch)
-        ando.aq820133_set_att(att_ch, 0)
+    for att_chi in att_list:
+        ando.aq820133_enable(att_chi)
+        ando.aq820133_set_att(att_chi, 0)
+    time.sleep(0.1)
     
     # Measure power N times
     initial_powers = []
     for _ in range(N):
-        time.sleep(0.1)
         power = ando.aq82012_get_power(mpm_ch)
         initial_powers.append(power)
     
     # Store initial power data
     data_temp = {
-        'Attenuator': att_ch,
+        'Attenuator': None,
         'Attenuation (dB)': 0,
         'Range': init_rng,
         'Powers': initial_powers
@@ -209,29 +217,29 @@ def attenuator_calibration():
     powers_data.append(data_temp)
 
     # Calibrate each attenuator in att_list
-    for i, att_ch in enumerate(att_list):
+    for i, att_chi in enumerate(att_list):
         # # Disable and zero again
         # for att_ch_ in att_list:
         #     ando.aq820133_disable(att_ch_)
         # ando.aq82012_zero(mpm_ch)
 
-        for att_ch_ in att_list:
-            ando.aq820133_enable(att_ch_)
-            ando.aq820133_set_att(att_ch_, 0)
+        for att_chj in att_list:
+            ando.aq820133_enable(att_chj)
+            ando.aq820133_set_att(att_chj, 0)
         
         # Step 4: Apply attenuation and repeat measurements
-        ando.aq820133_set_att(att_ch, attval)
+        ando.aq820133_set_att(att_chi, attval)
         ando.aq82012_set_range(mpm_ch, att_rng)
+        time.sleep(0.1)
 
         attenuated_powers = []
         for _ in range(N):
-            time.sleep(0.1)
             power = ando.aq82012_get_power(mpm_ch)
             attenuated_powers.append(power)
         
         # Store attenuated power data
         data_temp = {
-            'Attenuator': att_ch,
+            'Attenuator': att_chi,
             'Attenuation (dB)': attval,
             'Range': att_rng,
             'Powers': attenuated_powers
@@ -242,7 +250,7 @@ def attenuator_calibration():
         # Reset the attenuator to 0 dB
         ando.aq820133_set_att(att_ch, 0)
 
-        print(f"{i/len(att_list)}%")
+        print(f"{round(100*i/len(att_list), 2)}%")
 
     # Save the calibration data to a file
     output_file = f"attenuator_calibration_data_{time_str}.pkl"
@@ -254,6 +262,10 @@ def attenuator_calibration():
 print("STARTING: Algorithm S2. Attenuator Calibration")
 attenuator_calibration()
 print("COMPLETED: Algorithm S2. Attenuator Calibration")
+
+#%% Name the SNSPD
+
+name = 'SK3'
 
 #%% Algorithm S3.0.1. SNSPD IV Curve
 def SNSPD_IV_Curve(max_cur):
@@ -276,6 +288,8 @@ def SNSPD_IV_Curve(max_cur):
         srs.set_voltage(volt)
         time.sleep(0.1)  # Wait for stabilization
         Volt_Meas[i] = multi.read_voltage()
+        print(f"Applied Voltage: {volt}, Measured Voltage: {Volt_Meas[i]}")
+        print(f"{round(100*i/Volt_Meas.size, 2)}%")
     srs.set_voltage(0)
     srs.set_output(output=False)
 
@@ -287,7 +301,7 @@ def SNSPD_IV_Curve(max_cur):
     df = pd.DataFrame(IV_curve_data)
 
     # Save the DataFrame as a pickle file
-    pickle_file = f"IV_curve_data_{time_str}.pkl"
+    pickle_file = f"{name}_IV_curve_data_{time_str}.pkl"
     os.makedirs("data", exist_ok=True)  # Ensure the "data" directory exists
     pickle_filepath = os.path.join("data", pickle_file)
     df.to_pickle(pickle_filepath)
@@ -314,31 +328,13 @@ def SNSPD_IV_Curve(max_cur):
 print("STARTING: Algorithm S3.0.1. SNSPD IV Curve")
 ic = SNSPD_IV_Curve(15e-6)
 print("COMPLETED: Algorithm S3.0.1. SNSPD IV Curve")
+
+#
 # At this point, the "detector" fiber MUST be spliced to the SNSPD
 # If you have not done that yet, do so now
+#
+
 #%% Algorithm S3.1. SDE Counts Measurement - Polarization Sweep
-
-counting_time = 0.75
-
-def get_counts(Cur_Array):
-    """
-    Measures counts for a given array of currents.
-    """
-    srs.set_voltage(0)
-    srs.set_output(output=True)
-
-    Count_Array = np.zeros(len(Cur_Array))
-
-    for i in range(len(Cur_Array)):
-        this_volt = round(Cur_Array[i] * bias_resistor, 3)
-        srs.set_voltage(this_volt)
-        time.sleep(0.1)
-        Count_Array[i] = counter.timed_count(counting_time=counting_time)
-        print(f"Voltage: {this_volt} V, Counts: {Count_Array[i]}")
-    
-    srs.set_voltage(0)
-    srs.set_output(output=False)
-    return Count_Array
 
 def sweep_polarizations(step=5.0):
     """Sweep through all polarizations to find max and min counts.
@@ -355,26 +351,29 @@ def sweep_polarizations(step=5.0):
     this_volt = round(ic*0.97 * bias_resistor, 3)
     srs.set_voltage(this_volt)
 
+    counter.set_trigger(trigger_voltage=trigger_voltage)
+
     N = 10
     positions = np.arange(-99.0, 100.0, step)
     pol_counts = []
     for i, x in enumerate(positions):
         for j, y in enumerate(positions):
             for k, z in enumerate(positions):
-                pc.set_waveplate_position('X', x)
-                pc.set_waveplate_position('Y', y)
-                pc.set_waveplate_position('Z', z)
+                position = (x, y, z)
+                pc.set_waveplate_positions(position)
                 time.sleep(0.1)  # Wait for the motion to complete
                 temp_counts = np.empty(N, dtype=float)
                 for l in np.arange(temp_counts.size):
                     temp_counts[l] = counter.timed_count(counting_time=counting_time*2)
                 counts = np.mean(temp_counts)
-                pol_counts.append(((x, y, z), counts))
-                print(f"{(i*j*k + j*k + k)/((len(positions))**3)}")
+                temp_data = (position, counts)
+                print(temp_data)
+                pol_counts.append(temp_data)
+                print(f"{round(100*(i*positions.size*positions.size + j*positions.size + k)/((positions.size)**3), 2)}%")
     srs.set_voltage(0)
     srs.set_output(output=False)
 
-    pol_counts_filename = f"pol_counts_{time_str}.pkl"
+    pol_counts_filename = f"{name}_pol_counts_{time_str}.pkl"
     os.makedirs("data", exist_ok=True)
     pol_counts_filepath = os.path.join("data", pol_counts_filename)
     with open(pol_counts_filepath, "wb") as file:
@@ -382,14 +381,35 @@ def sweep_polarizations(step=5.0):
     return
 
 print("STARTING: Algorithm S3.2. SDE Counts Measurement")
-sweep_polarizations()
+sweep_polarizations(step=pol_step)
 print("COMPLETED: Algorithm S3.2. SDE Counts Measurement")
 
 #%% Algorithm S3.2. SDE Counts Measurement - True Counting
+def get_counts(Cur_Array):
+    """
+    Measures counts for a given array of currents.
+    """
+    srs.set_voltage(0)
+    srs.set_output(output=True)
+
+    counter.set_trigger(trigger_voltage=trigger_voltage)
+
+    Count_Array = np.zeros(len(Cur_Array))
+
+    for i in range(len(Cur_Array)):
+        this_volt = round(Cur_Array[i] * bias_resistor, 3)
+        srs.set_voltage(this_volt)
+        time.sleep(0.1)
+        Count_Array[i] = counter.timed_count(counting_time=counting_time)
+        print(f"Voltage: {this_volt} V, Counts: {Count_Array[i]}")
+    
+    srs.set_voltage(0)
+    srs.set_output(output=False)
+    return Count_Array
 
 def SDE_Counts_Measurement():
     time_str = time.strftime("%Y%m%d-%H%M%S")
-    pol_counts_filename = "pol_counts.pkl"
+    pol_counts_filename = "SK3_pol_counts_20241209-192806.pkl"
     pol_counts_filepath = os.path.join("data", pol_counts_filename)
     with open(pol_counts_filepath, 'rb') as file:
         pol_counts = pickle.load(file)
@@ -399,7 +419,7 @@ def SDE_Counts_Measurement():
     minpol_settings = min(pol_counts, key=lambda item: item[1])[0]
 
     # Perform measurements
-    num_biases = 100
+    num_biases = 10
     Cur_Array = np.linspace(ic * 0.2, ic * 1.1, num_biases)
 
     # Dark counts measurement
@@ -418,12 +438,12 @@ def SDE_Counts_Measurement():
         ando.aq820133_set_att(att_ch, attval)
     
     # Measure counts at max polarization
-    pc.set(maxpol_settings)
+    pc.set_waveplate_positions(maxpol_settings)
     Maxpol_Count_Array = get_counts(Cur_Array)
     print("Got counts for max polarization")
 
     # Measure counts at min polarization
-    pc.set(minpol_settings)
+    pc.set_waveplate_positions(minpol_settings)
     Minpol_Count_Array = get_counts(Cur_Array)
     print("Got counts for min polarization")
 
@@ -436,7 +456,7 @@ def SDE_Counts_Measurement():
         'Maxpol_Settings': maxpol_settings,
         'Minpol_Settings': minpol_settings,
     }
-    data_filename = f"data_dict_{time_str}.pkl"
+    data_filename = f"{name}_data_dict_{time_str}.pkl"
     os.makedirs("data", exist_ok=True)
     data_filepath = os.path.join("data", data_filename)
     with open(data_filepath, "wb") as file:
@@ -447,5 +467,7 @@ print("STARTING: Algorithm S3.2. SDE Counts Measurement")
 SDE_Counts_Measurement()
 print("COMPLETED: Algorithm S3.2. SDE Counts Measurement")
 
-# Call Algorithm S2
-attenuator_calibration()
+# # Call Algorithm S2
+# attenuator_calibration()
+
+# %%

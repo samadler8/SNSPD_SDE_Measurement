@@ -2,3 +2,6 @@ numpy
 PySerial
 PyVisa
 pandas
+plotly
+kaleido
+pickle
