@@ -1,4 +1,4 @@
-#%% imports
+# %% imports
 import os
 
 import pickle
@@ -9,20 +9,14 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 
-#%% IV Curve
+from helper_functions import get_ic
+
+# %% IV Curve
 time_str = time.strftime("%Y%m%d-%H%M%S")
-pickle_filepath = os.path.join("data", "SK3_IV_curve_data_20241209-191713.pkl")
-df = pd.read_pickle(pickle_filepath)
+# IV_pickle_filepath = os.path.join("data", "SK3_IV_curve_data_20241209-191713.pkl")
+df = pd.read_pickle(IV_pickle_filepath)
 
-threshold = 1e-5
-filtered_df = df[df['Voltage'] > threshold]  # Filter rows where Voltage > threshold
-
-if not filtered_df.empty:
-    ic = filtered_df['Current'].iloc[0]  # Get the first current value
-    print(f"Got Critical current: {ic}")
-else:
-    print("No voltage exceeded the threshold of 1e-5.")
-    ic = None
+ic = get_ic(IV_pickle_filepath)
 
 # Plot the IV curve
 figname = f'SNSPD_IV_Curve_{time_str}'
@@ -43,10 +37,9 @@ plt.tight_layout()
 plt.savefig(f'{figpath}.png')
 
 
-#%% Polarization Sweeps
+# %% Polarization Sweeps
 time_str = time.strftime("%Y%m%d-%H%M%S")
-pol_counts_filename = "SK3_pol_counts_20241209-192806.pkl"
-pol_counts_filepath = os.path.join("data", pol_counts_filename)
+# pol_counts_filepath = os.path.join("data", "SK3_pol_counts_20241209-192806.pkl")
 with open(pol_counts_filepath, 'rb') as file:
     pol_counts = pickle.load(file)
 coords = np.array([item[0] for item in pol_counts])  # Array of (x, y, z)
@@ -82,10 +75,9 @@ fig.write_image(figpath)
 print(f"Figure saved to {figpath}")
 
 
-#%% Counts vs Current
+# %% Counts vs Current
 time_str = time.strftime("%Y%m%d-%H%M%S")
-data_filename = "SK3_data_dict_20241209-193932.pkl"
-data_filepath = os.path.join("data", data_filename)
+# data_filepath = os.path.join("data", "SK3_data_dict_20241210-161039.pkl")
 with open(data_filepath, 'rb') as file:
     data_dict = pickle.load(file)
 
@@ -126,5 +118,3 @@ plt.legend(loc='upper left', bbox_to_anchor=(1.04, 1), fontsize=10)
 plt.tight_layout()
 plt.savefig(f'{figpath}.png')
 # plt.savefig(f'{figpath}.pdf')
-
-# %%
