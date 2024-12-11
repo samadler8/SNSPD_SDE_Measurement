@@ -49,7 +49,7 @@ rng_dict = {'A': 'AUTO',
 }
 
 wavelength = 1566.314  # nm
-attval = 31 #dBm - for each attenuator
+attval = 34 #dBm - for each attenuator
 bias_resistor = 97e3 #Ohms
 trigger_voltage = 0.125 #V - No clue why it's so high
 counting_time = 0.75 #s
@@ -409,7 +409,17 @@ def sweep_polarizations(num_pols=13, IV_pickle_filepath=''):
                 time.sleep(0.1)  # Wait for the motion to complete
                 temp_counts = np.empty(N, dtype=float)
                 for l in np.arange(temp_counts.size):
-                    temp_counts[l] = counter.timed_count(counting_time=counting_time)
+                    counts = counter.timed_count(counting_time=counting_time)
+                    crap = 0
+                    while counts == 0:
+                        crap += 1
+                        if crap == 5:
+                            pol_counts_filepath = None
+                            return pol_counts_filepath
+                        srs.set_voltage(0)
+                        srs.set_voltage(this_volt)
+                        counts = counter.timed_count(counting_time=counting_time)
+                    temp_counts[l] = counts
                 counts = np.mean(temp_counts)
                 temp_data = (position, counts)
                 print(temp_data)
