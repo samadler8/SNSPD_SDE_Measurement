@@ -157,27 +157,35 @@ def nonlinearity_factor_raw_power_meaurements():
     rng_settings = [0, -10, -20, -30, -40, -50, -60]
 
     # rng is range setting
+    total_data = 0
     for rng in rng_settings:
         att_setting[rng] = [value for value in (val - rng - 10 for val in base_array) if value >= 0]
+        total_data += len(att_setting[rng])
+
+    total_data *= 2*N
+
+
+    
 
     data = []
 
     # Iterate through the ranges and settings
-    for i, rng in enumerate(rng_settings):
+    i = 0
+    for rng in rng_settings:
         ando.aq82012_set_range(mpm_ch, rng)
         # ando.aq82012_zero(mpm_ch)
-        for j, a in enumerate(att_setting[rng]):
+        for a in att_setting[rng]:
             ando.aq820133_set_att(att1_ch, a)
-            for k, att_step in enumerate([0, 3]):
+            for att_step in [0, 3]:
                 ando.aq820133_set_att(att2_ch, att_step)
                 time.sleep(0.1)
-                for l in range(N):
+                for j in range(N):
                     power = ando.aq82012_get_power(mpm_ch)
                     # Append the data as a tuple
-                    data_temp = (rng, a, att_step, l, power)
+                    data_temp = (rng, a, att_step, j, power)
                     data.append(data_temp)
                     print(f"data_temp: {data_temp}")
-        print(f"{round(100*(i)/(len(rng_settings)), 2)}%")
+                    print(f"{100*i/total_data}%")
 
     ando.aq82011_disable(laser_ch)
     ando.aq8201418_set_route(sw_ch, monitor_port)
@@ -376,7 +384,7 @@ def sweep_polarizations(num_pols=13, IV_pickle_filepath=''):
 
     srs.set_voltage(0)
     srs.set_output(output=True)
-    this_volt = round(ic*0.95 * bias_resistor, 3)
+    this_volt = round(ic*0.92 * bias_resistor, 3)
     srs.set_voltage(this_volt)
 
     ando.aq82011_enable(laser_ch)
@@ -529,3 +537,4 @@ print("COMPLETED: Algorithm S3.2. SDE Counts Measurement")
 
 # # Call Algorithm S2
 # attenuator_calibration()
+# %%
