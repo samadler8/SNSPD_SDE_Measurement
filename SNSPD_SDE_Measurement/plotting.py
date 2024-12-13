@@ -13,7 +13,7 @@ from datetime import datetime
 
 from helper_functions import *
 
-# %% Plotting Functions
+## Plotting Functions
 # IV Curve
 def plot_IV_curve(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.now()), IV_pickle_filepath='', save_pdf=False):
     df = pd.read_pickle(IV_pickle_filepath)
@@ -132,6 +132,6 @@ if __name__ == '__main__':
 
     now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
     print("STARTING: plot_min_max_avg_counts_vs_current")
-    plot_min_max_avg_counts_vs_current(now_str=now_str, data_filepath='data/data_dict_20241211-191909.pkl', save_pdf=False)
+    plot_min_max_avg_counts_vs_current(now_str=now_str, data_filepath='data/SK3_data_dict__20241212-155949.pkl', save_pdf=False)
     print("COMPLETED: plot_min_max_avg_counts_vs_current")
 # %%

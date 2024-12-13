@@ -67,18 +67,18 @@ rng_dict = {'A': 'AUTO',
 }
 
 wavelength = 1566.314  # nm
-attval = 34 #dBm - for each attenuator
+attval = 31 #dBm - for each attenuator
 max_cur = 15e-6 # A
 bias_resistor = 97e3 #Ohms
-trigger_voltage = 0.125 #V - No clue why it's so high
-counting_time = 0.75 #s
+counting_time = 0.5 #s
 num_pols = 13
+name = 'SK3'
 
 
 # Initialize and turn off everything
 ando.aq82011_std_init(laser_ch)
 ando.aq82011_set_lambda(laser_ch, wavelength)
-ando.aq82011_disable(laser_ch)
+ando.aq82011_enable(laser_ch)
 
 for att_ch in att_list:
     ando.aq820133_set_att(att_ch, 0)
@@ -93,7 +93,6 @@ cpm.set_wavelength(wavelength)
 counter.basic_setup()
 counter.set_impedance(ohms=50, channel=1)
 counter.setup_timed_count(channel=1)
-counter.set_trigger(trigger_voltage=trigger_voltage, slope_positive=True, channel=1)
 
 srs.set_voltage(0)
 srs.set_output(output=False)
@@ -102,7 +101,6 @@ srs.set_output(output=False)
 # # For this section, the "detector" fiber must be spliced to the calibrated polarization controller (cpm)
 
 # def optical_switch_calibration(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
-#     ando.aq82011_enable(laser_ch)
 #     ando.aq8201418_set_route(sw_ch, monitor_port)
 #     for att_ch in att_list:
 #         ando.aq820133_set_att(att_ch, 0)
@@ -132,7 +130,6 @@ srs.set_output(output=False)
 #         data.append(data_temp)
 #         print(f"{round(100*i/N, 2)}%")
 
-#     ando.aq82011_disable(laser_ch)
 #     ando.aq8201418_set_route(sw_ch, monitor_port)
 #     for att_ch in att_list:
 #         ando.aq820133_set_att(att_ch, 0)
@@ -152,7 +149,6 @@ srs.set_output(output=False)
 def nonlinearity_factor_raw_power_meaurements(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
     
     ando.aq8201418_set_route(sw_ch, monitor_port)
-    ando.aq82011_enable(laser_ch)
     for att_ch in att_list:
         ando.aq820133_set_att(att_ch, 0)
         ando.aq820133_enable(att_ch)
@@ -195,7 +191,6 @@ def nonlinearity_factor_raw_power_meaurements(now_str="{:%Y%m%d-%H%M%S}".format(
                     print(f"data_temp: {data_temp}")
                     print(f"{100*i/total_data}%")
 
-    ando.aq82011_disable(laser_ch)
     ando.aq8201418_set_route(sw_ch, monitor_port)
     for att_ch in att_list:
         ando.aq820133_set_att(att_ch, 0)
@@ -290,7 +285,6 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
 
         print(f"{round(100*i/len(att_list), 2)}%")
 
-    ando.aq82011_disable(laser_ch)
     ando.aq8201418_set_route(sw_ch, monitor_port)
     for att_ch in att_list:
         ando.aq820133_set_att(att_ch, 0)
@@ -310,7 +304,7 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
 #
 
 # Algorithm S3.1. SDE Counts Measurement - Polarization Sweep
-def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), num_pols=13, IV_pickle_filepath='', name=''):
+def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pickle_filepath='', name='', trigger_voltage=0.01, num_pols=13, counting_time=0.5, N=1):
     """Sweep through all polarizations to find max and min counts.
     Args:
         detector (object): Detector object with a `get_counts()` method.
@@ -320,12 +314,6 @@ def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), num_p
     """
     ic = get_ic(IV_pickle_filepath)
 
-    srs.set_voltage(0)
-    srs.set_output(output=True)
-    this_volt = round(ic*0.92 * bias_resistor, 3)
-    srs.set_voltage(this_volt)
-
-    ando.aq82011_enable(laser_ch)
     ando.aq8201418_set_route(sw_ch, detector_port)
     for att_ch in att_list:
         ando.aq820133_set_att(att_ch, attval)
@@ -336,11 +324,19 @@ def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), num_p
     counter.setup_timed_count(channel=1)
     counter.set_trigger(trigger_voltage=trigger_voltage, slope_positive=True, channel=1)
 
-    N = 3
-    
-    # res_min = scipy.optimize.minimize(meas_counts, np.array([0,0,0]), args=(N), method='Nelder-Mead', bounds=[(-99, 100), (-99, 100), (-99, 100)])
-    # res_max = scipy.optimize.minimize(-meas_counts, np.array([0,0,0]), args=(N), method='Nelder-Mead', bounds=[(-99, 100), (-99, 100), (-99, 100)])
-   
+    srs.set_voltage(0)
+    srs.set_output(output=True)
+    this_volt = round(ic*0.80 * bias_resistor, 3)
+    srs.set_voltage(this_volt)
+
+    # bounds = [(-99, 100)] * 3
+    # def neg_meas_counts(position, *args):
+    #     return -meas_counts(position, *args)
+    # initial_guess = np.array([0, 0, 0])
+    # res_min = scipy.optimize.minimize(meas_counts, initial_guess, args=(instruments, N, counting_time), bounds=bounds)
+    # res_max = scipy.optimize.minimize(neg_meas_counts, initial_guess, args=(instruments, N, counting_time), bounds=bounds)
+    # pol_counts = [(res_min['x'], res_min['fun']), (res_max['x'], res_max['fun'])]
+    # print(pol_counts)
 
     positions = np.linspace(-99.0, 100.0, num_pols)
     pol_counts = []
@@ -356,10 +352,11 @@ def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), num_p
                 print(temp_data)
                 pol_counts.append(temp_data)
                 print(f"{round(100*(i*positions.size**2 + j*positions.size + k)/((positions.size)**3), 2)}%")
+    
+    
     srs.set_voltage(0)
     srs.set_output(output=False)
 
-    ando.aq82011_disable(laser_ch)
     ando.aq8201418_set_route(sw_ch, monitor_port)
     for att_ch in att_list:
         ando.aq820133_set_att(att_ch, 0)
@@ -373,12 +370,12 @@ def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), num_p
     return pol_counts_filepath
 
 # Algorithm S3.2. SDE Counts Measurement - True Counting
-def SDE_Counts_Measurement(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pickle_filepath='', pol_counts_filepath='', name=''):    
+def SDE_Counts_Measurement(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pickle_filepath='', pol_counts_filepath='', name='', trigger_voltage=0.01, ):    
     with open(pol_counts_filepath, 'rb') as file:
         pol_counts = pickle.load(file)
 
     for i in (np.arange(len(pol_counts)-1, -1, -1)):
-        if pol_counts[i][1] == None:
+        if pol_counts[i][1]==None or pol_counts[i][1]==0:
             pol_counts.pop(i)
 
     # Find the tuple with the highest count
@@ -392,7 +389,6 @@ def SDE_Counts_Measurement(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), 
 
     # Dark counts measurement
     ando.aq8201418_set_route(sw_ch, monitor_port)
-    ando.aq82011_disable(laser_ch)
     for att_ch in att_list:
         ando.aq820133_disable(att_ch)
     Dark_Count_Array = get_counts(Cur_Array, instruments, trigger_voltage=trigger_voltage, bias_resistor=bias_resistor, counting_time=counting_time)
@@ -400,7 +396,6 @@ def SDE_Counts_Measurement(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), 
 
     # Max and min polarization measurements
     ando.aq8201418_set_route(sw_ch, detector_port)
-    ando.aq82011_enable(laser_ch)
     for att_ch in att_list:
         ando.aq820133_enable(att_ch)
         ando.aq820133_set_att(att_ch, attval)
@@ -415,7 +410,6 @@ def SDE_Counts_Measurement(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), 
     Minpol_Count_Array = get_counts(Cur_Array, instruments, trigger_voltage=trigger_voltage, bias_resistor=bias_resistor, counting_time=counting_time)
     print("Got counts for min polarization")
 
-    ando.aq82011_disable(laser_ch)
     ando.aq8201418_set_route(sw_ch, monitor_port)
     for att_ch in att_list:
         ando.aq820133_set_att(att_ch, 0)
@@ -454,8 +448,6 @@ if __name__ == '__main__':
     # nonlinearity_factor_filepath = nonlinearity_factor_raw_power_meaurements(now_str=now_str, )
     # print("COMPLETED: Algorithm S1. Nonlinearity factor raw power meaurements")
 
-    # name = 'SK3'
-
     # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
     # print("STARTING: Algorithm S3.0.1. SNSPD IV Curve")
     # IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name):
@@ -467,17 +459,21 @@ if __name__ == '__main__':
     #
 
     # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
-    # print("STARTING: Algorithm S3.1. SDE Counts Measurement")
-    # pol_counts_filepath = sweep_polarizations(now_str=now_str, num_pols=num_pols, IV_pickle_filepath=IV_pickle_filepath)
-    # print("COMPLETED: Algorithm S3.1. SDE Counts Measurement")
+    # print("STARTING: Sweeping Trigger Voltage")
+    # trigger_voltage = find_min_trigger_threshold(instruments, now_str=now_str)
+    # print(trigger_voltage)
+    # print("COMPLETED: Sweeping Trigger Voltage")
 
     now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
-    print("STARTING: Algorithm S3.2. SDE Counts Measurement")
-    data_filepath = SDE_Counts_Measurement(now_str=now_str, IV_pickle_filepath='data/SK3_IV_curve_data_20241211-172258.pkl', pol_counts_filepath='data/SK3_pol_counts_20241211-172517.pkl', name=name)
-    print("COMPLETED: Algorithm S3.2. SDE Counts Measurement")
+    print("STARTING: Algorithm S3.1. SDE Counts Measurement - Polarization Sweep")
+    pol_counts_filepath = sweep_polarizations(now_str=now_str, IV_pickle_filepath='data/SK3_IV_curve_data_20241211-172258.pkl', name=name, num_pols=33, trigger_voltage=trigger_voltage, counting_time=0.5, N=1)
+    print("COMPLETED: Algorithm S3.1. SDE Counts Measurement - Polarization Sweep")
 
-    # Call Algorithm S2
+    now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
+    print("STARTING: Algorithm S3.2. SDE Counts Measuremen - True Counting")
+    data_filepath = SDE_Counts_Measurement(now_str=now_str, IV_pickle_filepath='data/SK3_IV_curve_data_20241211-172258.pkl', pol_counts_filepath=pol_counts_filepath, name=name, trigger_voltage=trigger_voltage)
+    print("COMPLETED: Algorithm S3.2. SDE Counts Measurement - True Counting")
     print("STARTING: Algorithm S2. Attenuator Calibration")
-    attenuator_calibration_filepath = attenuator_calibration(now_str=now_str, )
+    attenuator_calibration_filepath = attenuator_calibration(now_str=now_str)
     print("COMPLETED: Algorithm S2. Attenuator Calibration")
 # %%

@@ -15,6 +15,7 @@ def SNSPD_IV_Curve(instruments, now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()
     monitor_port = instruments['monitor_port']
     att_list = instruments['att_list']
     srs = instruments['srs']
+    multi = instruments['multi']
 
     ando.aq82011_disable(laser_ch)
     ando.aq8201418_set_route(sw_ch, monitor_port)
@@ -70,30 +71,20 @@ def get_ic(pickle_filepath, ic_threshold=1e-4):
         ic = None
     return ic
 
-def meas_counts(position, instruments, N=10, counting_time=1):
+def meas_counts(position, instruments, N=3, counting_time=1):
     pc = instruments['pc']
     counter = instruments['counter']
-    srs = instruments['srs']
 
     pc.set_waveplate_positions(position)
     time.sleep(0.1)  # Wait for the motion to complete
-    temp_counts = np.empty(N, dtype=float)
-    for l in np.arange(temp_counts.size):
-        counts = counter.timed_count(counting_time=counting_time)
-        crap = 0
-        while counts == 0:
-            crap += 1
-            if crap == 5:
-                pol_counts_filepath = None
-                return pol_counts_filepath
-            srs.set_output(output=False)
-            srs.set_output(output=True)
-            counts = counter.timed_count(counting_time=counting_time)
-        temp_counts[l] = counts
-    avg_counts = np.mean(temp_counts)
-    return avg_counts
+    temp_cps = np.empty(N, dtype=float)
+    for l in np.arange(temp_cps.size):
+        cps = counter.timed_count(counting_time=counting_time)/counting_time
+        temp_cps[l] = cps
+    avg_cps = np.mean(temp_cps)
+    return avg_cps
 
-def get_counts(Cur_Array, instruments, trigger_voltage=0.12, bias_resistor=100e3, counting_time=1, N=10):
+def get_counts(Cur_Array, instruments, trigger_voltage=0.12, bias_resistor=100e3, counting_time=1, N=3):
     """
     Measures counts for a given array of currents.
     """
@@ -115,13 +106,53 @@ def get_counts(Cur_Array, instruments, trigger_voltage=0.12, bias_resistor=100e3
         this_volt = round(Cur_Array[i] * bias_resistor, 3)
         srs.set_voltage(this_volt)
         time.sleep(0.1)
-        temp_counts = np.empty(N, dtype=float)
-        for l in np.arange(temp_counts.size):
-            temp_counts[l] = counter.timed_count(counting_time=counting_time)
-        Count_Array[i] = np.mean(temp_counts)
+        temp_cps = np.empty(N, dtype=float)
+        for l in np.arange(temp_cps.size):
+            temp_cps[l] = counter.timed_count(counting_time=counting_time)/counting_time
+        Count_Array[i] = np.mean(temp_cps)
         print(f"Voltage: {this_volt} V, Counts: {Count_Array[i]}")
     
     srs.set_voltage(0)
     srs.set_output(output=False)
 
     return Count_Array
+
+def find_min_trigger_threshold(instruments, now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), max_trigger_voltage=0.2, N=3, channel=1, ohms=50, counting_time=0.5):
+    srs = instruments['srs']
+    counter = instruments['counter']
+
+    srs.set_voltage(0)
+    srs.set_output(output=True)
+
+    counter.basic_setup()
+    counter.set_impedance(ohms=ohms, channel=channel)
+    counter.setup_timed_count(channel=channel)
+
+    data = []
+    set_trigger_voltage = 0
+    trigger_voltages = np.linspace(0, max_trigger_voltage, 500)
+    for trigger_voltage in trigger_voltages:
+        counter.set_trigger(trigger_voltage=trigger_voltage, slope_positive=True, channel=channel)
+        time.sleep(0.1)
+        temp_cps_arr = np.empty(N, dtype=float)
+        for l in np.arange(temp_cps_arr.size):
+            temp_cps_arr[l] = counter.timed_count(counting_time=counting_time)/counting_time
+        temp_cps = np.mean(temp_cps_arr)
+        if set_trigger_voltage==0 and temp_cps==0:
+            temp_cps_arr = np.empty(N, dtype=float)
+            for l in np.arange(temp_cps_arr.size):
+                temp_cps_arr[l] = counter.timed_count(counting_time=counting_time)/counting_time
+            temp_cps = np.mean(temp_cps_arr)
+        data_temp = (trigger_voltage, temp_cps)
+        print(data_temp)
+        data.append(data_temp)
+        if set_trigger_voltage==0 and temp_cps==0:
+            set_trigger_voltage = trigger_voltage
+            break
+    os.makedirs("data", exist_ok=True)
+    trigger_voltage_filename = f'trigger_voltage_data__{now_str}'
+    trigger_voltage_filepath = os.path.join("data", trigger_voltage_filename)
+    with open(trigger_voltage_filepath, "wb") as file:
+        pickle.dump(data, file)
+    
+    return set_trigger_voltage
