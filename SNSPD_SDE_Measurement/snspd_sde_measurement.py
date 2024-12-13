@@ -97,53 +97,53 @@ counter.setup_timed_count(channel=1)
 srs.set_voltage(0)
 srs.set_output(output=False)
 
-# # Algorithm S1.1 Missing Algorithm (optical switch calibration)
-# # For this section, the "detector" fiber must be spliced to the calibrated polarization controller (cpm)
+# Algorithm S1.1 Missing Algorithm (optical switch calibration)
+# For this section, the "detector" fiber must be spliced to the calibrated polarization controller (cpm)
 
-# def optical_switch_calibration(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
-#     ando.aq8201418_set_route(sw_ch, monitor_port)
-#     for att_ch in att_list:
-#         ando.aq820133_set_att(att_ch, 0)
-#         ando.aq820133_enable(att_ch)
-#     N = 100
-#     rgnvals = ['A', 'G']
-#     ando.aq82012_set_range(mpm_ch, 'A')
-#     data = []
+def optical_switch_calibration(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
+    ando.aq8201418_set_route(sw_ch, monitor_port)
+    for att_ch in att_list:
+        ando.aq820133_set_att(att_ch, 0)
+        ando.aq820133_enable(att_ch)
+    N = 100
+    rgnvals = ['A', 'G']
+    ando.aq82012_set_range(mpm_ch, 'A')
+    data = []
 
-#     for i in range(N):
-#         ando.aq8201418_set_route(sw_ch, monitor_port)
-#         power_mpm_dict = {}
-#         for rngval in rgnvals:
-#             ando.aq82012_set_range(mpm_ch, rngval)
-#             time.sleep(0.1)
-#             rngval_meas = ando.aq82012_get_range(mpm_ch)
-#             power_mpm_dict[f'{rngval_meas}'] = ando.aq82012_get_power(mpm_ch)
+    for i in range(N):
+        ando.aq8201418_set_route(sw_ch, monitor_port)
+        power_mpm_dict = {}
+        for rngval in rgnvals:
+            ando.aq82012_set_range(mpm_ch, rngval)
+            time.sleep(0.1)
+            rngval_meas = ando.aq82012_get_range(mpm_ch)
+            power_mpm_dict[f'{rngval_meas}'] = ando.aq82012_get_power(mpm_ch)
 
-#         ando.aq8201418_set_route(sw_ch, detector_port)
-#         time.sleep(0.1)
-#         power_cpm = cpm.read_power()
+        ando.aq8201418_set_route(sw_ch, detector_port)
+        time.sleep(0.1)
+        power_cpm = cpm.read_power()
 
         
         
-#         data_temp = (power_mpm_dict, power_cpm)
-#         print(data_temp)
-#         data.append(data_temp)
-#         print(f"{round(100*i/N, 2)}%")
+        data_temp = (power_mpm_dict, power_cpm)
+        print(data_temp)
+        data.append(data_temp)
+        print(f"{round(100*i/N, 2)}%")
 
-#     ando.aq8201418_set_route(sw_ch, monitor_port)
-#     for att_ch in att_list:
-#         ando.aq820133_set_att(att_ch, 0)
-#         ando.aq820133_disable(att_ch)
+    ando.aq8201418_set_route(sw_ch, monitor_port)
+    for att_ch in att_list:
+        ando.aq820133_set_att(att_ch, 0)
+        ando.aq820133_disable(att_ch)
 
-#     columns = ['power_mpm_dict', 'power_cpm']
-#     df = pd.DataFrame(data, columns=columns)
+    columns = ['power_mpm_dict', 'power_cpm']
+    df = pd.DataFrame(data, columns=columns)
 
-#     # Save the DataFrame as a pickle file
-#     optical_switch_calibration_filename = f'optical_switch_calibration_data__{now_str}.pkl'
-#     os.makedirs("data", exist_ok=True)
-#     optical_switch_calibration_filepath = os.path.join("data", optical_switch_calibration_filename)
-#     df.to_pickle(optical_switch_calibration_filepath)
-#     return
+    # Save the DataFrame as a pickle file
+    optical_switch_calibration_filename = f'optical_switch_calibration_data__{now_str}.pkl'
+    os.makedirs("data", exist_ok=True)
+    optical_switch_calibration_filepath = os.path.join("data", optical_switch_calibration_filename)
+    df.to_pickle(optical_switch_calibration_filepath)
+    return
 
 # Algorithm S1. Nonlinearity factor raw power meaurements
 def nonlinearity_factor_raw_power_meaurements(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
