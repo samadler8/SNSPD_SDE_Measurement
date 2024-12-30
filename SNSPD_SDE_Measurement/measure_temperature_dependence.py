@@ -20,7 +20,7 @@ from amcc.instruments.agilent_53131a import Agilent53131a
 from amcc.instruments.thorlabs_lfltm import ThorLabsLFLTM
 from amcc.instruments.agilent_34411a import Agilent34411A
 
-from helper_functions import *
+from SNSPD_SDE_Measurement.measurement_helpers import *
 
 sim900port = 5
 srs = SIM928('GPIB0::2::INSTR', sim900port)

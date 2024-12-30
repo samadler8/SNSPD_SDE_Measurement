@@ -10,44 +10,49 @@ import pandas as pd
 from datetime import datetime, timedelta
 
 from amcc.instruments.srs_sim928 import SIM928
-from amcc.instruments.ando_aq8204 import AndoAQ8204
+from amcc.instruments.ando_aq82011 import AndoAQ82011
+from amcc.instruments.ando_aq820133 import AndoAQ820133
+from amcc.instruments.ando_aq8201418 import AndoAQ8201418
+from amcc.instruments.ando_aq82012 import AndoAQ82012
 from amcc.instruments.agilent_53131a import Agilent53131a
 from amcc.instruments.agilent_8163a import Agilent8163A
 from amcc.instruments.fiberControl_MPC101 import FiberControlMPC101
 from amcc.instruments.agilent_34411a import Agilent34411A
 
-from helper_functions import *
+from SNSPD_SDE_Measurement.measurement_helpers import *
 
-sim900port = 5
-srs = SIM928('GPIB0::2::INSTR', sim900port)
-ando = AndoAQ8204('GPIB0::4::INSTR')
+srs = SIM928('GPIB0::2::INSTR', 5)
+laser = AndoAQ82011('GPIB0::4::INSTR', 1)
+att1 = AndoAQ820133('GPIB0::4::INSTR', 2)
+att2 = AndoAQ820133('GPIB0::4::INSTR', 3)
+att3 = AndoAQ820133('GPIB0::4::INSTR', 4)
+sw = AndoAQ8201418('GPIB0::4::INSTR', 5)
+mpm = AndoAQ82012('GPIB0::4::INSTR', 6)
 counter = Agilent53131a('GPIB0::5::INSTR')
 cpm = Agilent8163A('GPIB0::9::INSTR')
 pc = FiberControlMPC101('GPIB0::3::INSTR')
 multi = Agilent34411A('GPIB0::21::INSTR')
 
-laser_ch = 1
-att1_ch = 2
-att2_ch = 3
-att3_ch = 4
-att_list = [att1_ch, att2_ch, att3_ch]
-sw_ch = 5
-mpm_ch = 6
+
+att_list = [att1, att2, att3]
+
 
 monitor_port = 1
 detector_port = 2
 
 instruments = {'srs': srs,
     'counter': counter,
-    'ando': ando,
     'cpm': cpm,
     'counter': counter,
     'pc': pc,
     'multi': multi,
-    'laser_ch': laser_ch,
+    'laser': laser,
+    'att1': att1,
+    'att2': att2,
+    'att3': att3,
     'att_list': att_list,
-    'sw_ch': sw_ch,
-    'mpm_ch': mpm_ch,
+    'sw': sw,
+    'mpm': mpm,
     'monitor_port': monitor_port,
     'detector_port': detector_port,
     }
@@ -76,17 +81,17 @@ name = 'SK3'
 
 
 # Initialize and turn off everything
-ando.aq82011_std_init(laser_ch)
-ando.aq82011_set_lambda(laser_ch, wavelength)
-ando.aq82011_enable(laser_ch)
+laser.std_init()
+laser.set_lambda(wavelength)
+laser.enable()
 
-for att_ch in att_list:
-    ando.aq820133_set_att(att_ch, 0)
-    ando.aq820133_disable(att_ch)
+for att in att_list:
+    att.set_att(0)
+    att.disable()
     
-ando.aq82012_set_lambda(mpm_ch, wavelength)
-ando.aq82012_set_range(mpm_ch, 'A')
-# ando.aq82012_zero(mpm_ch)
+mpm.set_lambda(wavelength)
+mpm.set_range('A')
+# mpm.zero()
 
 cpm.set_wavelength(wavelength)
 
@@ -101,25 +106,25 @@ srs.set_output(output=False)
 # For this section, the "detector" fiber must be spliced to the calibrated polarization controller (cpm)
 
 def optical_switch_calibration(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
-    ando.aq8201418_set_route(sw_ch, monitor_port)
-    for att_ch in att_list:
-        ando.aq820133_set_att(att_ch, 0)
-        ando.aq820133_enable(att_ch)
+    sw.set_route(monitor_port)
+    for att in att_list:
+        att.set_att(0)
+        att.enable()
     N = 100
     rgnvals = ['A', 'G']
-    ando.aq82012_set_range(mpm_ch, 'A')
+    mpm.set_range('A')
     data = []
 
     for i in range(N):
-        ando.aq8201418_set_route(sw_ch, monitor_port)
+        sw.set_route(monitor_port)
         power_mpm_dict = {}
         for rngval in rgnvals:
-            ando.aq82012_set_range(mpm_ch, rngval)
+            mpm.set_range(rngval)
             time.sleep(0.1)
-            rngval_meas = ando.aq82012_get_range(mpm_ch)
-            power_mpm_dict[f'{rngval_meas}'] = ando.aq82012_get_power(mpm_ch)
+            rngval_meas = mpm.get_range()
+            power_mpm_dict[f'{rngval_meas}'] = mpm.get_power()
 
-        ando.aq8201418_set_route(sw_ch, detector_port)
+        sw.set_route(detector_port)
         time.sleep(0.1)
         power_cpm = cpm.read_power()
 
@@ -130,10 +135,10 @@ def optical_switch_calibration(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now(
         data.append(data_temp)
         print(f"{round(100*i/N, 2)}%")
 
-    ando.aq8201418_set_route(sw_ch, monitor_port)
-    for att_ch in att_list:
-        ando.aq820133_set_att(att_ch, 0)
-        ando.aq820133_disable(att_ch)
+    sw.set_route(monitor_port)
+    for att in att_list:
+        att.set_att(0)
+        att.disable()
 
     columns = ['power_mpm_dict', 'power_cpm']
     df = pd.DataFrame(data, columns=columns)
@@ -148,10 +153,10 @@ def optical_switch_calibration(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now(
 # Algorithm S1. Nonlinearity factor raw power meaurements
 def nonlinearity_factor_raw_power_meaurements(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
     
-    ando.aq8201418_set_route(sw_ch, monitor_port)
-    for att_ch in att_list:
-        ando.aq820133_set_att(att_ch, 0)
-        ando.aq820133_enable(att_ch)
+    sw.set_route(monitor_port)
+    for att in att_list:
+        att.set_att(0)
+        att.enable()
 
     N = 10
    
@@ -176,25 +181,25 @@ def nonlinearity_factor_raw_power_meaurements(now_str="{:%Y%m%d-%H%M%S}".format(
     # Iterate through the ranges and settings
     i = 0
     for rng in rng_settings:
-        ando.aq82012_set_range(mpm_ch, rng)
-        # ando.aq82012_zero(mpm_ch)
+        mpm.set_range(rng)
+        # mpm.zero()
         for a in att_setting[rng]:
-            ando.aq820133_set_att(att1_ch, a)
+            att1.set_att(a)
             for att_step in [0, 3]:
-                ando.aq820133_set_att(att2_ch, att_step)
+                att2.set_att(att_step)
                 time.sleep(0.1)
                 for j in range(N):
-                    power = ando.aq82012_get_power(mpm_ch)
+                    power = mpm.get_power()
                     # Append the data as a tuple
                     data_temp = (rng, a, att_step, j, power)
                     data.append(data_temp)
                     print(f"data_temp: {data_temp}")
                     print(f"{100*i/total_data}%")
 
-    ando.aq8201418_set_route(sw_ch, monitor_port)
-    for att_ch in att_list:
-        ando.aq820133_set_att(att_ch, 0)
-        ando.aq820133_disable(att_ch)
+    sw.set_route(monitor_port)
+    for att in att_list:
+        att.set_att(0)
+        att.disable()
 
     # Convert the data to a pandas DataFrame
     columns = ['Range', 'Attenuation Setting', 'Attenuation Step', 'Iteration', 'Power']
@@ -210,7 +215,7 @@ def nonlinearity_factor_raw_power_meaurements(now_str="{:%Y%m%d-%H%M%S}".format(
 
 # Algorithm S2. Attenuator Calibration
 def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
-    ando.aq8201418_set_route(sw_ch, monitor_port)
+    sw.set_route(monitor_port)
 
     # Parameters
     N = 10
@@ -219,24 +224,24 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
     powers_data = []
 
     # Step 1: Set initial range and disable all channels
-    ando.aq82012_set_range(mpm_ch, init_rng)
-    for att_chi in att_list:
-        ando.aq820133_set_att(att_chi, 0)
-        ando.aq820133_disable(att_chi)
+    mpm.set_range(init_rng)
+    for atti in att_list:
+        atti.set_att(0)
+        atti.disable()
     
     # Step 2: Zero the power meter
-    # ando.aq82012_zero(mpm_ch)
+    # mpm.zero()
 
     # Step 3: Enable all channels and measure initial power
-    for att_chi in att_list:
-        ando.aq820133_enable(att_chi)
-        ando.aq820133_set_att(att_chi, 0)
+    for atti in att_list:
+        atti.enable()
+        atti.set_att(0)
     time.sleep(0.1)
     
     # Measure power N times
     initial_powers = []
     for _ in range(N):
-        power = ando.aq82012_get_power(mpm_ch)
+        power = mpm.get_power()
         initial_powers.append(power)
     
     # Store initial power data
@@ -250,29 +255,29 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
     powers_data.append(data_temp)
 
     # Calibrate each attenuator in att_list
-    for i, att_chi in enumerate(att_list):
+    for i, atti in enumerate(att_list):
         # # Disable and zero again
-        # for att_ch_ in att_list:
-        #     ando.aq820133_disable(att_ch_)
-        # ando.aq82012_zero(mpm_ch)
+        # for att_ in att_list:
+        #     att_.disable()
+        # mpm.zero()
 
-        for att_chj in att_list:
-            ando.aq820133_enable(att_chj)
-            ando.aq820133_set_att(att_chj, 0)
+        for attj in att_list:
+            attj.enable()
+            attj.set_att(0)
         
         # Step 4: Apply attenuation and repeat measurements
-        ando.aq820133_set_att(att_chi, attval)
-        ando.aq82012_set_range(mpm_ch, att_rng)
+        atti.set_att(attval)
+        mpm.set_range(att_rng)
         time.sleep(0.1)
 
         attenuated_powers = []
         for _ in range(N):
-            power = ando.aq82012_get_power(mpm_ch)
+            power = mpm.get_power()
             attenuated_powers.append(power)
         
         # Store attenuated power data
         data_temp = {
-            'Attenuator': att_chi,
+            'Attenuator': atti,
             'Attenuation (dB)': attval,
             'Range': att_rng,
             'Powers': attenuated_powers
@@ -281,14 +286,14 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
         powers_data.append(data_temp)
 
         # Reset the attenuator to 0 dB
-        ando.aq820133_set_att(att_chi, 0)
+        atti.set_att(0)
 
         print(f"{round(100*i/len(att_list), 2)}%")
 
-    ando.aq8201418_set_route(sw_ch, monitor_port)
-    for att_ch in att_list:
-        ando.aq820133_set_att(att_ch, 0)
-        ando.aq820133_disable(att_ch)
+    sw.set_route(monitor_port)
+    for att in att_list:
+        att.set_att(0)
+        att.disable()
 
     # Save the calibration data to a file
     attenuator_calibration_filename = f"attenuator_calibration_data__{now_str}.pkl"
@@ -314,10 +319,10 @@ def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pi
     """
     ic = get_ic(IV_pickle_filepath)
 
-    ando.aq8201418_set_route(sw_ch, detector_port)
-    for att_ch in att_list:
-        ando.aq820133_set_att(att_ch, attval)
-        ando.aq820133_enable(att_ch)
+    sw.set_route(detector_port)
+    for att in att_list:
+        att.set_att(attval)
+        att.enable()
 
     counter.basic_setup()
     counter.set_impedance(ohms=50, channel=1)
@@ -357,10 +362,10 @@ def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pi
     srs.set_voltage(0)
     srs.set_output(output=False)
 
-    ando.aq8201418_set_route(sw_ch, monitor_port)
-    for att_ch in att_list:
-        ando.aq820133_set_att(att_ch, 0)
-        ando.aq820133_disable(att_ch)
+    sw.set_route(monitor_port)
+    for att in att_list:
+        att.set_att(0)
+        att.disable()
 
     pol_counts_filename = f"{name}_pol_counts__{now_str}.pkl"
     os.makedirs("data", exist_ok=True)
@@ -388,17 +393,17 @@ def SDE_Counts_Measurement(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), 
     Cur_Array = np.linspace(ic * 0.2, ic * 1.1, num_biases)
 
     # Dark counts measurement
-    ando.aq8201418_set_route(sw_ch, monitor_port)
-    for att_ch in att_list:
-        ando.aq820133_disable(att_ch)
+    sw.set_route(monitor_port)
+    for att in att_list:
+        att.disable()
     Dark_Count_Array = get_counts(Cur_Array, instruments, trigger_voltage=trigger_voltage, bias_resistor=bias_resistor, counting_time=counting_time)
     print("Got dark counts")
 
     # Max and min polarization measurements
-    ando.aq8201418_set_route(sw_ch, detector_port)
-    for att_ch in att_list:
-        ando.aq820133_enable(att_ch)
-        ando.aq820133_set_att(att_ch, attval)
+    sw.set_route(detector_port)
+    for att in att_list:
+        att.enable()
+        att.set_att(attval)
     
     # Measure counts at max polarization
     pc.set_waveplate_positions(maxpol_settings)
@@ -410,10 +415,10 @@ def SDE_Counts_Measurement(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), 
     Minpol_Count_Array = get_counts(Cur_Array, instruments, trigger_voltage=trigger_voltage, bias_resistor=bias_resistor, counting_time=counting_time)
     print("Got counts for min polarization")
 
-    ando.aq8201418_set_route(sw_ch, monitor_port)
-    for att_ch in att_list:
-        ando.aq820133_set_att(att_ch, 0)
-        ando.aq820133_disable(att_ch)
+    sw.set_route(monitor_port)
+    for att in att_list:
+        att.set_att(0)
+        att.disable()
 
     # Save data
     data_dict = {

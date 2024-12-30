@@ -2,7 +2,6 @@
 import os
 
 import pickle
-import time
 
 import numpy as np
 import pandas as pd
@@ -11,7 +10,7 @@ import plotly.graph_objects as go
 
 from datetime import datetime
 
-from helper_functions import *
+from SNSPD_SDE_Measurement.measurement_helpers import *
 
 ## Plotting Functions
 # IV Curve
@@ -117,6 +116,21 @@ def plot_min_max_avg_counts_vs_current(now_str="{:%Y:%m:%d-%H:%M:%S}".format(dat
     plt.close('all')
 
     return
+
+def plot_temperature_dependence(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.now()), data_filepath=''):
+    df = pd.read_pickle(data_filepath)
+
+    figpath = 'pics_temperatureDependence/plateau_width_temperature_dependence'
+    plt.figure(figsize=[20, 10])
+    plt.plot(df['temperature'], df['plateau_widths'], '-*', color='k')
+    plt.title('Plateau Width Temperature Dependence')
+    plt.xlabel('Temperature [K]')
+    plt.ylabel('Plateau Width [uA]')
+    plt.ylim(bottom=0)  # Set y-axis lower limit to 0
+    plt.tight_layout()
+    plt.savefig(f'{figpath}.png')
+    plt.savefig(f'{figpath}.pdf')
+    plt.close()
 
 # %% Main Code Block
 if __name__ == '__main__':
