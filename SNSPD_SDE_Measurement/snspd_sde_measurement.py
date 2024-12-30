@@ -145,8 +145,8 @@ def optical_switch_calibration(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now(
 
     # Save the DataFrame as a pickle file
     optical_switch_calibration_filename = f'optical_switch_calibration_data__{now_str}.pkl'
-    os.makedirs("data", exist_ok=True)
-    optical_switch_calibration_filepath = os.path.join("data", optical_switch_calibration_filename)
+    os.makedirs("data_sde", exist_ok=True)
+    optical_switch_calibration_filepath = os.path.join("data_sde", optical_switch_calibration_filename)
     df.to_pickle(optical_switch_calibration_filepath)
     return
 
@@ -207,11 +207,16 @@ def nonlinearity_factor_raw_power_meaurements(now_str="{:%Y%m%d-%H%M%S}".format(
 
     # Save the DataFrame as a pickle file
     nonlinearity_factor_filename = f'nonlinearity_factor_raw_power_meaurements_data__{now_str}.pkl'
-    os.makedirs("data", exist_ok=True)
-    nonlinearity_factor_filepath = os.path.join("data", nonlinearity_factor_filename)
+    os.makedirs("data_sde", exist_ok=True)
+    nonlinearity_factor_filepath = os.path.join("data_sde", nonlinearity_factor_filename)
     df.to_pickle(nonlinearity_factor_filepath)
 
     return nonlinearity_factor_filepath
+
+import pandas as pd
+import os
+import time
+from datetime import datetime
 
 # Algorithm S2. Attenuator Calibration
 def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
@@ -220,93 +225,90 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
     # Parameters
     N = 10
     init_rng = -10
-    att_rng = round((init_rng - attval)/10) * 10 
-    powers_data = []
+    att_rng = round((init_rng - attval) / 10) * 10 
 
-    # Step 1: Set initial range and disable all channels
-    mpm.set_range(init_rng)
-    for atti in att_list:
-        atti.set_att(0)
-        atti.disable()
-    
-    # Step 2: Zero the power meter
-    # mpm.zero()
-
-    # Step 3: Enable all channels and measure initial power
-    for atti in att_list:
-        atti.enable()
-        atti.set_att(0)
-    time.sleep(0.1)
-    
-    # Measure power N times
-    initial_powers = []
-    for _ in range(N):
-        power = mpm.get_power()
-        initial_powers.append(power)
-    
-    # Store initial power data
-    data_temp = {
-        'Attenuator': None,
-        'Attenuation (dB)': 0,
-        'Range': init_rng,
-        'Powers': initial_powers
-    }
-    print(data_temp)
-    powers_data.append(data_temp)
+    # Initialize an empty DataFrame to store results
+    columns = ['Attenuator', 'Attenuation (dB)', 'Range', 'Power Measurement']
+    powers_df = pd.DataFrame(columns=columns)
 
     # Calibrate each attenuator in att_list
+    init_powers = []
     for i, atti in enumerate(att_list):
-        # # Disable and zero again
-        # for att_ in att_list:
-        #     att_.disable()
-        # mpm.zero()
-
+        # Step 1: Detector setup
+        sw.set_route(detector_port)
         for attj in att_list:
-            attj.enable()
+            attj.disable()
+        time.sleep(0.1)
+        mpm.set_range('A')
+        time.sleep(0.1)
+        mpm.zero()
+
+        # Step 2: Monitor setup for initial power measurements
+        sw.set_route(monitor_port)
+        for attj in att_list:
             attj.set_att(0)
+            attj.enable()
+        time.sleep(0.1)
+        mpm.set_range(init_rng)
+
+        # Measure initial power
+        time.sleep(0.1)
+        for _ in range(N):
+            init_powers.append(mpm.get_power())
         
-        # Step 4: Apply attenuation and repeat measurements
+        # Reset for next measurement
+        sw.set_route(detector_port)
+        for attj in att_list:
+            attj.disable()
+        time.sleep(0.1)
+        mpm.set_range('A')
+        time.sleep(0.1)
+        mpm.zero()
+
+        # Step 3: Apply attenuation and measure power
+        sw.set_route(monitor_port)
+        for attj in att_list:
+            attj.set_att(0)
+            attj.enable()
         atti.set_att(attval)
         mpm.set_range(att_rng)
-        time.sleep(0.1)
 
-        attenuated_powers = []
+        temp_powers = []
+        time.sleep(0.1)
         for _ in range(N):
-            power = mpm.get_power()
-            attenuated_powers.append(power)
-        
-        # Store attenuated power data
-        data_temp = {
+            temp_powers.append(mpm.get_power())
+        powers_df = powers_df.append({
             'Attenuator': atti,
             'Attenuation (dB)': attval,
-            'Range': att_rng,
-            'Powers': attenuated_powers
-        }
-        print(data_temp)
-        powers_data.append(data_temp)
+            'Range': mpm.get_range(),
+            'Power': temp_powers
+        }, ignore_index=True)
 
-        # Reset the attenuator to 0 dB
-        atti.set_att(0)
+        print(f"{round(100 * i / len(att_list), 2)}% completed")
 
-        print(f"{round(100*i/len(att_list), 2)}%")
+    powers_df = powers_df.append({
+        'Attenuator': None,
+        'Attenuation (dB)': 0,
+        'Range': mpm.get_range(),
+        'Power': init_powers
+    }, ignore_index=True)
 
-    sw.set_route(monitor_port)
+    # Reset attenuators
     for att in att_list:
         att.set_att(0)
         att.disable()
 
     # Save the calibration data to a file
+    os.makedirs("data_sde", exist_ok=True)
     attenuator_calibration_filename = f"attenuator_calibration_data__{now_str}.pkl"
-    os.makedirs("data", exist_ok=True)
-    attenuator_calibration_filepath = os.path.join("data", attenuator_calibration_filename)
-    with open(attenuator_calibration_filepath, 'wb') as f:
-        pickle.dump(powers_data, f)
+    attenuator_calibration_filepath = os.path.join("data_sde", attenuator_calibration_filename)
+    powers_df.to_pickle(attenuator_calibration_filepath)
 
     return attenuator_calibration_filepath
 
+
 # At this point, the "detector" fiber MUST be spliced to the SNSPD
 # If you have not done that yet, do so now
-#
 
 # Algorithm S3.1. SDE Counts Measurement - Polarization Sweep
 def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pickle_filepath='', name='', trigger_voltage=0.01, num_pols=13, counting_time=0.5, N=1):
@@ -368,8 +370,8 @@ def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pi
         att.disable()
 
     pol_counts_filename = f"{name}_pol_counts__{now_str}.pkl"
-    os.makedirs("data", exist_ok=True)
-    pol_counts_filepath = os.path.join("data", pol_counts_filename)
+    os.makedirs("data_sde", exist_ok=True)
+    pol_counts_filepath = os.path.join("data_sde", pol_counts_filename)
     with open(pol_counts_filepath, "wb") as file:
         pickle.dump(pol_counts, file)
     return pol_counts_filepath
@@ -430,8 +432,8 @@ def SDE_Counts_Measurement(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), 
         'Minpol_Settings': minpol_settings,
     }
     data_filename = f"{name}_data_dict__{now_str}.pkl"
-    os.makedirs("data", exist_ok=True)
-    data_filepath = os.path.join("data", data_filename)
+    os.makedirs("data_sde", exist_ok=True)
+    data_filepath = os.path.join("data_sde", data_filename)
     with open(data_filepath, "wb") as file:
         pickle.dump(data_dict, file)
 

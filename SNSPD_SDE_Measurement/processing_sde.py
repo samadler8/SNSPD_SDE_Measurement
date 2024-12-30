@@ -13,6 +13,8 @@ import datetime
 import logging
 import pickle
 
+from datetime import datetime
+
 from scipy.interpolate import interp1d
 from uncertainties import ufloat, correlated_values
 from uncertainties import unumpy as unp
@@ -154,44 +156,54 @@ def extract_counts_unc(filename):
         light = unp.uarray(np.mean(Light_Count_Array, axis=1), np.std(Light_Count_Array, axis=1))
     net = light - dark
 
-    return net
+    return np.array(data_dict['Cur_Array']), net
 
 
-
-def extract_raw_powers_unc(optics_filename):
+def extract_raw_powers_unc(att_cal_filepath):
     '''
     Extracts powers with uncertainty from the attenuation calibration file.
     '''
-    caldata = np.loadtxt(optics_filename)
-    laser_config = '' # Fill this in
-    for line in laser_config:
-        if 'wavelength' in line:
-            wavelength = float(line.split(':')[-1])
-    if wavelength > 1:
-        wavelength *= 1e-9
-    logger.debug(f'extract_raw_powers_unc: wavelength {wavelength} meters.')
 
-    #  Figure out how many measurements per setting in the cal file
-    #     Look at the last column (range)
-    n_avg = np.where(np.diff(caldata[:, -1]))[0][0]+1
-    rng_cal = caldata[:, -1]
-    power_cal = caldata[:, -2]
-    power_cal.shape = (-1, n_avg)
-    rng_cal.shape = (-1, n_avg)
-    rng_cal = rng_cal[:, 0].astype(dtype='int')
-    logger.debug(
-        f'{power_cal.mean(axis=1)} {power_cal.std(axis=1, ddof=1)}')
-    power_cal_mean = power_cal.mean(axis=1)
-    power_cal_std = get_uncertainty(power_cal)
-    power_cal_unc = unp.uarray(power_cal_mean, power_cal_std)
-    power_0 = power_cal_unc[::2]
-    power_att = power_cal_unc[1::2]
-    power_att = power_att[:-1]
-    power_0 = (power_0[:-1]+power_0[1:])/2.
-    last_power_0 = (power_cal_unc[-2] + power_cal_unc[-1]) / 2.
-    power_0 = np.hstack([power_0, last_power_0])
+    with open(att_cal_filepath, 'rb') as file:
+        powers_data = pickle.load(file)
 
-    return wavelength, power_0, power_att, rng_cal
+    if not isinstance(powers_data, pd.DataFrame):
+        powers_data = pd.DataFrame(powers_data)
+
+    columns = ['Attenuator', 'Attenuation (dB)', 'Range', 'Power Mean', 'Power Std']
+    new_powers_data = pd.DataFrame(columns=columns)
+
+    # Extract unique attenuation and range values (assuming they are consistent for each attenuator)
+    attval = powers_data['Attenuation (dB)'].iloc[0]
+    rng = powers_data['Range'].iloc[0]
+
+    # Process each attenuator
+    attenuators_list = [None, 1, 2, 3]
+    for attenuator in attenuators_list:
+        filtered_data = powers_data[powers_data['Attenuator'] == attenuator]
+        all_powers = []
+
+        # Collect all power values for this attenuator
+        for powers in filtered_data['Powers']:
+            if isinstance(powers, list):
+                all_powers.extend(powers)  # Add all values in the list
+            else:
+                all_powers.append(powers)  # Add single value
+
+        # Calculate mean and standard deviation of the collected powers
+        powers_mean = np.mean(all_powers)
+        powers_std = np.std(all_powers, ddof=1)  # Use ddof=1 for sample std deviation
+
+        # Append the calculated values to the new dataframe
+        new_powers_data = new_powers_data.append({
+            'Attenuator': attenuator,
+            'Attenuation (dB)': attval,
+            'Range': rng,
+            'Power Mean': powers_mean,
+            'Power Std': powers_std,
+        }, ignore_index=True)
+
+    return new_powers_data
 
 
 def calculate_switch_correction_unc(filename, correction=None):
@@ -240,13 +252,8 @@ def compute_efficiency_unc(config):
     att_cal_filepath = 'data_sde/attenuator_calibration_data__20241212-225454.pkl'
     logger.debug(f'compute_efficiency: optics_filename: {att_cal_filepath}')
 
-    # Yeah nah woops, gonna have to hard code an uncertainty here
-    # bias, light, dark, net = extract_counts_unc(filename)
-    wavelength, power_0, \
-        power_att, rng_cal = extract_raw_powers_unc(att_cal_filepath)
-    pm_serial_number = '' # fill this in
-    logger.debug(f'attenuation calib: {power_0}, {power_att}')
-    logger.info(f' pm serial number: {pm_serial_number}')
+    bias, net = extract_counts_unc(filename)
+    att_cal_data = extract_raw_powers_unc(att_cal_filepath)
 
     correction = None
     if config['nonlinear_yaml'] is not None:
@@ -378,3 +385,10 @@ if __name__ == '__main__':
         config['CF_er'] = 0.0
 
     bias, eff, counts_expected = compute_efficiency_unc(config)
+
+    final_results_filepath = os.path.join('data_sde', f'final_results__{"{:%Y%m%d-%H%M%S}".format(datetime.now())}.txt')
+
+    with open(final_results_filepath, 'w') as file:
+        file.write(f"Bias: {bias}\n")
+        file.write(f"Efficiency: {eff}\n")
+        file.write(f"Counts Expected: {counts_expected}\n")
