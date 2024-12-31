@@ -1,6 +1,6 @@
-import time
 import os
 import pickle
+import time
 
 import pandas as pd
 import numpy as np
@@ -88,6 +88,7 @@ def get_counts(Cur_Array, instruments, trigger_voltage=0.12, bias_resistor=100e3
     """
     Measures counts for a given array of currents.
     """
+    # Change this function so that it saves multiple mesaurements at each bias current
 
     srs = instruments['srs']
     counter = instruments['counter']
@@ -156,3 +157,46 @@ def find_min_trigger_threshold(instruments, now_str="{:%Y%m%d-%H%M%S}".format(da
         pickle.dump(data, file)
     
     return set_trigger_voltage
+
+
+# Daniel Sorensen Code
+# def optimizePolarization(instruments, biasV = 0.7, biasChannel=1, ttChannel=5, tMeasure=0.5, minimize=False, attValue=28):
+#     sc = serverConnection()
+#     cr = ttCountRate(channel=ttChannel)
+#     pc = instruments.pc
+
+#     def optFunc(v, grad=None):
+#         pc.setAll(v)
+#         counts=cr.measureFor(tMeasure)/tMeasure
+#         print(f"P: {v}, Counts: {counts}")
+#         return counts
+    
+#     instruments.att1.set_att(attValue)
+#     instruments.att2.set_att(attValue)
+#     instruments.att3.set_att(attValue)
+#     instruments.laser.enable()
+#     instruments.switch.set_route(2)
+#     sc.setBias(biasChannel,biasV)
+
+#     opt = nlopt.opt(nlopt.LN_SBPLX,3)
+#     if minimize:
+#         opt.set_min_objective(optFunc)
+#     else:
+#         opt.set_max_objective(optFunc)
+#     opt.set_lower_bounds(np.ones(3)*-99.)
+#     opt.set_upper_bounds(np.ones(3)*99.)
+#     opt.set_xtol_abs(np.ones(3))
+#     opt.set_initial_step(np.ones(3)*30.)
+#     startPol = np.zeros(3)
+#     opt.optimize(startPol)
+
+#     optX = pc.getAxis('X')
+#     optY = pc.getAxis('Y')
+#     optZ = pc.getAxis('Z')
+#     optPol = (optX,optY,optZ)
+#     if minimize:
+#         print("Found minimum polarization:")
+#     else:
+#         print("Found maximum polarization:")
+#     print(optPol)
+#     return optPol

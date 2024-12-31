@@ -19,31 +19,41 @@ def compute_sha1_hash(filename):
         logger.debug("compute_sha1_hash: File does not exist. Returning None.")
         return None
 
-def get_uncertainty(rawdata):
+def get_mean_uncertainty(rawdata):
     """
-    From the rawdata provided make an estimate of the uncertainty for each
-    row of data Use the std, but if it is too small, use an estimate based
-    on assuming a uniform distribution on a quantizer. This works for ANDO
-    power meters because they only have 4 digit resolution on the higher
-    ranges.
+    Estimate the uncertainty for each row of raw data. 
 
+    The function uses the standard deviation as the primary uncertainty measure. 
+    If the standard deviation is too small, a minimum uncertainty is calculated
+    based on a uniform distribution for quantization error, specific to ANDO 
+    power meters with limited resolution.
+
+    Parameters:
+        rawdata (numpy.ndarray): 2D array of raw data, where each row represents
+                                a set of measurements.
+
+    Returns:
+        numpy.ndarray: 1D array of uncertainties for each row.
     """
-    # Nfit = rawdata.shape[0]
-    # N = rawdata.shape[1]
+    import numpy as np
+
+    # Calculate standard deviation and mean for each row
     std = rawdata.std(axis=1, ddof=1)
     avg = rawdata.mean(axis=1)
-    min_unc = np.zeros(avg.shape)
 
-    # Use estimate quantization error as lower bound
-    #   this works for the ando power meters we are using to monitor
+    # Initialize the minimum uncertainty array
+    min_unc = np.zeros_like(avg)
+
+    # Define minimum uncertainty based on quantization error for different ranges
     min_unc[avg > 1e-9] = 1e-12 * 0.5 / (3**0.5)
     min_unc[avg > 1e-6] = 1e-9 * 0.5 / (3**0.5)
     min_unc[avg > 1e-3] = 1e-6 * 0.5 / (3**0.5)
 
-    # replace std with uncertainty from a uniform distribution in the
-    # quantization of the power meter if the std is too small
-    unc = np.where(std < min_unc, min_unc, std)
-    return unc
+    # Replace small standard deviations with the minimum uncertainty
+    unc = np.maximum(std, min_unc)
+
+    return avg, unc
+
 
 def get_plateau(data):
     Cur_Array = np.array(data['Cur_Array'])

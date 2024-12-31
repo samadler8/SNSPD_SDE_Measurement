@@ -132,6 +132,33 @@ def plot_temperature_dependence(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.n
     plt.savefig(f'{figpath}.pdf')
     plt.close()
 
+# def plot_nonlinearity():
+#     fsize = 24
+#     plt.rcParams.update({'font.size': fsize, 'font.weight': 'bold'})
+#     fig = plt.figure(figsize=(16, 10))
+#     as_scale = 3e2
+#     ax = fig.add_subplot(1, 1, 1, aspect=as_scale)
+#     for rng in ranges[:-3]:  # [-10, -20, -30] dBm
+#         P_corrected_unc = P_range_unc(fit.params, fit.covar, rng,
+#                                         d[rng]['v+unc'])
+#         P_corrected_unc /= ufloat(rng_disc[rng][-2], rng_disc[rng][-1])
+#         P_corrected_unc = d[rng]['v+unc'] / P_corrected_unc
+#         ax.errorbar(d[rng]['v']*1e6,
+#                     unp.nominal_values(P_corrected_unc),
+#                     unp.std_devs(P_corrected_unc),
+#                     linestyle='-', marker='.',
+#                     label=f'{rng} dBm')
+
+#     ax.set_xscale("log", nonpositive='clip')
+#     ax.legend(loc='upper left',
+#                 prop={'weight': 'normal', 'size': fsize},
+#                 shadow=True, edgecolor='black')
+#     ax.set_xlabel('Power reading ($\mu$W)')
+#     ax.set_ylabel('Nonlinearity correction')
+#     ax.grid()
+#     plt.show()
+
+
 # %% Main Code Block
 if __name__ == '__main__':
     # now_str = "{:%Y:%m:%d-%H:%M:%S}".format(datetime.now())

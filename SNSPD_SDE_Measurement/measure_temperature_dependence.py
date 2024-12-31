@@ -6,12 +6,10 @@ Created on Thu Oct 24 11:01:06 2024
 """
 
 # %% Setup
-import time
 import os
 import pickle
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 from datetime import datetime, timedelta 
 

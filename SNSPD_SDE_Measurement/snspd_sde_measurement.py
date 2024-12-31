@@ -105,7 +105,7 @@ srs.set_output(output=False)
 # Algorithm S1.1 Missing Algorithm (optical switch calibration)
 # For this section, the "detector" fiber must be spliced to the calibrated polarization controller (cpm)
 
-def optical_switch_calibration(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
+def optical_switch_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
     sw.set_route(monitor_port)
     for att in att_list:
         att.set_att(0)
@@ -127,8 +127,6 @@ def optical_switch_calibration(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now(
         sw.set_route(detector_port)
         time.sleep(0.1)
         power_cpm = cpm.read_power()
-
-        
         
         data_temp = (power_mpm_dict, power_cpm)
         print(data_temp)
@@ -212,11 +210,6 @@ def nonlinearity_factor_raw_power_meaurements(now_str="{:%Y%m%d-%H%M%S}".format(
     df.to_pickle(nonlinearity_factor_filepath)
 
     return nonlinearity_factor_filepath
-
-import pandas as pd
-import os
-import time
-from datetime import datetime
 
 # Algorithm S2. Attenuator Calibration
 def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
