@@ -1,6 +1,7 @@
 import os
 import logging
 
+import pickle
 import lmfit
 
 import numpy as np
@@ -18,65 +19,9 @@ logger = logging.getLogger(__name__)
 
 current_file_dir = Path(__file__).parent
 
-def extract_nonlinearity_data(filepath):
-    """
-    Extract nonlinearity data from a file and organize it by ranges and attenuation settings.
-
-    Parameters:
-        filepath (str): Path to the pickled dataframe file containing the data.
-
-    Returns:
-        dict: A dictionary with data organized by range, containing uncertainty arrays.
-    """
-
-    # Load the dataframe from the pickle file
-    df = pd.read_pickle(filepath)
-
-    # Get unique and sorted ranges from the dataframe
-    ranges = df['Range'].unique()
-
-    # Initialize a dictionary to store the results
-    d = {}
-
-    # Loop through each range
-    for rng in ranges:
-        filtered_df = df[df['Range'] == rng]
-        d[rng] = {}
-
-        # Get unique and sorted attenuation steps
-        taus = filtered_df['Attenuation Step'].unique()
-        taus.sort()
-
-        # Filter data for the two attenuation steps
-        filtered_df_tau0 = filtered_df[filtered_df['Attenuation Step'] == taus[0]]
-        filtered_df_tau1 = filtered_df[filtered_df['Attenuation Step'] == taus[1]]
-
-        # Get unique and sorted attenuation settings
-        atts = filtered_df['Attenuation Setting'].unique()
-        atts.sort()
-        d[rng]['att'] = atts
-
-        # Determine the number of iterations
-        N = len(filtered_df['Iteration'].unique())
-
-        # Initialize temporary arrays for storing data
-        v_temp = np.empty((len(atts), N), dtype=float)
-        vt_temp = np.empty((len(atts), N), dtype=float)
-
-        # Loop through each attenuation setting and populate data
-        for i, att in enumerate(atts):
-            v_temp[i] = filtered_df_tau0[filtered_df_tau0['Attenuation Setting'] == att]['Power'].values
-            vt_temp[i] = filtered_df_tau1[filtered_df_tau1['Attenuation Setting'] == att]['Power'].values
-
-        # Calculate mean and uncertainty for v and vt
-        v_avg_temp, v_unc_temp = get_mean_uncertainty(v_temp)
-        vt_avg_temp, vt_unc_temp = get_mean_uncertainty(vt_temp)
-
-        # Store the data with uncertainties
-        d[rng]['v'] = unp.uarray(v_avg_temp, v_unc_temp)
-        d[rng]['vt'] = unp.uarray(vt_avg_temp, vt_unc_temp)
-
-    return d
+# I think an issue here 
+# is that I'm fitting something in dBnmW to W. This will not be polynomial
+# I think I need to adjust the power scale
 
 def initialize_parameters(poly_order_list, ranges):
     """
@@ -200,6 +145,7 @@ def P_range_unc(params, covar, rng, v):
 
 
 if __name__ == '__main__':
+
     logging.basicConfig(level=logging.INFO)
     logger.setLevel(logging.INFO)
 
@@ -207,7 +153,9 @@ if __name__ == '__main__':
     logger.info(f'Processing file: {fpath}')
 
     # Extract nonlinearity data and ranges
-    d = extract_nonlinearity_data(fpath)
+    nonlinearity_processed_filepath = os.path.join(current_file_dir, 'data_sde', 'nonlinearity_processed__20241231-215233.pkl')
+    with open(nonlinearity_processed_filepath, 'rb') as f:
+        d = pickle.load(f)
     ranges = d.keys()
 
     # Optimize polynomial orders
@@ -255,6 +203,7 @@ if __name__ == '__main__':
         "covar": fit.covar,
         "rng_disc": rng_disc,
     }
-    calibration_filepath = os.path.join(current_file_dir, "data_sde", f"nonlinear_calibration_data__{"{:%Y%m%d-%H%M%S}".format(datetime.now())}.pkl")
+    now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
+    calibration_filepath = os.path.join(current_file_dir, "data_sde", f"nonlinear_calibration_data__{now_str}.pkl")
     pd.to_pickle(nonlinear_calibration_data, calibration_filepath)
     logger.info(f"Calibration data saved to {calibration_filepath}")

@@ -1,12 +1,15 @@
 import os
 import re
 import pickle
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
 
 from processing_helpers import *
+
+current_file_dir = Path(__file__).parent
 
 
 

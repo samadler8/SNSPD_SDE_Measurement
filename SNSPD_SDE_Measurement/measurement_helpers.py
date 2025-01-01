@@ -5,7 +5,10 @@ import time
 import pandas as pd
 import numpy as np
 
+from pathlib import Path
 from datetime import datetime
+
+current_file_dir = Path(__file__).parent
 
 # Algorithm S3.0.1. SNSPD IV Curve
 def SNSPD_IV_Curve(instruments, now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), max_cur=15e-6, bias_resistor=100e3, name=''):
@@ -62,14 +65,7 @@ def SNSPD_IV_Curve(instruments, now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()
 
     return IV_pickle_filepath
 
-def get_ic(pickle_filepath, ic_threshold=1e-4):
-    df = pd.read_pickle(pickle_filepath)
-    filtered_df = df[df['Voltage'] > ic_threshold]  # Filter rows where Voltage > threshold
-    if not filtered_df.empty:
-        ic = filtered_df['Current'].iloc[0]  # Get the first current value
-    else:
-        ic = None
-    return ic
+
 
 def meas_counts(position, instruments, N=3, counting_time=1):
     pc = instruments['pc']

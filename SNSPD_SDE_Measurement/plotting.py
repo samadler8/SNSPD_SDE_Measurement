@@ -2,15 +2,20 @@
 import os
 
 import pickle
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 import plotly.graph_objects as go
 
+from uncertainties import unumpy as unp
 from datetime import datetime
 
-from SNSPD_SDE_Measurement.measurement_helpers import *
+from helpers import *
+
+current_file_dir = Path(__file__).parent
 
 ## Plotting Functions
 # IV Curve
@@ -132,31 +137,62 @@ def plot_temperature_dependence(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.n
     plt.savefig(f'{figpath}.pdf')
     plt.close()
 
-# def plot_nonlinearity():
-#     fsize = 24
-#     plt.rcParams.update({'font.size': fsize, 'font.weight': 'bold'})
-#     fig = plt.figure(figsize=(16, 10))
-#     as_scale = 3e2
-#     ax = fig.add_subplot(1, 1, 1, aspect=as_scale)
-#     for rng in ranges[:-3]:  # [-10, -20, -30] dBm
-#         P_corrected_unc = P_range_unc(fit.params, fit.covar, rng,
-#                                         d[rng]['v+unc'])
-#         P_corrected_unc /= ufloat(rng_disc[rng][-2], rng_disc[rng][-1])
-#         P_corrected_unc = d[rng]['v+unc'] / P_corrected_unc
-#         ax.errorbar(d[rng]['v']*1e6,
-#                     unp.nominal_values(P_corrected_unc),
-#                     unp.std_devs(P_corrected_unc),
-#                     linestyle='-', marker='.',
-#                     label=f'{rng} dBm')
+def plot_nonlinearity_data(nonlinearity_processed_filepath):
+    """
+    Plot nonlinearity data with log-scaled y-axis, different colors for each range,
+    and different markers for 'v' and 'vt'.
 
-#     ax.set_xscale("log", nonpositive='clip')
-#     ax.legend(loc='upper left',
-#                 prop={'weight': 'normal', 'size': fsize},
-#                 shadow=True, edgecolor='black')
-#     ax.set_xlabel('Power reading ($\mu$W)')
-#     ax.set_ylabel('Nonlinearity correction')
-#     ax.grid()
-#     plt.show()
+    Parameters:
+        nonlinearity_processed_filepath (str): Path to the pickle file containing processed data.
+    """
+    # Load the data
+    with open(nonlinearity_processed_filepath, 'rb') as f:
+        data = pickle.load(f)
+
+    # Define markers and a colormap
+    markers = {'v': 'o', 'vt': 's'}  # Circles for 'v' and squares for 'vt'
+    colormap = cm.get_cmap('tab10')  # Use a qualitative colormap
+    num_ranges = len(data)
+    
+    # Create a figure and axis
+    fig, ax = plt.subplots(figsize=(10, 6))
+    
+    # Loop through each range
+    for i, (rng, values) in enumerate(data.items()):
+        color = colormap(i / num_ranges)  # Assign a unique color for each range
+        
+        # Plot 'v' data
+        v_data = unp.nominal_values(values['v'])  # Get nominal values for 'v'
+        v_unc = unp.std_devs(values['v'])         # Get uncertainties for 'v'
+        ax.errorbar(
+            values['att'], v_data, yerr=v_unc, fmt=markers['v'], color=color, label=f'Range {rng} - v', capsize=3
+        )
+        
+        # Plot 'vt' data
+        vt_data = unp.nominal_values(values['vt'])  # Get nominal values for 'vt'
+        vt_unc = unp.std_devs(values['vt'])         # Get uncertainties for 'vt'
+        ax.errorbar(
+            values['att'], vt_data, yerr=vt_unc, fmt=markers['vt'], color=color, label=f'Range {rng} - vt', capsize=3
+        )
+    
+    # Customize the plot
+    ax.set_title('Nonlinearity Data Visualization', fontsize=16)
+    ax.set_xlabel('Attenuator1 Setting (-dBmW)', fontsize=14)
+    ax.set_ylabel('Power (W)', fontsize=14)
+    ax.set_yscale('log')  # Set log scale for the y-axis
+    ax.grid(True, linestyle='--', alpha=0.6, which="both")  # Show grid for both major and minor ticks
+    ax.legend(fontsize=12)
+    
+    # Save the plot
+    now_str = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f'nonlinearity_processed_data_{now_str}'
+    figpath = os.path.join(current_file_dir, 'figs_sde', filename)
+    os.makedirs(os.path.join(current_file_dir, 'figs_sde'), exist_ok=True)
+
+    plt.tight_layout()
+    plt.savefig(f'{figpath}.png')
+    plt.savefig(f'{figpath}.pdf')
+    plt.close()
 
 
 # %% Main Code Block
@@ -171,8 +207,13 @@ if __name__ == '__main__':
     # plot_polarization_sweep(now_str=now_str, pol_counts_filepath=pol_counts_filepath, save_pdf=False)
     # print("COMPLETED: plot_polarization_sweep")
 
+    # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
+    # print("STARTING: plot_min_max_avg_counts_vs_current")
+    # plot_min_max_avg_counts_vs_current(now_str=now_str, data_filepath='data/SK3_data_dict__20241212-225454.pkl', save_pdf=False)
+    # print("COMPLETED: plot_min_max_avg_counts_vs_current")
+
     now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
-    print("STARTING: plot_min_max_avg_counts_vs_current")
-    plot_min_max_avg_counts_vs_current(now_str=now_str, data_filepath='data/SK3_data_dict__20241212-225454.pkl', save_pdf=False)
-    print("COMPLETED: plot_min_max_avg_counts_vs_current")
+    nonlinearity_processed_filepath = os.path.join(current_file_dir, 'data_sde', 'nonlinearity_processed__20241231-215233.pkl')
+    plot_nonlinearity_data(nonlinearity_processed_filepath)
+
 # %%

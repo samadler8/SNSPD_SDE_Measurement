@@ -20,6 +20,8 @@ from amcc.instruments.agilent_34411a import Agilent34411A
 
 from SNSPD_SDE_Measurement.measurement_helpers import *
 
+current_file_dir = Path(__file__).parent
+
 sim900port = 5
 srs = SIM928('GPIB0::2::INSTR', sim900port)
 counter = Agilent53131a('GPIB0::5::INSTR')

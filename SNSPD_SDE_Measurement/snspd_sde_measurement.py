@@ -7,6 +7,7 @@ import scipy
 import numpy as np
 import pandas as pd
 
+from pathlib import Path
 from datetime import datetime, timedelta
 
 from amcc.instruments.srs_sim928 import SIM928
@@ -19,7 +20,11 @@ from amcc.instruments.agilent_8163a import Agilent8163A
 from amcc.instruments.fiberControl_MPC101 import FiberControlMPC101
 from amcc.instruments.agilent_34411a import Agilent34411A
 
-from SNSPD_SDE_Measurement.measurement_helpers import *
+from measurement_helpers import *
+from helpers import *
+
+current_file_dir = Path(__file__).parent
+
 
 srs = SIM928('GPIB0::2::INSTR', 5)
 laser = AndoAQ82011('GPIB0::4::INSTR', 1)
@@ -158,12 +163,11 @@ def nonlinearity_factor_raw_power_meaurements(now_str="{:%Y%m%d-%H%M%S}".format(
 
     N = 10
    
-    base_array = range(-7, 7)
+    base_array = range(2, 20)
     att_setting = {}
 
-    rng_settings = [0, -10, -20, -30, -40, -50, -60]
+    rng_settings = [-10, -20, -30, -40, -50, -60]
 
-    # rng is range setting
     total_data = 0
     for rng in rng_settings:
         att_setting[rng] = [value for value in (val - rng - 10 for val in base_array) if value >= 0]
@@ -172,7 +176,6 @@ def nonlinearity_factor_raw_power_meaurements(now_str="{:%Y%m%d-%H%M%S}".format(
     total_data *= 2*N
 
 
-    
 
     data = []
 

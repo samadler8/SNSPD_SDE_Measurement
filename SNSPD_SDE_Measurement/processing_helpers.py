@@ -1,11 +1,15 @@
 import os
 import hashlib
 import logging
+from pathlib import Path
 
 import numpy as np
 
 
 logger = logging.getLogger(__name__)
+
+current_file_dir = Path(__file__).parent
+
 
 def compute_sha1_hash(filename):
     if os.path.isfile(filename):
