@@ -55,16 +55,11 @@ def get_mean_uncertainty(rawdata):
     return avg, unc
 
 
-def get_plateau(data):
-    Cur_Array = np.array(data['Cur_Array'])
-    Count_Array = np.array(data['Count_Array'])
-    Dark_Count_Array = np.array(data['Dark_Count_Array'])
-    Real_Count_Array = np.maximum(Count_Array - Dark_Count_Array, 0)
-
-    max_counts = np.sort(Real_Count_Array)[-2]
+def get_plateau(Cur_Array, Count_Array):
+    max_counts = np.sort(Count_Array)[-2]
 
     threshold = 0.94 * max_counts
-    plateau_indices = np.where(Real_Count_Array >= threshold)[0]
+    plateau_indices = np.where(Count_Array >= threshold)[0]
 
     if len(plateau_indices) > 0:
         return Cur_Array[plateau_indices[-1]] - Cur_Array[plateau_indices[0]]

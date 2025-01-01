@@ -1,8 +1,7 @@
 numpy
-PySerial
-PyVisa
 pandas
+matplotlib
 plotly
-kaleido
-pickle
 scipy
+lmfit
+uncertainties

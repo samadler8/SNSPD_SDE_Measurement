@@ -6,9 +6,11 @@ import pickle
 import numpy as np
 import pandas as pd
 
+
 import scipy.constants as codata
 
 from datetime import datetime
+from pathlib import Path
 
 from scipy.interpolate import interp1d
 from uncertainties import ufloat, correlated_values
@@ -18,6 +20,8 @@ from processing_helpers import *
 
 logger = logging.getLogger(__name__)
 
+current_file_dir = Path(__file__).parent
+
 wavelength = 1566.314 #nm
 
 class PMCorrectLinearUnc:
@@ -26,41 +30,35 @@ class PMCorrectLinearUnc:
     and range discontinuity adjustments.
     """
 
-    def __init__(self, fname=None):
+    def __init__(self, fname):
         """
         Initialize the correction class with a pickle file.
         """
-        self._fname = fname
+        self.fname = fname
         self.fit_params = None
         self.covar = None
         self.rng_disc = {}
-        if self._fname:
-            self.load()
+        self.load()
 
     def load(self):
         """
         Load calibration data from a pickle file.
         """
-        if not self._fname:
-            logger.error("No file provided for loading calibration data.")
-            return
 
         try:
             # Load data from pickle file
-            data = pd.read_pickle(self._fname)
+            data = pd.read_pickle(self.fname)
             self.fit_params = data["fit_params"]
             self.covar = data["covar"]
             self.rng_disc = data["rng_disc"]
-            logger.info(f"Calibration data successfully loaded from {self._fname}")
+            logger.info(f"Calibration data successfully loaded from {self.fname}")
         except Exception as e:
-            logger.error(f"Failed to load calibration data from {self._fname}: {e}")
+            logger.error(f"Failed to load calibration data from {self.fname}: {e}")
 
     def power(self, reading, rng=None):
         """
         Correct the power reading, applying linearization and range discontinuities.
         """
-        if not self._fname:
-            return ufloat(reading, 0)
         return self.fix_power_unc(reading, rng)
 
     def fix_power_unc(self, reading, rng=None):
@@ -78,14 +76,17 @@ class PMCorrectLinearUnc:
         """
         Compute linearized power with uncertainties for a given power reading and meter range setting.
         """
-        if not self.fit_params or not self.covar:
+        if not self.fit_params or self.covar is None or self.covar.size == 0:
             logger.error("Fit parameters or covariance matrix not loaded.")
             return ufloat(reading, 0)
 
-        params_unc = correlated_values(
-            [self.fit_params[name]["value"] for name in self.fit_params],
-            self.covar,
-        )
+
+        logger.debug(f" fit_params: {self.fit_params}")
+        logger.debug(f" Covariance matrix diagonal (variances): {np.diag(self.covar)}", )
+        logger.debug(f" covar shape: {self.covar.shape}")
+        logger.debug(f" Number of fit_params: {len(self.fit_params)}")
+
+        params_unc = correlated_values([self.fit_params[name] for name in self.fit_params.keys()], self.covar, )
         result = reading
         k = 2
         name = f"b{k - rng * 10}"
@@ -97,6 +98,7 @@ class PMCorrectLinearUnc:
             name = f"b{k - rng * 10}"
 
         return result
+
 
     @staticmethod
     def estimate_range(reading):
@@ -120,14 +122,15 @@ def extract_counts_unc(filename):
     Maxpol_Count_Array = np.array(data_dict['Maxpol_Count_Array'])
     Minpol_Count_Array = np.array(data_dict['Minpol_Count_Array'])
     Dark_Count_Array = np.array(data_dict['Dark_Count_Array'])
+    Cur_Array = np.array(data_dict['Cur_Array'])
 
     # Compute the Averagepol_Count_Array
     Light_Count_Array = (Maxpol_Count_Array + Minpol_Count_Array) / 2
 
     # Compute bias, light, dark, and net with uncertainties
     if Dark_Count_Array.ndim == 1:
-        plateau_dark = get_plateau(Dark_Count_Array)
-        plateau_light = get_plateau(Light_Count_Array)
+        plateau_dark = get_plateau(Cur_Array, Dark_Count_Array)
+        plateau_light = get_plateau(Cur_Array, Light_Count_Array)
         dark = unp.uarray(Dark_Count_Array, Dark_Count_Array*(np.std(plateau_dark))/np.mean(plateau_dark))
         light = unp.uarray(Light_Count_Array, Light_Count_Array*(np.std(plateau_light))/np.mean(plateau_light))
     else:
@@ -202,10 +205,10 @@ def calculate_switch_correction_unc(filepath, correction=None):
     # Extract measurement data from the DataFrame
     power_mpm_dict = switchdata['power_mpm_dict']
     power_mpm = np.array([value for d in power_mpm_dict for value in d.values()])
-    power_cpm = switchdata['power_cpm']
+    power_cpm = np.array(switchdata['power_cpm'])  # Convert to NumPy array
 
     power_mpm = power_mpm.reshape(1, -1)  # Ensure 1 row and the necessary number of columns
-    power_cpm = power_cpm.reshape(1, -1)  # Ensure 1 row and the necessary number of columns
+    power_cpm = power_cpm.reshape(1, -1)
 
     # Compute mean and standard deviation for each measurement
     power_mpm_mean, power_mpm_std = get_mean_uncertainty(power_mpm)
@@ -239,8 +242,7 @@ def compute_efficiency_unc(config):
     filename = config['filename']
     bias, net = extract_counts_unc(filename)
     
-    nonlinear_calibration_data = pd.read_pickle(config['nonlinear_processed'])
-    correction = PMCorrectLinearUnc(nonlinear_calibration_data)
+    correction = PMCorrectLinearUnc(config['nonlinear_processed_path'])
 
     switch_correction = calculate_switch_correction_unc(config['switch_file'], correction)
 
@@ -279,14 +281,14 @@ def compute_efficiency_unc(config):
 
 if __name__ == '__main__':
 
-    logging.basicConfig(level=logging.INFO)
-    logger.setLevel(logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
+    logger.setLevel(logging.DEBUG)
     logger.debug('hello debug mode')
 
     self_filename = os.path.basename(__file__)
     self_sha1hash = compute_sha1_hash(__file__)
 
-    NIST_pm_calib_path = os.path.join('calibration', 'SWN HP81521B 2933G05261.xlsx')
+    NIST_pm_calib_path = os.path.join(current_file_dir, 'calibration_power_meter', 'SWN HP81521B 2933G05261.xlsx')
     calib_df = pd.read_excel(NIST_pm_calib_path, sheet_name='Data')
     wl = calib_df['Wav (nm)'].values
     cf_list = calib_df['Cal. Factor'].values
@@ -294,10 +296,10 @@ if __name__ == '__main__':
     cf_err = max(cf_err_list*cf_list)
     cf_interp = interp1d(wl, cf_list, kind='cubic')
 
-    nonlin_processed_path = os.path.join('data_sde', '.pkl')
-    switch_path = 'data_sde/optical_switch_calibration_data,pkl'
-    attcal_path = os.path.join('data_sde', 'attenuator_calibration_data__20241212-225454.pkl')
-    fpath = os.path.join('data_sde', 'SK3_data_dict__20241212-225454.pkl')
+    nonlin_processed_path = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data__.pkl')
+    switch_path = os.path.join(current_file_dir, 'data_sde', 'optical_switch_calibration_data.pkl')
+    attcal_path = os.path.join(current_file_dir, 'data_sde', 'attenuator_calibration_data__20241212-225454.pkl')
+    fpath = os.path.join(current_file_dir, 'data_sde', 'SK3_data_dict__20241212-225454.pkl')
 
     config = {}
     logger.info(f' Counts data file: {fpath}')
@@ -315,7 +317,7 @@ if __name__ == '__main__':
     else:
         logger.info(f' Switching ratio file: {switch_path}')
     if not os.path.exists(nonlin_processed_path):
-        logger.info(f' No switch file found')
+        logger.info(f' No nonlinearity analysis file found')
         sys.exit(1)
     else:
         logger.info(f' Nonlinearity analysis file: {nonlin_processed_path}')
@@ -333,7 +335,7 @@ if __name__ == '__main__':
     
     bias, eff, counts_expected = compute_efficiency_unc(config)
 
-    final_results_filepath = os.path.join('data_sde', f'final_results__{"{:%Y%m%d-%H%M%S}".format(datetime.now())}.txt')
+    final_results_filepath = os.path.join(current_file_dir, 'data_sde', f'final_results__{"{:%Y%m%d-%H%M%S}".format(datetime.now())}.txt')
 
     with open(final_results_filepath, 'w') as file:
         file.write(f"Bias: {bias}\n")

@@ -9,10 +9,14 @@ import pandas as pd
 from uncertainties import unumpy as unp
 from scipy.optimize import brute
 from uncertainties import ufloat, correlated_values
+from pathlib import Path
+from datetime import datetime
 
 from processing_helpers import *
 
 logger = logging.getLogger(__name__)
+
+current_file_dir = Path(__file__).parent
 
 def extract_nonlinearity_data(filepath):
     """
@@ -30,7 +34,6 @@ def extract_nonlinearity_data(filepath):
 
     # Get unique and sorted ranges from the dataframe
     ranges = df['Range'].unique()
-    ranges.sort()
 
     # Initialize a dictionary to store the results
     d = {}
@@ -75,32 +78,27 @@ def extract_nonlinearity_data(filepath):
 
     return d
 
-
-
-
-
-def initialize_parameters(N_list, ranges):
+def initialize_parameters(poly_order_list, ranges):
     """
     Initialize lmfit.Parameters for fitting polynomial coefficients.
 
     Args:
-        N_list (list): List of maximum polynomial orders for each range.
+        poly_order_list (list): List of maximum polynomial orders for each range.
         ranges (list): List of ranges corresponding to the data.
 
     Returns:
         lmfit.Parameters: Initialized parameters for the fitting process.
     """
     params = lmfit.Parameters()
-    params.add('tau', value=0.5)  # Add the initial parameter tau
+    params.add('tau', value=0.5)  # Add the initial parameter tau (set to 0.5 becasue tau refers to the second attenuator being set to 3 dBmW which effectively halves the power)
 
-    for idx, rng in enumerate(ranges):
-        max_order = N_list[idx]
+    for i, rng in enumerate(ranges):
+        max_order = poly_order_list[i]
         for order in range(2, max_order + 1):
             param_name = f"b{-rng}{order}"
             params.add(param_name, value=0)
 
     return params
-
 
 def calculate_residuals(params, d):
     """
@@ -116,15 +114,18 @@ def calculate_residuals(params, d):
     residuals = []
 
     for rng, data in d.items():
-        v = data['v']
-        vt = data['vt']
-        v_unc = data['vstd']
-        vt_unc = data['vtstd']
+        # Extract nominal values and uncertainties
+        v = unp.nominal_values(data['v'])
+        vt = unp.nominal_values(data['vt'])
+        v_unc = unp.std_devs(data['v'])
+        vt_unc = unp.std_devs(data['vt'])
 
+        # Initialize the model
         model = vt - params['tau'] * v
         order = 2
         param_name = f"b{-rng}{order}"
 
+        # Add higher-order terms if available
         while param_name in params:
             model += params[param_name] * (vt**order - params['tau'] * v**order)
             order += 1
@@ -134,8 +135,8 @@ def calculate_residuals(params, d):
         uncertainty = np.sqrt(vt_unc**2 + (params['tau'] * v_unc)**2)
         residuals.append(model / uncertainty)
 
+    # Return residuals as a flattened array
     return np.hstack(residuals)
-
 
 def reduced_chi_squared(N_list, d, ranges):
     """
@@ -154,32 +155,12 @@ def reduced_chi_squared(N_list, d, ranges):
     fit_result = lmfit.minimize(calculate_residuals, params, method='leastsq', args=(d,))
     return fit_result.redchi
 
-
-def optimize_polynomial_orders(d, ranges):
-    """
-    Optimize polynomial orders for each range using a brute force approach.
-
-    Args:
-        d (dict): Averaged data structured by ranges.
-        ranges (list): List of ranges corresponding to the data.
-
-    Returns:
-        np.ndarray: Optimized polynomial orders for each range.
-    """
-    param_space = (slice(1, 6, 1),) * len(ranges)  # Order range: 1 to 5 inclusive
-    optimized_orders = brute(reduced_chi_squared, param_space, args=(d, ranges))
-    return optimized_orders.astype(int)
-
-
-
-def find_poly_fit(d, ranges, orders=np.array([4, 3, 2, 2, 2, 2])):
+def find_poly_fit(d, ranges, poly_order_list):
     # Polynomial orders should minimize reduced chi-square
-    # See methods named 'redchi' and 'optimize_orders' below
-    params = initialize_parameters(orders, ranges)
+    params = initialize_parameters(poly_order_list, ranges)
     fit = lmfit.minimize(calculate_residuals, params, method='leastsq', args=(d,))
     logger.debug(lmfit.fit_report(fit.params))
     return fit
-
 
 def P_range(params, rng, v):
     """
@@ -195,7 +176,6 @@ def P_range(params, rng, v):
         k += 1
         name = f'b{k-rng*10}'
     return out
-
 
 def P_range_unc(params, covar, rng, v):
     """
@@ -223,7 +203,7 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     logger.setLevel(logging.INFO)
 
-    fpath = 'data_sde/SK3_data_dict__20241212-225454.pkl'
+    fpath = os.path.join(current_file_dir, 'data_sde', 'nonlinearity_factor_raw_power_meaurements_data_20241210-174441.pkl')
     logger.info(f'Processing file: {fpath}')
 
     # Extract nonlinearity data and ranges
@@ -231,12 +211,13 @@ if __name__ == '__main__':
     ranges = d.keys()
 
     # Optimize polynomial orders
-    N_list = optimize_polynomial_orders(d, ranges)
-    N_list = N_list.astype(int).tolist()
-    logger.info(f'Optimized polynomial orders: {N_list}')
+    poly_order_param_space = (slice(1, 6, 1),) * len(ranges)  # order range: 1 to 5 inclusive
+    optimized_orders = brute(reduced_chi_squared, poly_order_param_space, args=(d, ranges)) # Optimize polynomial orders for each range using a brute force approach.
+    poly_order_list = optimized_orders.astype(int).tolist()
+    logger.info(f'Optimized polynomial orders: {poly_order_list}')
 
     # Fit polynomial and calculate range discontinuities
-    fit = find_poly_fit(d, ranges, N_list)
+    fit = find_poly_fit(d, ranges, poly_order_list)
     logger.info(f'Fit reduced chi-squared: {fit.redchi}')
 
     rng_disc = {}
@@ -244,12 +225,29 @@ if __name__ == '__main__':
     rng_disc_factor = ufloat(1, 0)
 
     for rng in ranges:
+        logger.debug(f'rng in ranges: {rng}')
+
+        if rng + 10 not in ranges:
+            logger.warning(f"Skipping range {rng} as {rng + 10} is not in ranges.")
+            continue
+
         overlap = set(d[rng]['att']).intersection(d[rng + 10]['att'])
         idx1 = [list(d[rng]['att']).index(x) for x in overlap]
         idx2 = [list(d[rng + 10]['att']).index(x) for x in overlap]
-        ratio = (P_range_unc(fit.params, fit.covar, rng, d[rng]['v'][idx1])/P_range_unc(fit.params, fit.covar, rng + 10, d[rng + 10]['v'][idx2]))
-        rng_disc_factor *= ufloat(np.mean(ratio), np.std(ratio))
+
+        # Compute the ratio of powers with uncertainties
+        ratio = P_range_unc(fit.params, fit.covar, rng, d[rng]['v'][idx1]) / \
+                P_range_unc(fit.params, fit.covar, rng + 10, d[rng + 10]['v'][idx2])
+
+        # Extract nominal values for mean and standard deviation calculation
+        ratio_nominal = unp.nominal_values(ratio)
+        ratio_std_dev = unp.std_devs(ratio)
+
+        # Update the discontinuity factor with the mean and uncertainty
+        rng_disc_factor *= ufloat(np.mean(ratio_nominal), np.std(ratio_std_dev))
         rng_disc[rng] = rng_disc_factor
+
+
 
     # Save calibration data to a pickle file
     nonlinear_calibration_data = {
@@ -257,6 +255,6 @@ if __name__ == '__main__':
         "covar": fit.covar,
         "rng_disc": rng_disc,
     }
-    calibration_filepath = os.path.join("data_sde", "nonlinear_calibration_data__.pkl")
+    calibration_filepath = os.path.join(current_file_dir, "data_sde", f"nonlinear_calibration_data__{"{:%Y%m%d-%H%M%S}".format(datetime.now())}.pkl")
     pd.to_pickle(nonlinear_calibration_data, calibration_filepath)
     logger.info(f"Calibration data saved to {calibration_filepath}")
