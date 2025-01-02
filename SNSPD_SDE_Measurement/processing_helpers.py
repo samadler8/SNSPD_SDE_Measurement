@@ -1,15 +1,14 @@
 import os
 import hashlib
 import logging
-from pathlib import Path
 
 import numpy as np
 
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 current_file_dir = Path(__file__).parent
-
 
 def compute_sha1_hash(filename):
     if os.path.isfile(filename):
@@ -23,48 +22,31 @@ def compute_sha1_hash(filename):
         logger.debug("compute_sha1_hash: File does not exist. Returning None.")
         return None
 
-def get_mean_uncertainty(rawdata):
+def get_plateau(current_array, count_array):
     """
-    Estimate the uncertainty for each row of raw data. 
+    Extracts the plateau region from the given current and count arrays.
 
-    The function uses the standard deviation as the primary uncertainty measure. 
-    If the standard deviation is too small, a minimum uncertainty is calculated
-    based on a uniform distribution for quantization error, specific to ANDO 
-    power meters with limited resolution.
-
-    Parameters:
-        rawdata (numpy.ndarray): 2D array of raw data, where each row represents
-                                a set of measurements.
+    Args:
+        current_array (np.ndarray): Array of current values.
+        count_array (np.ndarray): Array of count values.
 
     Returns:
-        numpy.ndarray: 1D array of uncertainties for each row.
+        tuple: A tuple containing the plateau region of the current and count arrays.
+               If no plateau is found, returns (None, None).
     """
-    import numpy as np
+    # Calculate the threshold for identifying the plateau
+    sorted_counts = np.sort(count_array)
+    max_average_counts = np.mean(sorted_counts[-4:-1])  # Mean of the top 3 values (ignoring the highest)
+    threshold = 0.95 * max_average_counts
 
-    # Calculate standard deviation and mean for each row
-    std = rawdata.std(axis=1, ddof=1)
-    avg = rawdata.mean(axis=1)
+    # Identify indices where counts meet or exceed the threshold
+    plateau_indices = np.where(count_array >= threshold)[0]
 
-    # Initialize the minimum uncertainty array
-    min_unc = np.zeros_like(avg)
-
-    # Define minimum uncertainty based on quantization error for different ranges
-    min_unc[avg > 1e-9] = 1e-12 * 0.5 / (3**0.5)
-    min_unc[avg > 1e-6] = 1e-9 * 0.5 / (3**0.5)
-    min_unc[avg > 1e-3] = 1e-6 * 0.5 / (3**0.5)
-
-    # Replace small standard deviations with the minimum uncertainty
-    unc = np.maximum(std, min_unc)
-
-    return avg, unc
-
-
-def get_plateau(Cur_Array, Count_Array):
-    max_counts = np.sort(Count_Array)[-2]
-
-    threshold = 0.94 * max_counts
-    plateau_indices = np.where(Count_Array >= threshold)[0]
-
+    # Return the plateau region if indices are found
     if len(plateau_indices) > 0:
-        return Cur_Array[plateau_indices[-1]] - Cur_Array[plateau_indices[0]]
-    return 0
+        plateau_cur = current_array[plateau_indices[0]:plateau_indices[-1] + 1]
+        plateau_counts = count_array[plateau_indices[0]:plateau_indices[-1] + 1]
+        return plateau_cur, plateau_counts
+
+    # Return None if no plateau is found
+    return None, None

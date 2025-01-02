@@ -66,7 +66,9 @@ def process_temperature(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.now()), t
         interpolated_temp = interpolate_temperature(timestamp, temperature_dict)
         if interpolated_temp is not None:
             temperatures.append(interpolated_temp)
-            plateau_widths.append(get_plateau(data))
+            plateau_cur, _ = get_plateau(data)
+            plateau_width = plateau_cur[-1] - plateau_cur[0]
+            plateau_widths.append(plateau_width)
 
     df = pd.DataFrame(
         {'temperatures': temperatures,

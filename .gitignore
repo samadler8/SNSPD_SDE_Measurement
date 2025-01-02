@@ -5,6 +5,8 @@
 *.zip
 *.png
 *.pyc
+*.png
+*.pdf
 
 
 MANIFEST

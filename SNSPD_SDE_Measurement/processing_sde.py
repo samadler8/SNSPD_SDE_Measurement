@@ -5,8 +5,6 @@ import pickle
 
 import numpy as np
 import pandas as pd
-
-
 import scipy.constants as codata
 
 from datetime import datetime
@@ -16,6 +14,7 @@ from scipy.interpolate import interp1d
 from uncertainties import ufloat, correlated_values
 from uncertainties import unumpy as unp
 
+from helpers import *
 from processing_helpers import *
 
 logger = logging.getLogger(__name__)
@@ -48,6 +47,7 @@ class PMCorrectLinearUnc:
         try:
             # Load data from pickle file
             data = pd.read_pickle(self.fname)
+            logging.debug(f"PMCorrectLinearUnc load data: {data}")
             self.fit_params = data["fit_params"]
             self.covar = data["covar"]
             self.rng_disc = data["rng_disc"]
@@ -55,58 +55,50 @@ class PMCorrectLinearUnc:
         except Exception as e:
             logger.error(f"Failed to load calibration data from {self.fname}: {e}")
 
-    def power(self, reading, rng=None):
+    def power(self, v, rng=None):
         """
         Correct the power reading, applying linearization and range discontinuities.
         """
-        return self.fix_power_unc(reading, rng)
+        return self.fix_power_unc(v, rng)
 
-    def fix_power_unc(self, reading, rng=None):
+    def fix_power_unc(self, v, rng=None):
         """
         Apply corrections for both nonlinearity and range discontinuity.
         """
         if rng is None:
-            rng = self.estimate_range(reading)
-            logger.debug(f"Estimated range: {rng} for reading: {reading}")
+            rng = self.estimate_range(v)
+            logger.debug(f"Estimated range: {rng} for reading: {v}")
 
-        corrected_power = self.fix_power_nonlinearity_unc(reading, rng)
-        return corrected_power / self.rng_disc.get(rng, ufloat(1, 0))
+        corrected_power = self.fix_power_nonlinearity_unc(v, rng)
+        return corrected_power / self.rng_disc[rng]
 
-    def fix_power_nonlinearity_unc(self, reading, rng=-10):
+    def fix_power_nonlinearity_unc(self, v, rng=-10):
         """
         Compute linearized power with uncertainties for a given power reading and meter range setting.
         """
         if not self.fit_params or self.covar is None or self.covar.size == 0:
             logger.error("Fit parameters or covariance matrix not loaded.")
-            return ufloat(reading, 0)
-
-
-        logger.debug(f" fit_params: {self.fit_params}")
-        logger.debug(f" Covariance matrix diagonal (variances): {np.diag(self.covar)}", )
-        logger.debug(f" covar shape: {self.covar.shape}")
-        logger.debug(f" Number of fit_params: {len(self.fit_params)}")
-
+            return ufloat(v, 0)
+        order = 2
+        result = v
+        name = get_param_name(rng, order)
         params_unc = correlated_values([self.fit_params[name] for name in self.fit_params.keys()], self.covar, )
-        result = reading
-        k = 2
-        name = f"b{k - rng * 10}"
-
+        
         while name in self.fit_params:
             coeff = params_unc[list(self.fit_params.keys()).index(name)]
-            result += coeff * (reading ** k)
-            k += 1
-            name = f"b{k - rng * 10}"
+            result += coeff * (v ** order)
+            order += 1
+            name = get_param_name(rng, order)
 
         return result
 
-
     @staticmethod
-    def estimate_range(reading):
+    def estimate_range(v):
         """
         Estimate the power meter range based on the reading.
         """
-        rng = int(np.floor(np.log10(reading) + 1))
-        if reading <= 10 ** (rng - 1):
+        rng = int(np.floor(np.log10(v) + 1))
+        if v <= 10 ** (rng - 1):
             rng -= 1
         return 10 * (rng + 3)
 
@@ -129,10 +121,10 @@ def extract_counts_unc(filename):
 
     # Compute bias, light, dark, and net with uncertainties
     if Dark_Count_Array.ndim == 1:
-        plateau_dark = get_plateau(Cur_Array, Dark_Count_Array)
-        plateau_light = get_plateau(Cur_Array, Light_Count_Array)
-        dark = unp.uarray(Dark_Count_Array, Dark_Count_Array*(np.std(plateau_dark))/np.mean(plateau_dark))
-        light = unp.uarray(Light_Count_Array, Light_Count_Array*(np.std(plateau_light))/np.mean(plateau_light))
+        _, plateau_dark_counts = get_plateau(Cur_Array, Dark_Count_Array)
+        _, plateau_light_counts = get_plateau(Cur_Array, Light_Count_Array)
+        dark = unp.uarray(Dark_Count_Array, Dark_Count_Array*(np.std(plateau_dark_counts))/np.mean(plateau_dark_counts))
+        light = unp.uarray(Light_Count_Array, Light_Count_Array*(np.std(plateau_light_counts))/np.mean(plateau_light_counts))
     else:
         dark = unp.uarray(np.mean(Dark_Count_Array, axis=1), np.std(Dark_Count_Array, axis=1))
         light = unp.uarray(np.mean(Light_Count_Array, axis=1), np.std(Light_Count_Array, axis=1))
@@ -145,12 +137,15 @@ def extract_raw_powers_unc(att_cal_filepath):
     '''
     Extracts powers with uncertainty from the attenuation calibration file.
     '''
+    logging.debug(f"extract_raw_powers_unc")
 
     with open(att_cal_filepath, 'rb') as file:
         powers_data = pickle.load(file)
 
     if not isinstance(powers_data, pd.DataFrame):
         powers_data = pd.DataFrame(powers_data)
+
+    logging.debug(f"powers_data: {powers_data}")
 
     columns = ['Attenuator', 'Attenuation (dB)', 'Range', 'Power Mean', 'Power Std']
     new_powers_data = pd.DataFrame(columns=columns)
@@ -176,19 +171,18 @@ def extract_raw_powers_unc(att_cal_filepath):
         powers_mean = np.mean(all_powers)
         powers_std = np.std(all_powers, ddof=1)  # Use ddof=1 for sample std deviation
 
-        # Append the calculated values to the new dataframe
-        new_powers_data = new_powers_data.append({
+        # Append the calculated values to the new dataframe using pd.concat
+        new_powers_data = pd.concat([new_powers_data, pd.DataFrame([{
             'Attenuator': attenuator,
             'Attenuation (dB)': attval,
             'Range': rng,
             'Power Mean': powers_mean,
             'Power Std': powers_std,
-        }, ignore_index=True)
+        }])], ignore_index=True)
 
     return new_powers_data
 
-
-def calculate_switch_correction_unc(filepath, correction=None):
+def calculate_switch_correction_unc(filepath, correction):
     """
     Computes switching ratio with errors and applies nonlinearity correction if provided.
     
@@ -203,36 +197,38 @@ def calculate_switch_correction_unc(filepath, correction=None):
     switchdata = pd.read_pickle(filepath)
 
     # Extract measurement data from the DataFrame
-    power_mpm_dict = switchdata['power_mpm_dict']
-    power_mpm = np.array([value for d in power_mpm_dict for value in d.values()])
-    power_cpm = np.array(switchdata['power_cpm'])  # Convert to NumPy array
+    power_mpm = switchdata['power_mpm']
+    power_cpm = switchdata['power_cpm']
+    
+    power_mpm_unc = power_mpm.iloc[0]
+    power_cpm_unc = power_cpm.iloc[0]
 
-    power_mpm = power_mpm.reshape(1, -1)  # Ensure 1 row and the necessary number of columns
-    power_cpm = power_cpm.reshape(1, -1)
-
-    # Compute mean and standard deviation for each measurement
-    power_mpm_mean, power_mpm_std = get_mean_uncertainty(power_mpm)
-    power_cpm_mean, power_cpm_std = get_mean_uncertainty(power_cpm)
-
-    # Combine mean and standard deviation into uncertainties package arrays
-    power_mpm_unc = unp.uarray(power_mpm_mean, power_mpm_std)
-    power_cpm_unc = unp.uarray(power_cpm_mean, power_cpm_std)
+    # power_mpm = np.array([value for d in power_mpm for value in d.values()])
+    # power_mpm = power_mpm.reshape(1, -1)
+    # power_mpm_mean, power_mpm_std = get_mean_uncertainty(power_mpm)
+    # power_mpm_unc = ufloat(power_mpm_mean, power_mpm_std)
+    
+    # power_cpm = np.array(switchdata['power_cpm'])  # Convert to NumPy array
+    # power_cpm = power_cpm.reshape(1, -1)
+    # power_cpm_mean, power_cpm_std = get_mean_uncertainty(power_cpm)
+    # power_cpm_unc = ufloat(power_cpm_mean, power_cpm_std)
+        
 
     # Apply nonlinearity corrections if provided
     if correction is not None:
         logger.info("Applying nonlinearity corrections.")
-        power_mpm_unc = np.array([correction.power(p, -10) for p in power_mpm_unc])
+        power_mpm_unc = correction.fix_power_unc(power_mpm_unc, -10,)
 
-    ratio = power_mpm_unc / power_cpm_unc
+    switch_correction_unc = power_mpm_unc / power_cpm_unc
 
-    # Combine statistical and systematic errors
-    ratio_mean = unp.nominal_values(ratio.mean())
-    ratio_std_stat = unp.std_devs(ratio.mean())
-    ratio_std_sys = unp.nominal_values(ratio).std()
-    switch_correction_std = np.sqrt(ratio_std_stat**2 + ratio_std_sys**2)
+    # # Combine statistical and systematic errors
+    # ratio_mean = unp.nominal_values(ratio)
+    # ratio_std_stat = unp.std_devs(ratio)
+    # ratio_std_sys = unp.nominal_values(ratio).std()
+    # switch_correction_std = np.sqrt(ratio_std_stat**2 + ratio_std_sys**2)
 
-    # Compute final correction with uncertainty
-    switch_correction_unc = ufloat(ratio_mean, switch_correction_std)
+    # # Compute final correction with uncertainty
+    # switch_correction_unc = ufloat(ratio_mean, switch_correction_std)
 
     return switch_correction_unc
 
@@ -246,27 +242,44 @@ def compute_efficiency_unc(config):
 
     switch_correction = calculate_switch_correction_unc(config['switch_file'], correction)
 
-    att_cal_data = extract_raw_powers_unc(config['attcal_file'])
-    atts = att_cal_data['Attenuator'].unique()
+    # att_cal_data = extract_raw_powers_unc(config['attcal_file'])
+    att_cal_data = pd.read_pickle(config['attcal_file'])
+    logging.debug(f"att_cal_data: {att_cal_data}")
+    atts = [1, 2, 3]
 
-    filtered0_att_cal_data = att_cal_data[att_cal_data['Attenuator'] == None]
-    power_0 = correction.power(filtered0_att_cal_data['Power Mean'], filtered0_att_cal_data['Range'])
+    filtered0_att_cal_data = att_cal_data[att_cal_data['Attenuation (dB)'] == 0]
+    power_0 = ufloat(filtered0_att_cal_data['Power Mean'].iloc[0], filtered0_att_cal_data['Power Std'].iloc[0])
+    rng_0 = filtered0_att_cal_data['Range'].iloc[0]
+    power_0 = correction.power(power_0, rng_0)
     power_atts = []
     for att in atts:
         filteredAtt_att_cal_data = att_cal_data[att_cal_data['Attenuator'] == att]
-        power_atts.append(correction.power(filteredAtt_att_cal_data['Power Mean'], filteredAtt_att_cal_data['Range']))
+        power_att = ufloat(filteredAtt_att_cal_data['Power Mean'].iloc[0], filteredAtt_att_cal_data['Power Std'].iloc[0])
+        rng_att = filteredAtt_att_cal_data['Range'].iloc[0]
+        # Something is going very wrong here. Skip for now
+        # power_atts.append(correction.power(power_att, rng_att))
+        power_atts.append(power_att)
 
+    logging.debug(f"Corrected attenuation powers")
+    logging.debug(f"power_0: {power_0}")
+    logging.debug(f"power_atts: {power_atts}")
     # Energy per photon
-    E = codata.h * codata.c / wavelength
+    E = codata.h * codata.c / (wavelength * 1e-9)
+    logging.debug(f"E: {E}")
+
 
     # Calculate expected counts
-    counts_expected = power_0[-1] / E
+    counts_expected = unp.nominal_values(power_0) / E
+    logging.debug(f"counts_expected without attenuation: {counts_expected}")
     for power_att in power_atts:
-        counts_expected *= power_att / power_0
+        counts_expected *= unp.nominal_values(power_att) / unp.nominal_values(power_0)
+    logging.debug(f"counts_expected post attenuation: {counts_expected}")
 
     # Apply switch correction and calibration factor
     counts_expected = counts_expected / switch_correction
     counts_expected = counts_expected / ufloat(config['CF'], config['CF_err'])
+    logging.debug(f"counts_expected post corrections: {counts_expected}")
+
 
     # Store results in the configuration dictionary
     config['counts_expected'] = f'{unp.nominal_values(counts_expected)}'
@@ -296,10 +309,10 @@ if __name__ == '__main__':
     cf_err = max(cf_err_list*cf_list)
     cf_interp = interp1d(wl, cf_list, kind='cubic')
 
-    nonlin_processed_path = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data__.pkl')
-    switch_path = os.path.join(current_file_dir, 'data_sde', 'optical_switch_calibration_data.pkl')
-    attcal_path = os.path.join(current_file_dir, 'data_sde', 'attenuator_calibration_data__20241212-225454.pkl')
-    fpath = os.path.join(current_file_dir, 'data_sde', 'SK3_data_dict__20241212-225454.pkl')
+    nonlin_processed_path = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data__20250102-045010.pkl')
+    switch_path = os.path.join(current_file_dir, 'data_sde', 'optical_switch_calibration_extrapolated_processed_20250101_204920.pkl')
+    attcal_path = os.path.join(current_file_dir, 'data_sde', 'attenuator_calibration_extrapolated_processed__20250102-054756.pkl')
+    fpath = os.path.join(current_file_dir, 'data_sde', 'SK3_data_dict__20241212-142132.pkl')
 
     config = {}
     logger.info(f' Counts data file: {fpath}')

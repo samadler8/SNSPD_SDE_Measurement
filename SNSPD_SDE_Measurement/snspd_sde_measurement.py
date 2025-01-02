@@ -3,6 +3,8 @@ import os
 import time
 import pickle
 import scipy
+import math
+import logging
 
 import numpy as np
 import pandas as pd
@@ -23,6 +25,7 @@ from amcc.instruments.agilent_34411a import Agilent34411A
 from measurement_helpers import *
 from helpers import *
 
+logger = logging.getLogger(__name__)
 current_file_dir = Path(__file__).parent
 
 
@@ -134,9 +137,9 @@ def optical_switch_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now())
         power_cpm = cpm.read_power()
         
         data_temp = (power_mpm_dict, power_cpm)
-        print(data_temp)
+        logging.debug(data_temp)
         data.append(data_temp)
-        print(f"{round(100*i/N, 2)}%")
+        logging.debug(f"{round(100*i/N, 2)}%")
 
     sw.set_route(monitor_port)
     for att in att_list:
@@ -194,8 +197,8 @@ def nonlinearity_factor_raw_power_meaurements(now_str="{:%Y%m%d-%H%M%S}".format(
                     # Append the data as a tuple
                     data_temp = (rng, a, att_step, j, power)
                     data.append(data_temp)
-                    print(f"data_temp: {data_temp}")
-                    print(f"{100*i/total_data}%")
+                    logging.debug(f"data_temp: {data_temp}")
+                    logging.debug(f"{100*i/total_data}%")
 
     sw.set_route(monitor_port)
     for att in att_list:
@@ -221,7 +224,7 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
     # Parameters
     N = 10
     init_rng = -10
-    att_rng = round((init_rng - attval) / 10) * 10 
+    att_rng = math.ceil((init_rng - attval + 5) / 10) * 10 
 
     # Initialize an empty DataFrame to store results
     columns = ['Attenuator', 'Attenuation (dB)', 'Range', 'Power Measurement']
@@ -274,13 +277,13 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
         for _ in range(N):
             temp_powers.append(mpm.get_power())
         powers_df = powers_df.append({
-            'Attenuator': atti,
+            'Attenuator': i,
             'Attenuation (dB)': attval,
             'Range': mpm.get_range(),
             'Power': temp_powers
         }, ignore_index=True)
 
-        print(f"{round(100 * i / len(att_list), 2)}% completed")
+        logging.debug(f"{round(100 * i / len(att_list), 2)}% completed")
 
     powers_df = powers_df.append({
         'Attenuator': None,
@@ -339,7 +342,7 @@ def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pi
     # res_min = scipy.optimize.minimize(meas_counts, initial_guess, args=(instruments, N, counting_time), bounds=bounds)
     # res_max = scipy.optimize.minimize(neg_meas_counts, initial_guess, args=(instruments, N, counting_time), bounds=bounds)
     # pol_counts = [(res_min['x'], res_min['fun']), (res_max['x'], res_max['fun'])]
-    # print(pol_counts)
+    # logging.debug(pol_counts)
 
     positions = np.linspace(-99.0, 100.0, num_pols)
     pol_counts = []
@@ -352,9 +355,9 @@ def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pi
                 position = (x, y, z)
                 counts = meas_counts(position, instruments, N=N, counting_time=counting_time)
                 temp_data = (position, counts)
-                print(temp_data)
+                logging.debug(temp_data)
                 pol_counts.append(temp_data)
-                print(f"{round(100*(i*positions.size**2 + j*positions.size + k)/((positions.size)**3), 2)}%")
+                logging.debug(f"{round(100*(i*positions.size**2 + j*positions.size + k)/((positions.size)**3), 2)}%")
     
     
     srs.set_voltage(0)
@@ -395,7 +398,7 @@ def SDE_Counts_Measurement(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), 
     for att in att_list:
         att.disable()
     Dark_Count_Array = get_counts(Cur_Array, instruments, trigger_voltage=trigger_voltage, bias_resistor=bias_resistor, counting_time=counting_time)
-    print("Got dark counts")
+    logging.debug("Got dark counts")
 
     # Max and min polarization measurements
     sw.set_route(detector_port)
@@ -406,12 +409,12 @@ def SDE_Counts_Measurement(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), 
     # Measure counts at max polarization
     pc.set_waveplate_positions(maxpol_settings)
     Maxpol_Count_Array = get_counts(Cur_Array, instruments, trigger_voltage=trigger_voltage, bias_resistor=bias_resistor, counting_time=counting_time)
-    print("Got counts for max polarization")
+    logging.debug("Got counts for max polarization")
 
     # Measure counts at min polarization
     pc.set_waveplate_positions(minpol_settings)
     Minpol_Count_Array = get_counts(Cur_Array, instruments, trigger_voltage=trigger_voltage, bias_resistor=bias_resistor, counting_time=counting_time)
-    print("Got counts for min polarization")
+    logging.debug("Got counts for min polarization")
 
     sw.set_route(monitor_port)
     for att in att_list:
@@ -437,24 +440,28 @@ def SDE_Counts_Measurement(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), 
 
 # %%
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.DEBUG)
+    logger.setLevel(logging.DEBUG)
+    logger.debug('hello debug mode')
+    
     # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
-    # print("STARTING: Algorithm S1.1 Missing Algorithm (optical switch calibration)")
+    # logging.debug("STARTING: Algorithm S1.1 Missing Algorithm (optical switch calibration)")
     # optical_switch_calibration_filepath = optical_switch_calibration(now_str=now_str, )
-    # print("COMPLETED: Algorithm S1.1 Missing Algorithm (optical switch calibration)")
+    # logging.debug("COMPLETED: Algorithm S1.1 Missing Algorithm (optical switch calibration)")
 
     # #
     # # The "detector" fiber can now be cut and respliced to the SNSPD
     # #
 
     # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
-    # print("STARTING: Algorithm S1. Nonlinearity factor raw power meaurements")
+    # logging.debug("STARTING: Algorithm S1. Nonlinearity factor raw power meaurements")
     # nonlinearity_factor_filepath = nonlinearity_factor_raw_power_meaurements(now_str=now_str, )
-    # print("COMPLETED: Algorithm S1. Nonlinearity factor raw power meaurements")
+    # logging.debug("COMPLETED: Algorithm S1. Nonlinearity factor raw power meaurements")
 
     # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
-    # print("STARTING: Algorithm S3.0.1. SNSPD IV Curve")
+    # logging.debug("STARTING: Algorithm S3.0.1. SNSPD IV Curve")
     # IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name):
-    # print("COMPLETED: Algorithm S3.0.1. SNSPD IV Curve")
+    # logging.debug("COMPLETED: Algorithm S3.0.1. SNSPD IV Curve")
 
     #
     # At this point, the "detector" fiber MUST be spliced to the SNSPD
@@ -462,21 +469,21 @@ if __name__ == '__main__':
     #
 
     # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
-    # print("STARTING: Sweeping Trigger Voltage")
+    # logging.debug("STARTING: Sweeping Trigger Voltage")
     # trigger_voltage = find_min_trigger_threshold(instruments, now_str=now_str)
-    # print(trigger_voltage)
-    # print("COMPLETED: Sweeping Trigger Voltage")
+    # logging.debug(trigger_voltage)
+    # logging.debug("COMPLETED: Sweeping Trigger Voltage")
 
     now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
-    print("STARTING: Algorithm S3.1. SDE Counts Measurement - Polarization Sweep")
+    logging.debug("STARTING: Algorithm S3.1. SDE Counts Measurement - Polarization Sweep")
     pol_counts_filepath = sweep_polarizations(now_str=now_str, IV_pickle_filepath='data/SK3_IV_curve_data_20241211-172258.pkl', name=name, num_pols=33, trigger_voltage=trigger_voltage, counting_time=0.5, N=1)
-    print("COMPLETED: Algorithm S3.1. SDE Counts Measurement - Polarization Sweep")
+    logging.debug("COMPLETED: Algorithm S3.1. SDE Counts Measurement - Polarization Sweep")
 
     now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
-    print("STARTING: Algorithm S3.2. SDE Counts Measuremen - True Counting")
+    logging.debug("STARTING: Algorithm S3.2. SDE Counts Measuremen - True Counting")
     data_filepath = SDE_Counts_Measurement(now_str=now_str, IV_pickle_filepath='data/SK3_IV_curve_data_20241211-172258.pkl', pol_counts_filepath=pol_counts_filepath, name=name, trigger_voltage=trigger_voltage)
-    print("COMPLETED: Algorithm S3.2. SDE Counts Measurement - True Counting")
-    print("STARTING: Algorithm S2. Attenuator Calibration")
+    logging.debug("COMPLETED: Algorithm S3.2. SDE Counts Measurement - True Counting")
+    logging.debug("STARTING: Algorithm S2. Attenuator Calibration")
     attenuator_calibration_filepath = attenuator_calibration(now_str=now_str)
-    print("COMPLETED: Algorithm S2. Attenuator Calibration")
+    logging.debug("COMPLETED: Algorithm S2. Attenuator Calibration")
 # %%
