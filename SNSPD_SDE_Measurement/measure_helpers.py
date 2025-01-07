@@ -1,6 +1,7 @@
 import os
 import pickle
 import time
+import logging
 
 import pandas as pd
 import numpy as np
@@ -8,10 +9,12 @@ import numpy as np
 from pathlib import Path
 from datetime import datetime
 
+logger = logging.getLogger(__name__)
 current_file_dir = Path(__file__).parent
 
-# Algorithm S3.0.1. SNSPD IV Curve
+# SNSPD IV Curve
 def SNSPD_IV_Curve(instruments, now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), max_cur=15e-6, bias_resistor=100e3, name=''):
+    logger.info("STARTING: SNSPD IV Curve")
     ando = instruments['ando']
     laser_ch = instruments['laser_ch']
     sw_ch = instruments['sw_ch']
@@ -61,11 +64,9 @@ def SNSPD_IV_Curve(instruments, now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()
     IV_pickle_filepath = os.path.join("data", IV_pickle_file)
     df.to_pickle(IV_pickle_filepath)
 
-    print(f"IV curve data saved to {IV_pickle_filepath}")
-
+    logger.info(f"IV curve data saved to: {IV_pickle_filepath}")
+    logger.info("COMPLETED: SNSPD IV Curve")
     return IV_pickle_filepath
-
-
 
 def meas_counts(position, instruments, N=3, counting_time=1):
     pc = instruments['pc']
@@ -97,17 +98,17 @@ def get_counts(Cur_Array, instruments, trigger_voltage=0.12, bias_resistor=100e3
     counter.setup_timed_count(channel=1)
     counter.set_trigger(trigger_voltage=trigger_voltage, slope_positive=True, channel=1)
 
-    Count_Array = np.zeros(len(Cur_Array))
+    Count_Array = np.empty(len(Cur_Array), N, dtype=float)
 
     for i in range(len(Cur_Array)):
         this_volt = round(Cur_Array[i] * bias_resistor, 3)
         srs.set_voltage(this_volt)
         time.sleep(0.1)
         temp_cps = np.empty(N, dtype=float)
-        for l in np.arange(temp_cps.size):
-            temp_cps[l] = counter.timed_count(counting_time=counting_time)/counting_time
-        Count_Array[i] = np.mean(temp_cps)
-        print(f"Voltage: {this_volt} V, Counts: {Count_Array[i]}")
+        for j in np.arange(temp_cps.size):
+            temp_cps[j] = counter.timed_count(counting_time=counting_time)/counting_time
+        Count_Array[i] = temp_cps
+        print(f"Voltage: {this_volt} V, Counts: {np.mean(Count_Array[i])}")
     
     srs.set_voltage(0)
     srs.set_output(output=False)
@@ -151,7 +152,7 @@ def find_min_trigger_threshold(instruments, now_str="{:%Y%m%d-%H%M%S}".format(da
     trigger_voltage_filepath = os.path.join("data", trigger_voltage_filename)
     with open(trigger_voltage_filepath, "wb") as file:
         pickle.dump(data, file)
-    
+    logger.info(f"trigger voltage data saved to: {trigger_voltage_filepath}")
     return set_trigger_voltage
 
 

@@ -1,5 +1,4 @@
 import os
-
 import pickle
 import logging
 
@@ -12,10 +11,44 @@ from uncertainties import unumpy as unp
 from uncertainties import ufloat, correlated_values
 
 logger = logging.getLogger(__name__)
-
 current_file_dir = Path(__file__).parent
          
 def get_ic(pickle_filepath, ic_threshold=1e-4):
+    """
+    Extracts the first 'Current' value from a DataFrame where the 'Voltage' exceeds a specified threshold.
+
+    Parameters:
+    -----------
+    pickle_filepath : str
+        The file path to the pickled DataFrame containing the data.
+    ic_threshold : float, optional, default=1e-4
+        The threshold value for the 'Voltage' column. Rows with 'Voltage' greater than this value
+        will be considered for extracting the 'Current' value.
+
+    Returns:
+    --------
+    ic : float or None
+        The first value in the 'Current' column where 'Voltage' exceeds the threshold.
+        Returns `None` if no rows meet the condition.
+
+    Notes:
+    ------
+    - The input DataFrame must contain columns named 'Voltage' and 'Current'.
+    - This function assumes the pickled file is a pandas DataFrame.
+
+    Example:
+    --------
+    Given a DataFrame with the following structure saved as 'data.pkl':
+
+        Voltage   Current
+        -------   -------
+        0.0001    0.01
+        0.0002    0.02
+        0.00005   0.005
+
+    Calling `get_ic('data.pkl', ic_threshold=0.00015)` would return `0.02`.
+
+    """
     df = pd.read_pickle(pickle_filepath)
     filtered_df = df[df['Voltage'] > ic_threshold]  # Filter rows where Voltage > threshold
     if not filtered_df.empty:
@@ -24,7 +57,7 @@ def get_ic(pickle_filepath, ic_threshold=1e-4):
         ic = None
     return ic
 
-def get_mean_uncertainty(rawdata):
+def get_uncertainty(rawdata):
     """
     Estimate the uncertainty for each row of raw data. 
 
@@ -93,7 +126,7 @@ def get_mean_uncertainty(rawdata):
         avg = np.array(avg)
         unc = np.array(unc)
 
-    return avg, unc
+    return unp.uarray(avg, unc)
 
 
 def extract_nonlinearity_data(filepath):
@@ -114,55 +147,46 @@ def extract_nonlinearity_data(filepath):
     ranges = df['Range'].unique()
 
     # Initialize a dictionary to store the results
-    d = {}
-
+    data_dict = {}
 
     # Loop through each range
     for rng in ranges:
         
         filtered_df = df[(df['Range'] == rng)]
-        atts = filtered_df['Attenuation Setting'].unique()
         threshold = 10**((rng-0.1)/10) * 1e-3
-        filtered_df = filtered_df.groupby('Attenuation Setting').filter(
-            lambda x: (x['Power'] <= threshold).sum() > len(x) / 2
+        filtered_df = filtered_df.groupby('Attenuator 1').filter(
+            lambda x: (x['Power'] <= threshold).sum() > 3*len(x) / 4
         )
 
-        d[rng] = {}
+        data_dict[rng] = {}
 
         # Get unique and sorted attenuation steps
-        taus = filtered_df['Attenuation Step'].unique()
+        taus = filtered_df['Attenuator 2'].unique()
         taus.sort()
 
         # Filter data for the two attenuation steps
-        filtered_df_tau0 = filtered_df[filtered_df['Attenuation Step'] == taus[0]]
-        filtered_df_tau1 = filtered_df[filtered_df['Attenuation Step'] == taus[1]]
+        filtered_df_tau0 = filtered_df[filtered_df['Attenuator 2'] == taus[0]]
+        filtered_df_tau1 = filtered_df[filtered_df['Attenuator 2'] == taus[1]]
 
         # Get unique and sorted attenuation settings
-        atts = filtered_df['Attenuation Setting'].unique()
-        atts.sort()
-        d[rng]['att'] = atts
-
-        # Determine the number of iterations
-        N = len(filtered_df['Iteration'].unique())
+        att_settings = filtered_df['Attenuator 1'].unique()
+        att_settings.sort()
+        data_dict[rng]['att'] = att_settings
 
         # Initialize temporary arrays for storing data
-        v_temp = np.empty(len(atts), dtype=object)
-        vt_temp = np.empty(len(atts), dtype=object)
+        v_temp = np.empty(len(att_settings), dtype=object)
+        vt_temp = np.empty(len(att_settings), dtype=object)
 
         # Loop through each attenuation setting and populate data
-        for i, att in enumerate(atts):
-            v_temp[i] = filtered_df_tau0[filtered_df_tau0['Attenuation Setting'] == att]['Power'].values
-            vt_temp[i] = filtered_df_tau1[filtered_df_tau1['Attenuation Setting'] == att]['Power'].values
+        for i, a in enumerate(att_settings):
+            v_temp[i] = filtered_df_tau0[filtered_df_tau0['Attenuator 1'] == a]['Power'].values
+            vt_temp[i] = filtered_df_tau1[filtered_df_tau1['Attenuator 1'] == a]['Power'].values
 
         # Calculate mean and uncertainty for v and vt
-        v_avg_temp, v_unc_temp = get_mean_uncertainty(v_temp)
-        vt_avg_temp, vt_unc_temp = get_mean_uncertainty(vt_temp)
+        data_dict[rng]['v'] = get_uncertainty(v_temp)
+        data_dict[rng]['vt'] = get_uncertainty(vt_temp)
 
-        # Store the data with uncertainties
-        d[rng]['v'] = unp.uarray(v_avg_temp, v_unc_temp)
-        d[rng]['vt'] = unp.uarray(vt_avg_temp, vt_unc_temp)
-
-    return d
+    return data_dict
 
 def get_param_name(rng, order):
     return f"b{-rng}{order}"
@@ -174,7 +198,7 @@ def P_range(params, rng, v):
     """
     #  assumes params is an lmfit Parameters
     order = 2
-    out = v + 0
+    out = v
     name = get_param_name(rng, order)
     while name in params:
         out += params[name]*(v**order)

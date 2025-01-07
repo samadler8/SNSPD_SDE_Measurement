@@ -16,8 +16,16 @@ from datetime import datetime
 from helpers import *
 from processing_helpers import *
 
-logger = logging.getLogger(__name__)
 current_file_dir = Path(__file__).parent
+logging.basicConfig(
+    level=logging.INFO,  # Set to INFO or WARNING for less verbosity
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler("script_log.log", mode="a"),
+        logging.StreamHandler()  # Logs to console
+    ]
+)
+logger = logging.getLogger(__name__)
 
 def initialize_parameters(poly_order_list, ranges):
     """
@@ -31,7 +39,7 @@ def initialize_parameters(poly_order_list, ranges):
         lmfit.Parameters: Initialized parameters for the fitting process.
     """
     params = lmfit.Parameters()
-    params.add('tau', value=0.5)  # Add the initial parameter tau (set to 0.5 becasue tau refers to the second attenuator being set to 3 dBmW which effectively halves the power)
+    params.add('tau', value=0.5)  # Add the initial parameter tau (set to 0.5 becasue tau refers to the second attenuator being set to 3 dBmW which approximately halves the power)
 
     for i, rng in enumerate(ranges):
         max_order = poly_order_list[i]
@@ -88,7 +96,6 @@ def calculate_residuals(params, processed_nonlinearity_data):
     # Return residuals as a flattened array
     return np.hstack(residuals)
 
-
 def reduced_chi_squared(poly_order_list, processed_nonlinearity_data, ranges):
     """
     Compute the reduced chi-squared for the polynomial fit.
@@ -117,11 +124,7 @@ def find_poly_fit(processed_nonlinearity_data, ranges, poly_order_list):
 
 
 if __name__ == '__main__':
-
-    logging.basicConfig(level=logging.DEBUG)
-    logger.setLevel(logging.DEBUG)
-
-    fpath = os.path.join(current_file_dir, 'data_sde', 'nonlinearity_factor_raw_power_meaurements_data_20241210-174441.pkl')
+    fpath = os.path.join(current_file_dir, 'data_sde', '.pkl')
     logger.info(f'Processing file: {fpath}')
 
     # Extract nonlinearity data and ranges
@@ -138,7 +141,6 @@ if __name__ == '__main__':
     fit = find_poly_fit(processed_nonlinearity_data, ranges, poly_order_list)
     logger.info(f'Fit reduced chi-squared: {fit.redchi}')
 
-
     rng_disc = {}
     rng_disc[-10] = ufloat(1, 0)  # Initialize for the base range
     rng_disc_factor = ufloat(1, 0)
@@ -153,34 +155,17 @@ if __name__ == '__main__':
         # Check for overlapping data
         overlap = set(processed_nonlinearity_data[rng]['att']).intersection(processed_nonlinearity_data[rng + 10]['att'])
 
-        if overlap:
-            # Use overlapping data
-            idx1 = [list(processed_nonlinearity_data[rng]['att']).index(x) for x in overlap]
-            idx2 = [list(processed_nonlinearity_data[rng + 10]['att']).index(x) for x in overlap]
+        idx1 = [list(processed_nonlinearity_data[rng]['att']).index(x) for x in overlap]
+        idx2 = [list(processed_nonlinearity_data[rng + 10]['att']).index(x) for x in overlap]
 
-            ratio = P_range_unc(fit.params, fit.covar, rng, processed_nonlinearity_data[rng]['v'][idx1]) / \
-                    P_range_unc(fit.params, fit.covar, rng + 10, processed_nonlinearity_data[rng + 10]['v'][idx2])
+        ratio = P_range_unc(fit.params, fit.covar, rng, processed_nonlinearity_data[rng]['v'][idx1]) / \
+                P_range_unc(fit.params, fit.covar, rng + 10, processed_nonlinearity_data[rng + 10]['v'][idx2])
 
-            ratio_nominal = unp.nominal_values(ratio)
-            ratio_std_dev = unp.std_devs(ratio)
+        ratio_nominal = unp.nominal_values(ratio)
+        ratio_std_dev = unp.std_devs(ratio)
 
-            rng_disc_factor *= ufloat(np.mean(ratio_nominal), np.std(ratio_std_dev))
-        else:
-            # No overlap: Extrapolate from the previous range
-            logger.warning(f"No overlapping attenuation data between ranges {rng} and {rng + 10}. Extrapolating.")
-
-            # Predict the first value of the next range using the previous range's polynomial model
-            v_next = processed_nonlinearity_data[rng + 10]['v']  # Measurements in the next range
-            v_predicted = P_range(fit.params, rng, v_next)  # Predicted values from the previous range
-
-            ratio = P_range_unc(fit.params, fit.covar, rng, v_predicted) / \
-                    P_range_unc(fit.params, fit.covar, rng + 10, v_next)
-
-            ratio_nominal = unp.nominal_values(ratio)
-            ratio_std_dev = unp.std_devs(ratio)
-
-            rng_disc_factor *= ufloat(np.mean(ratio_nominal), np.std(ratio_std_dev))
-
+        rng_disc_factor *= ufloat(np.mean(ratio_nominal), np.std(ratio_std_dev))
+       
         rng_disc[rng] = rng_disc_factor
 
 

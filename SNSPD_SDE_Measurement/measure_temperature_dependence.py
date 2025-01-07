@@ -8,6 +8,7 @@ Created on Thu Oct 24 11:01:06 2024
 # %% Setup
 import os
 import pickle
+import logging
 
 import numpy as np
 
@@ -18,12 +19,21 @@ from amcc.instruments.agilent_53131a import Agilent53131a
 from amcc.instruments.thorlabs_lfltm import ThorLabsLFLTM
 from amcc.instruments.agilent_34411a import Agilent34411A
 
-from SNSPD_SDE_Measurement.measurement_helpers import *
+from helpers import *
+from measure_helpers import *
 
 current_file_dir = Path(__file__).parent
+logging.basicConfig(
+    level=logging.INFO,  # Set to INFO or WARNING for less verbosity
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler("script_log.log", mode="a"),
+        logging.StreamHandler()  # Logs to console
+    ]
+)
+logger = logging.getLogger(__name__)
 
-sim900port = 5
-srs = SIM928('GPIB0::2::INSTR', sim900port)
+srs = SIM928('GPIB0::2::INSTR', 5)
 counter = Agilent53131a('GPIB0::5::INSTR')
 laser = ThorLabsLFLTM('COM7')
 multi = Agilent34411A('GPIB0::21::INSTR')
@@ -50,6 +60,7 @@ laser.disable()
 
 # %% temperature dependence sweep
 def temperature_dependence_sweep(IV_pickle_filepath='', trigger_voltage=trigger_voltage, bias_resistor=bias_resistor, counting_time=0.5, N=1):
+    logger.info("STARTING: Temperature Dependence Sweep")
     ic = get_ic(IV_pickle_filepath)
 
     num_biases = 100
@@ -93,6 +104,8 @@ def temperature_dependence_sweep(IV_pickle_filepath='', trigger_voltage=trigger_
     
     with open(temperaturedependence_filepath, "wb") as file:
         pickle.dump(data_dict, file)
+    logger.info(f"temperature dependence data saved to: {temperaturedependence_filepath}")
+    logger.info("COMPLETED: Temperature Dependence Sweep")
 
     return temperaturedependence_filepath
 
@@ -102,10 +115,8 @@ def temperature_dependence_sweep(IV_pickle_filepath='', trigger_voltage=trigger_
 if __name__ == '__main__':
 
     now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
-    print("STARTING: Algorithm S3.0.1. SNSPD IV Curve")
-    IV_pickle_filepath = SNSPD_IV_Curve(now_str=now_str, max_cur=max_cur)
-    print("COMPLETED: Algorithm S3.0.1. SNSPD IV Curve")
     
-    print("STARTING: Temperature Dependence Sweep")
+    IV_pickle_filepath = SNSPD_IV_Curve(now_str=now_str, max_cur=max_cur)
+    
     temperaturedependence_filepath = temperature_dependence_sweep(IV_pickle_filepath='', )
-    print("COMPLETED: Temperature Dependence Sweep")
+    

@@ -2,6 +2,7 @@ import os
 import re
 import pickle
 from pathlib import Path
+import logging
 
 import numpy as np
 import pandas as pd
@@ -10,8 +11,6 @@ from datetime import datetime, timedelta
 from processing_helpers import *
 
 current_file_dir = Path(__file__).parent
-
-
 
 def interpolate_temperature(timestamp, temperature_dict):
     adjusted_dt = datetime.strptime(timestamp, '%Y%m%d-%H%M%S') + timedelta(minutes=1)
@@ -79,5 +78,6 @@ def process_temperature(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.now()), t
     os.makedirs("data", exist_ok=True)
     temperature_dependence_filepath = os.path.join("data", temperature_dependence_filename)
     df.to_pickle(temperature_dependence_filepath)
+    logger.info(f"Processed temperature dependence saved to: {temperature_dependence_filepath}")
     return
 

@@ -7,7 +7,6 @@ import numpy as np
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
-
 current_file_dir = Path(__file__).parent
 
 def compute_sha1_hash(filename):

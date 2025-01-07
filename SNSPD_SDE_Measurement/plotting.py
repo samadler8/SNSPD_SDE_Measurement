@@ -16,9 +16,16 @@ from datetime import datetime
 
 from helpers import *
 
-logger = logging.getLogger(__name__)
-
 current_file_dir = Path(__file__).parent
+logging.basicConfig(
+    level=logging.INFO,  # Set to INFO or WARNING for less verbosity
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler("script_log.log", mode="a"),
+        logging.StreamHandler()  # Logs to console
+    ]
+)
+logger = logging.getLogger(__name__)
 
 ## Plotting Functions
 # IV Curve
@@ -293,21 +300,22 @@ def plot_switch(optical_switch_filepath):
     switchdata = pd.read_pickle(optical_switch_filepath)
 
     # Extract measurement data from the DataFrame
-    power_mpm_dict = switchdata['power_mpm_dict']
-    power_mpm = np.array([value for d in power_mpm_dict for value in d.values()])
+    power_mpm = np.array(switchdata['power_mpm'])
     power_cpm = np.array(switchdata['power_cpm'])  # Convert to NumPy array
-
-    print(power_mpm_dict)
 
     power_mpm = power_mpm.reshape(1, -1)  # Ensure 1 row and the necessary number of columns
     power_cpm = power_cpm.reshape(1, -1)
 
     # Compute mean and standard deviation for each measurement
-    power_mpm_mean, power_mpm_std = get_mean_uncertainty(power_mpm)
-    power_cpm_mean, power_cpm_std = get_mean_uncertainty(power_cpm)
+    power_mpm_unc = get_uncertainty(power_mpm)
+    power_cpm_unc = get_uncertainty(power_cpm)
 
     # Prepare data for plotting
-    data = [power_mpm.flatten(), power_cpm.flatten()]
+    power_mpm_mean = power_mpm_unc.nominal_value
+    power_mpm_std = power_mpm_unc.std_dev
+    power_cpm_mean = power_cpm_unc.nominal_value
+    power_cpm_std = power_cpm_unc.std_dev
+    data = [power_mpm_mean.flatten(), power_cpm_mean.flatten()]
     labels = ['MPM', 'CPM']
 
     # Create the box plot
@@ -348,25 +356,16 @@ def plot_switch(optical_switch_filepath):
 
 # %% Main Code Block
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
-    logger.setLevel(logging.INFO)
-    logger.debug('hello debug mode')
 
     # now_str = "{:%Y:%m:%d-%H:%M:%S}".format(datetime.now())
-    # print("STARTING: plot_IV_curve")
     # plot_IV_curve(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, save_pdf=False)
-    # print("COMPLETED: plot_IV_curve")
 
     # now_str = "{:%Y:%m:%d-%H:%M:%S}".format(datetime.now())
-    # print("STARTING: plot_polarization_sweep")
     # plot_polarization_sweep(now_str=now_str, pol_counts_filepath=pol_counts_filepath, save_pdf=False)
-    # print("COMPLETED: plot_polarization_sweep")
 
     now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
     data_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_data_dict__20241212-142132.pkl')
-    print("STARTING: plot_min_max_avg_counts_vs_current")
     plot_min_max_avg_counts_vs_current(now_str=now_str, data_filepath=data_filepath, save_pdf=False)
-    print("COMPLETED: plot_min_max_avg_counts_vs_current")
 
     # nonlinearity_data_filepath = os.path.join(current_file_dir, 'data_sde', 'nonlinearity_factor_raw_power_meaurements_data_20241210-174441.pkl')
     # plot_nonlinearity_data(nonlinearity_data_filepath)

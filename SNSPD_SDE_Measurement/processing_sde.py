@@ -18,10 +18,19 @@ from helpers import *
 from processing_helpers import *
 
 logger = logging.getLogger(__name__)
-
 current_file_dir = Path(__file__).parent
+logging.basicConfig(
+    level=logging.INFO,  # Set to INFO or WARNING for less verbosity
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler("script_log.log", mode="a"),
+        logging.StreamHandler()  # Logs to console
+    ]
+)
+logger = logging.getLogger(__name__)
 
-wavelength = 1566.314 #nm
+wavelength = 1566.314e-9 #m
+init_rng = 0
 
 class PMCorrectLinearUnc:
     """
@@ -197,38 +206,23 @@ def calculate_switch_correction_unc(filepath, correction):
     switchdata = pd.read_pickle(filepath)
 
     # Extract measurement data from the DataFrame
-    power_mpm = switchdata['power_mpm']
-    power_cpm = switchdata['power_cpm']
+    power_mpm = np.array(switchdata['power_mpm'])
+    power_cpm = np.array(switchdata['power_cpm'])
     
-    power_mpm_unc = power_mpm.iloc[0]
-    power_cpm_unc = power_cpm.iloc[0]
-
-    # power_mpm = np.array([value for d in power_mpm for value in d.values()])
-    # power_mpm = power_mpm.reshape(1, -1)
-    # power_mpm_mean, power_mpm_std = get_mean_uncertainty(power_mpm)
-    # power_mpm_unc = ufloat(power_mpm_mean, power_mpm_std)
+    power_mpm = np.array([value for d in power_mpm for value in d.values()])
+    power_mpm = power_mpm.reshape(1, -1)
+    power_mpm_unc = get_uncertainty(power_mpm)
     
-    # power_cpm = np.array(switchdata['power_cpm'])  # Convert to NumPy array
-    # power_cpm = power_cpm.reshape(1, -1)
-    # power_cpm_mean, power_cpm_std = get_mean_uncertainty(power_cpm)
-    # power_cpm_unc = ufloat(power_cpm_mean, power_cpm_std)
-        
+    power_cpm = np.array(switchdata['power_cpm'])  # Convert to NumPy array
+    power_cpm = power_cpm.reshape(1, -1)
+    power_cpm_unc = get_uncertainty(power_cpm)        
 
     # Apply nonlinearity corrections if provided
     if correction is not None:
         logger.info("Applying nonlinearity corrections.")
-        power_mpm_unc = correction.fix_power_unc(power_mpm_unc, -10,)
+        power_mpm_unc = correction.fix_power_unc(power_mpm_unc, init_rng,)
 
     switch_correction_unc = power_mpm_unc / power_cpm_unc
-
-    # # Combine statistical and systematic errors
-    # ratio_mean = unp.nominal_values(ratio)
-    # ratio_std_stat = unp.std_devs(ratio)
-    # ratio_std_sys = unp.nominal_values(ratio).std()
-    # switch_correction_std = np.sqrt(ratio_std_stat**2 + ratio_std_sys**2)
-
-    # # Compute final correction with uncertainty
-    # switch_correction_unc = ufloat(ratio_mean, switch_correction_std)
 
     return switch_correction_unc
 
@@ -264,7 +258,7 @@ def compute_efficiency_unc(config):
     logging.debug(f"power_0: {power_0}")
     logging.debug(f"power_atts: {power_atts}")
     # Energy per photon
-    E = codata.h * codata.c / (wavelength * 1e-9)
+    E = codata.h * codata.c / (wavelength)
     logging.debug(f"E: {E}")
 
 
@@ -293,11 +287,6 @@ def compute_efficiency_unc(config):
 
 
 if __name__ == '__main__':
-
-    logging.basicConfig(level=logging.DEBUG)
-    logger.setLevel(logging.DEBUG)
-    logger.debug('hello debug mode')
-
     self_filename = os.path.basename(__file__)
     self_sha1hash = compute_sha1_hash(__file__)
 
@@ -309,10 +298,10 @@ if __name__ == '__main__':
     cf_err = max(cf_err_list*cf_list)
     cf_interp = interp1d(wl, cf_list, kind='cubic')
 
-    nonlin_processed_path = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data__20250102-045010.pkl')
-    switch_path = os.path.join(current_file_dir, 'data_sde', 'optical_switch_calibration_extrapolated_processed_20250101_204920.pkl')
-    attcal_path = os.path.join(current_file_dir, 'data_sde', 'attenuator_calibration_extrapolated_processed__20250102-054756.pkl')
-    fpath = os.path.join(current_file_dir, 'data_sde', 'SK3_data_dict__20241212-142132.pkl')
+    nonlinear_calibration_path = os.path.join(current_file_dir, 'data_sde', '.pkl')
+    switch_path = os.path.join(current_file_dir, 'data_sde', '.pkl')
+    attcal_path = os.path.join(current_file_dir, 'data_sde', '.pkl')
+    fpath = os.path.join(current_file_dir, 'data_sde', '.pkl')
 
     config = {}
     logger.info(f' Counts data file: {fpath}')
@@ -329,28 +318,37 @@ if __name__ == '__main__':
         sys.exit(1)
     else:
         logger.info(f' Switching ratio file: {switch_path}')
-    if not os.path.exists(nonlin_processed_path):
+    if not os.path.exists(nonlinear_calibration_path):
         logger.info(f' No nonlinearity analysis file found')
         sys.exit(1)
     else:
-        logger.info(f' Nonlinearity analysis file: {nonlin_processed_path}')
+        logger.info(f' Nonlinearity analysis file: {nonlinear_calibration_path}')
     
     config['filename'] = fpath
     config['file_sha1hash'] = compute_sha1_hash(fpath)
     config['script_filename'] = self_filename
     config['script_sha1hash'] = self_sha1hash
-    config['nonlinear_processed_path'] = nonlin_processed_path
-    config['nonlinear_processed_path_sha1hash'] = compute_sha1_hash(nonlin_processed_path)
+    config['nonlinear_calibration_path'] = nonlinear_calibration_path
+    config['nonlinear_calibration_path_sha1hash'] = compute_sha1_hash(nonlinear_calibration_path)
     config['attcal_file'] = attcal_path
     config['attcal_file_sha1hash'] = compute_sha1_hash(attcal_path)
     config['switch_file'] = switch_path
     config['switch_file_sha1hash'] = compute_sha1_hash(switch_path)
-    
+
     bias, eff, counts_expected = compute_efficiency_unc(config)
 
-    final_results_filepath = os.path.join(current_file_dir, 'data_sde', f'final_results__{"{:%Y%m%d-%H%M%S}".format(datetime.now())}.txt')
+    data = {
+        "Bias": bias,
+        "Efficiency": eff,
+        "Counts_Expected": counts_expected,
+    }
+    df = pd.DataFrame(data)
 
-    with open(final_results_filepath, 'w') as file:
-        file.write(f"Bias: {bias}\n")
-        file.write(f"Efficiency: {eff}\n")
-        file.write(f"Counts Expected: {counts_expected}\n")
+    # Define the file path for saving the CSV
+    csv_dir = os.path.join(current_file_dir, 'data_sde')
+    os.makedirs(csv_dir, exist_ok=True)
+
+    csv_filepath = os.path.join(csv_dir, f'final_results__{"{:%Y%m%d-%H%M%S}".format(datetime.now())}.csv')
+
+    # Save the DataFrame to a CSV file
+    df.to_csv(csv_filepath, index=False)

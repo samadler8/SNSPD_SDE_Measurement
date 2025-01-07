@@ -5,8 +5,7 @@
 *.zip
 *.png
 *.pyc
-*.png
-*.pdf
+
 
 
 MANIFEST
@@ -94,3 +93,9 @@ target/
 *.lyp
 *.oas
 *.ipynb
+
+
+*.png
+*.pdf
+
+ignore/
