@@ -158,8 +158,8 @@ if __name__ == '__main__':
         idx1 = [list(processed_nonlinearity_data[rng]['att']).index(x) for x in overlap]
         idx2 = [list(processed_nonlinearity_data[rng + 10]['att']).index(x) for x in overlap]
 
-        ratio = P_range_unc(fit.params, fit.covar, rng, processed_nonlinearity_data[rng]['v'][idx1]) / \
-                P_range_unc(fit.params, fit.covar, rng + 10, processed_nonlinearity_data[rng + 10]['v'][idx2])
+        ratio = nonlinear_power_corrections_unc(fit.params, fit.covar, rng, processed_nonlinearity_data[rng]['v'][idx1]) / \
+                nonlinear_power_corrections_unc(fit.params, fit.covar, rng + 10, processed_nonlinearity_data[rng + 10]['v'][idx2])
 
         ratio_nominal = unp.nominal_values(ratio)
         ratio_std_dev = unp.std_devs(ratio)
