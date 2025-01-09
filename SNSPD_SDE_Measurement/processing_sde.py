@@ -64,42 +64,63 @@ class PMCorrectLinearUnc:
         except Exception as e:
             logger.error(f"Failed to load calibration data from {self.fname}: {e}")
 
-    def power(self, v, rng=None):
+    def nonlinear_power_correction(self, v, rng=None):
         """
         Correct the power reading, applying linearization and range discontinuities.
-        """
-        return self.fix_power_unc(v, rng)
-
-    def fix_power_unc(self, v, rng=None):
-        """
         Apply corrections for both nonlinearity and range discontinuity.
+        Compute linearized power with uncertainties for a given power reading and meter range setting.
         """
         if rng is None:
             rng = self.estimate_range(v)
             logger.debug(f"Estimated range: {rng} for reading: {v}")
 
-        corrected_power = self.fix_power_nonlinearity_unc(v, rng)
-        return corrected_power / self.rng_disc[rng]
-
-    def fix_power_nonlinearity_unc(self, v, rng=-10):
-        """
-        Compute linearized power with uncertainties for a given power reading and meter range setting.
-        """
         if not self.fit_params or self.covar is None or self.covar.size == 0:
             logger.error("Fit parameters or covariance matrix not loaded.")
             return ufloat(v, 0)
+        
         order = 2
-        result = v
+        corrected_power = v
         name = get_param_name(rng, order)
         params_unc = correlated_values([self.fit_params[name] for name in self.fit_params.keys()], self.covar, )
         
         while name in self.fit_params:
             coeff = params_unc[list(self.fit_params.keys()).index(name)]
-            result += coeff * (v ** order)
+            corrected_power += coeff * (v ** order)
             order += 1
             name = get_param_name(rng, order)
 
-        return result
+        return corrected_power / self.rng_disc[rng]
+
+    # def fix_power_unc(self, v, rng=None):
+    #     """
+    #     Apply corrections for both nonlinearity and range discontinuity.
+    #     """
+    #     if rng is None:
+    #         rng = self.estimate_range(v)
+    #         logger.debug(f"Estimated range: {rng} for reading: {v}")
+
+    #     corrected_power = self.fix_power_nonlinearity_unc(v, rng)
+    #     return corrected_power / self.rng_disc[rng]
+
+    # def fix_power_nonlinearity_unc(self, v, rng=-10):
+    #     """
+    #     Compute linearized power with uncertainties for a given power reading and meter range setting.
+    #     """
+    #     if not self.fit_params or self.covar is None or self.covar.size == 0:
+    #         logger.error("Fit parameters or covariance matrix not loaded.")
+    #         return ufloat(v, 0)
+    #     order = 2
+    #     result = v
+    #     name = get_param_name(rng, order)
+    #     params_unc = correlated_values([self.fit_params[name] for name in self.fit_params.keys()], self.covar, )
+        
+    #     while name in self.fit_params:
+    #         coeff = params_unc[list(self.fit_params.keys()).index(name)]
+    #         result += coeff * (v ** order)
+    #         order += 1
+    #         name = get_param_name(rng, order)
+
+    #     return result
 
     @staticmethod
     def estimate_range(v):
@@ -244,14 +265,14 @@ def compute_efficiency_unc(config):
     filtered0_att_cal_data = att_cal_data[att_cal_data['Attenuation (dB)'] == 0]
     power_0 = ufloat(filtered0_att_cal_data['Power Mean'].iloc[0], filtered0_att_cal_data['Power Std'].iloc[0])
     rng_0 = filtered0_att_cal_data['Range'].iloc[0]
-    power_0 = correction.power(power_0, rng_0)
+    power_0 = correction.nonlinear_power_correction(power_0, rng_0)
     power_atts = []
     for att in atts:
         filteredAtt_att_cal_data = att_cal_data[att_cal_data['Attenuator'] == att]
         power_att = ufloat(filteredAtt_att_cal_data['Power Mean'].iloc[0], filteredAtt_att_cal_data['Power Std'].iloc[0])
         rng_att = filteredAtt_att_cal_data['Range'].iloc[0]
-        # Something is going very wrong here. Skip for now
-        # power_atts.append(correction.power(power_att, rng_att))
+        # Something is (or at least was) going very wrong here
+        power_atts.append(correction.nonlinear_power_correction(power_att, rng_att))
         power_atts.append(power_att)
 
     logging.debug(f"Corrected attenuation powers")

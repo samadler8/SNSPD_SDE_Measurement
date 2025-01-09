@@ -191,7 +191,10 @@ def extract_nonlinearity_data(filepath):
 def get_param_name(rng, order):
     return f"b{-rng}{order}"
 
-def P_range(params, rng, v):
+
+# What do these two functions do?
+
+def nonlinear_power_corrections(params, rng, v):
     """
     Compute linearized power P given the parameters of the polynomial,
     power meter range setting 'rng', and the readings 'v'
@@ -206,7 +209,7 @@ def P_range(params, rng, v):
         name = get_param_name(rng, order)
     return out
 
-def P_range_unc(params, covar, rng, v):
+def nonlinear_power_corrections_unc(params, covar, rng, v):
     """
     Compute linearized power P with uncertainties and covariances
     given the parameters of the polynomial 'params',

@@ -317,6 +317,16 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
 # At this point, the "detector" fiber MUST be spliced to the SNSPD
 # If you have not done that yet, do so now
 
+def meas_counts(position, N=3, counting_time=1):
+    pc.set_waveplate_positions(position)
+    time.sleep(0.1)  # Wait for the motion to complete
+    temp_cps = np.empty(N, dtype=float)
+    for l in np.arange(temp_cps.size):
+        cps = counter.timed_count(counting_time=counting_time)/counting_time
+        temp_cps[l] = cps
+    avg_cps = np.mean(temp_cps)
+    return avg_cps
+
 # Algorithm S3.1. SDE Counts Measurement - Polarization Sweep
 def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pickle_filepath='', name='', trigger_voltage=0.01, num_pols=13, counting_time=0.5, N=1):
     """Sweep through all polarizations to find max and min counts.
@@ -345,15 +355,6 @@ def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pi
     this_volt = round(ic*0.80 * bias_resistor, 3)
     srs.set_voltage(this_volt)
 
-    # bounds = [(-99, 100)] * 3
-    # def neg_meas_counts(position, *args):
-    #     return -meas_counts(position, *args)
-    # initial_guess = np.array([0, 0, 0])
-    # res_min = scipy.optimize.minimize(meas_counts, initial_guess, args=(instruments, N, counting_time), bounds=bounds)
-    # res_max = scipy.optimize.minimize(neg_meas_counts, initial_guess, args=(instruments, N, counting_time), bounds=bounds)
-    # pol_counts = [(res_min['x'], res_min['fun']), (res_max['x'], res_max['fun'])]
-    # logging.debug(pol_counts)
-
     positions = np.linspace(-99.0, 100.0, num_pols)
     pol_counts = []
     for i, x in enumerate(positions):
@@ -363,7 +364,7 @@ def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pi
             for k, z in enumerate(positions):
                 z = round(z, 3)
                 position = (x, y, z)
-                counts = meas_counts(position, instruments, N=N, counting_time=counting_time)
+                counts = meas_counts(position, N=N, counting_time=counting_time)
                 temp_data = (position, counts)
                 logging.debug(temp_data)
                 pol_counts.append(temp_data)

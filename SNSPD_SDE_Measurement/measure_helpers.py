@@ -15,19 +15,15 @@ current_file_dir = Path(__file__).parent
 # SNSPD IV Curve
 def SNSPD_IV_Curve(instruments, now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), max_cur=15e-6, bias_resistor=100e3, name=''):
     logger.info("STARTING: SNSPD IV Curve")
-    ando = instruments['ando']
-    laser_ch = instruments['laser_ch']
-    sw_ch = instruments['sw_ch']
+    sw = instruments['sw']
     monitor_port = instruments['monitor_port']
     att_list = instruments['att_list']
     srs = instruments['srs']
     multi = instruments['multi']
 
-    ando.aq82011_disable(laser_ch)
-    ando.aq8201418_set_route(sw_ch, monitor_port)
-    for att_ch in att_list:
-        ando.aq820133_set_att(att_ch, 0)
-        ando.aq820133_disable(att_ch)
+    sw.set_route(monitor_port)
+    for att in att_list:
+        att.disable()
 
     srs.set_voltage(0)
     srs.set_output(output=True)
@@ -67,19 +63,6 @@ def SNSPD_IV_Curve(instruments, now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()
     logger.info(f"IV curve data saved to: {IV_pickle_filepath}")
     logger.info("COMPLETED: SNSPD IV Curve")
     return IV_pickle_filepath
-
-def meas_counts(position, instruments, N=3, counting_time=1):
-    pc = instruments['pc']
-    counter = instruments['counter']
-
-    pc.set_waveplate_positions(position)
-    time.sleep(0.1)  # Wait for the motion to complete
-    temp_cps = np.empty(N, dtype=float)
-    for l in np.arange(temp_cps.size):
-        cps = counter.timed_count(counting_time=counting_time)/counting_time
-        temp_cps[l] = cps
-    avg_cps = np.mean(temp_cps)
-    return avg_cps
 
 def get_counts(Cur_Array, instruments, trigger_voltage=0.12, bias_resistor=100e3, counting_time=1, N=3):
     """
@@ -197,3 +180,14 @@ def find_min_trigger_threshold(instruments, now_str="{:%Y%m%d-%H%M%S}".format(da
 #         print("Found maximum polarization:")
 #     print(optPol)
 #     return optPol
+
+
+# My attempt
+# bounds = [(-99, 100)] * 3
+# def neg_meas_counts(position, *args):
+#     return -meas_counts(position, *args)
+# initial_guess = np.array([0, 0, 0])
+# res_min = scipy.optimize.minimize(meas_counts, initial_guess, args=(instruments, N, counting_time), bounds=bounds)
+# res_max = scipy.optimize.minimize(neg_meas_counts, initial_guess, args=(instruments, N, counting_time), bounds=bounds)
+# pol_counts = [(res_min['x'], res_min['fun']), (res_max['x'], res_max['fun'])]
+# logging.debug(pol_counts)

@@ -58,7 +58,7 @@ def plot_IV_curve(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.now()), IV_pick
 
 
 # Polarization Sweeps
-def plot_polarization_sweep(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.now()), pol_counts_filepath='', save_pdf=False):
+def plot_polarization_sweep(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.now()), pol_counts_filepath='',):
     with open(pol_counts_filepath, 'rb') as file:
         pol_counts = pickle.load(file)
     coords = np.array([item[0] for item in pol_counts])  # Array of (x, y, z)
@@ -107,6 +107,8 @@ def plot_min_max_avg_counts_vs_current(now_str="{:%Y:%m:%d-%H:%M:%S}".format(dat
     Maxpol_Settings = data_dict['Maxpol_Settings']
     Minpol_Settings = data_dict['Minpol_Settings']
 
+    # if count arrays are 2D, average over one dimension
+
 
     os.makedirs('figs', exist_ok=True)
 
@@ -132,10 +134,10 @@ def plot_min_max_avg_counts_vs_current(now_str="{:%Y:%m:%d-%H:%M:%S}".format(dat
 
     return
 
-def plot_temperature_dependence(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.now()), data_filepath=''):
+def plot_temperature_dependence(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.now()), data_filepath='', save_pdf=False):
     df = pd.read_pickle(data_filepath)
 
-    figpath = 'pics_temperatureDependence/plateau_width_temperature_dependence'
+    figpath = f'pics_temperatureDependence/plateau_width_temperature_dependence__{now_str}'
     plt.figure(figsize=[20, 10])
     plt.plot(df['temperature'], df['plateau_widths'], '-*', color='k')
     plt.title('Plateau Width Temperature Dependence')
@@ -144,10 +146,11 @@ def plot_temperature_dependence(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.n
     plt.ylim(bottom=0)  # Set y-axis lower limit to 0
     plt.tight_layout()
     plt.savefig(f'{figpath}.png')
-    plt.savefig(f'{figpath}.pdf')
+    if save_pdf:
+        plt.savefig(f'{figpath}.pdf')
     plt.close()
 
-def plot_nonlinearity_data(nonlinearity_data_filepath):
+def plot_nonlinearity_data(nonlinearity_data_filepath, save_pdf=False):
     """
     Plot nonlinearity data with log-scaled y-axis, different colors for each range,
     and different markers for 'v' and 'vt'.
@@ -193,11 +196,12 @@ def plot_nonlinearity_data(nonlinearity_data_filepath):
 
     plt.tight_layout()
     plt.savefig(f'{figpath}.png')
-    plt.savefig(f'{figpath}.pdf')
+    if save_pdf:
+        plt.savefig(f'{figpath}.pdf')
     plt.close()
 
 
-def plot_raw_nonlinearity_data_with_fits(nonlinearity_data_filepath, nonlinearity_calculation_filepath):
+def plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculation_filepath, save_pdf=False):
     # Load data
     processed_data = extract_nonlinearity_data(nonlinearity_data_filepath)
     data = pd.read_pickle(nonlinearity_calculation_filepath)
@@ -234,7 +238,7 @@ def plot_raw_nonlinearity_data_with_fits(nonlinearity_data_filepath, nonlinearit
             ax.plot(values['att'], tv_fit_dbm, color=color, linestyle='-', label=f'Fit tau*v {rng}')
 
     # Customize plot
-    ax.set_title('Nonlinearity Data Fits', fontsize=16)
+    ax.set_title('Fitted Nonlinearity', fontsize=16)
     ax.set_xlabel('Attenuator1 Setting (-dBmW)', fontsize=14)
     ax.set_ylabel('Power (dBmW)', fontsize=14)
     ax.grid(True, linestyle='--', alpha=0.6, which="both")
@@ -246,12 +250,13 @@ def plot_raw_nonlinearity_data_with_fits(nonlinearity_data_filepath, nonlinearit
     os.makedirs('figs_sde', exist_ok=True)
     plt.tight_layout()
     plt.savefig(f'{figpath}.png')
-    plt.savefig(f'{figpath}.pdf')
+    if save_pdf:
+        plt.savefig(f'{figpath}.pdf')
     plt.close()
 
 
 
-def plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_filepath):
+def plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_filepath, save_pdf=False):
     plt.figure(figsize=(12, 6))
 
     processed_data = extract_nonlinearity_data(nonlinearity_data_filepath)
@@ -262,21 +267,14 @@ def plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_fil
     covar = data["covar"]
     rng_disc = data["rng_disc"]
 
-    convert_to_dBmW_before_fitting = 0
 
     for rng in ranges:
         v_data = unp.nominal_values(processed_data[rng]['v'])
-        v_data_dBmW = 10 * np.log10(v_data/1e-3)
-        if convert_to_dBmW_before_fitting:
-            v_data_fit = P_range(fit_params, rng, v_data_dBmW)
-        else:
-            v_data_fit = P_range(fit_params, rng, v_data)
-            v_data_fit = 10 * np.log10(v_data_fit/1e-3)
-        logging.info(f"v_data_fit: {v_data_fit}")
-        logging.info(f"v_data_dBmW: {v_data_dBmW}")
-        fit_ratio = v_data_fit / v_data_dBmW
 
-        plt.plot(v_data_dBmW, fit_ratio, 'o-', label=f'Fit Ratio Range {rng}')
+        v_data_fit = P_range(fit_params, rng, v_data)
+        fit_ratio = v_data / v_data_fit
+
+        plt.plot(v_data, fit_ratio, 'o-', label=f'Fit Ratio Range {rng}')
 
     plt.xlabel("v (Input Power, dBmW)")
     plt.ylabel("Fit / v")
@@ -291,11 +289,12 @@ def plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_fil
 
     plt.tight_layout()
     plt.savefig(f'{figpath}.png')
-    plt.savefig(f'{figpath}.pdf')
+    if save_pdf:
+        plt.savefig(f'{figpath}.pdf')
     plt.close()
 
 
-def plot_switch(optical_switch_filepath):
+def plot_switch(optical_switch_filepath, save_pdf=False):
     # Load calibration data from the pickle file
     switchdata = pd.read_pickle(optical_switch_filepath)
 
@@ -338,6 +337,9 @@ def plot_switch(optical_switch_filepath):
     ax.grid(axis='y', linestyle='--', alpha=0.7)
     ax.legend()
 
+
+    # also plot cpm/mpm
+
     # Save the plot
     now_str = datetime.now().strftime('%Y%m%d_%H%M%S')
     filename = f'optical_switch__{now_str}'
@@ -346,9 +348,9 @@ def plot_switch(optical_switch_filepath):
 
     plt.tight_layout()
     plt.savefig(f'{figpath}.png')
-    plt.savefig(f'{figpath}.pdf')
+    if save_pdf:
+        plt.savefig(f'{figpath}.pdf')
     plt.close()
-
     return
 
 
@@ -370,7 +372,7 @@ if __name__ == '__main__':
     # nonlinearity_data_filepath = os.path.join(current_file_dir, 'data_sde', 'nonlinearity_factor_raw_power_meaurements_data_20241210-174441.pkl')
     # plot_nonlinearity_data(nonlinearity_data_filepath)
     # nonlinearity_calculation_filepath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data__20250102-045010.pkl')
-    # plot_raw_nonlinearity_data_with_fits(nonlinearity_data_filepath, nonlinearity_calculation_filepath)
+    # plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculation_filepath)
     # plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_filepath, )
 
     # optical_switch_filepath = os.path.join(current_file_dir, 'data_sde', 'optical_switch_calibration_data.pkl')
