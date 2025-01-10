@@ -93,7 +93,7 @@ init_rng = 0 #dBm
 counting_time = 0.5 #s
 num_pols = 13
 
-attval = 27 #dBm - for each attenuator
+attval = 26 #dBm - for each attenuator
 tau = 2.5
 
 name = 'SK3'
@@ -222,9 +222,13 @@ def nonlinearity_factor_raw_power_meaurements(now_str="{:%Y%m%d-%H%M%S}".format(
         att.enable()
 
     att2_settings = [0, tau]
-    N = 50
+    N = 25
 
-    base_input_powers = np.arange(5, -14, -1)
+    base_input_powers = base_input_powers = np.concatenate([
+        np.arange(5, 0, -0.1), # overlapping data
+        np.arange(0, -10, -1),
+        np.arange(-10, -15, -0.1) # overlapping data
+    ])
     att_settings = {}
 
     rng_settings = [0, -10, -20, -30, -40, -50, -60]
