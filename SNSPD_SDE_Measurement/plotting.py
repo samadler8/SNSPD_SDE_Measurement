@@ -468,10 +468,10 @@ def plot_processed_counts_unc(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.now
 
     Avg_Counts = (Maxpol_Counts + Minpol_Settings) / 2
 
-    os.makedirs('figs', exist_ok=True)
-
+    output_dir = os.path.join(current_file_dir, 'figs_sde')
+    os.makedirs(output_dir, exist_ok=True)
     figname = f'counts_vs_current_curves__{now_str}'
-    figpath = os.path.join(current_file_dir, 'figs_sde', figname)
+    figpath = os.path.join(output_dir, figname)
     plt.close('all')
     plt.figure(figsize = [20,10])
     plt.errorbar(Cur_Array_uA, unp.nominal_values(Maxpol_Counts), 

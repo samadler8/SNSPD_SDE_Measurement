@@ -87,7 +87,7 @@ rng_dict = {'A': 'AUTO',
 
 wavelength = 1566.314  # nm
 init_rng = 0 #dBm
-attval = 29 #dBm - for each attenuator
+attval = 31 #dBm - for each attenuator
 max_cur = 15e-6 # A
 bias_resistor = 97e3 #Ohms
 counting_time = 0.5 #s
@@ -106,26 +106,27 @@ def zero_pm():
     mpm.zero()
 
 # Initialize and turn on everything
-laser.std_init()
-laser.set_lambda(wavelength)
-laser.enable()
+def snspd_sde_setup():
+    laser.std_init()
+    laser.set_lambda(wavelength)
+    laser.enable()
 
-for att in att_list:
-    att.set_att(0)
-    att.disable()
-    
-mpm.set_lambda(wavelength)
-mpm.set_range('A')
-zero_pm()
+    for att in att_list:
+        att.set_att(0)
+        att.disable()
+        
+    mpm.set_lambda(wavelength)
+    mpm.set_range('A')
+    zero_pm()
 
-cpm.set_pm_wavelength(wavelength)
+    cpm.set_pm_wavelength(wavelength)
 
-counter.basic_setup()
-counter.set_impedance(ohms=50, channel=1)
-counter.setup_timed_count(channel=1)
+    counter.basic_setup()
+    counter.set_impedance(ohms=50, channel=1)
+    counter.setup_timed_count(channel=1)
 
-srs.set_voltage(0)
-srs.set_output(output=False)
+    srs.set_voltage(0)
+    srs.set_output(output=False)
 
 
 
@@ -404,9 +405,9 @@ def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pi
                 position = (x, y, z)
                 counts = meas_counts(position, N=N, counting_time=counting_time)
                 temp_data = (position, counts)
-                logging.info(temp_data)
+                logging.info(f"Position: {position}, counts: {counts}")
                 pol_counts.append(temp_data)
-                logging.info(f"{round(100*(i*positions.size**2 + j*positions.size + k)/((positions.size)**3), 2)}%")
+                logging.info(f"{round(100*(i*positions.size**2 + j*positions.size + k)/((positions.size)**3), 2)}% Complete")
     
     
     srs.set_voltage(0)
@@ -417,14 +418,15 @@ def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pi
         att.set_att(0)
         att.disable()
 
-    pol_counts_filename = f"{name}_pol_data_snspd_splice{snspd_splice}__{now_str}.pkl"
-    os.makedirs("data_sde", exist_ok=True)
-    pol_counts_filepath = os.path.join("data_sde", pol_counts_filename)
-    with open(pol_counts_filepath, "wb") as file:
+    output_dir = os.path.join(current_file_dir, 'data_sde')
+    os.makedirs(output_dir, exist_ok=True)
+    filename = f"{name}_pol_data_snspd_splice{snspd_splice}__{now_str}.pkl"
+    filepath = os.path.join(output_dir, filename)
+    with open(filepath, "wb") as file:
         pickle.dump(pol_counts, file)
-    logger.info(f"pol_counts saved to: {pol_counts_filepath}")
+    logger.info(f"pol_counts saved to: {filepath}")
     logger.info("Completed: Algorithm S3.1. SDE Counts Measurement - Polarization Sweep")
-    return pol_counts_filepath
+    return filepath
 
 # Algorithm S3.2. SDE Counts Measurement - True Counting
 def SDE_Counts_Measurement(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pickle_filepath='', pol_counts_filepath='', name='', trigger_voltage=0.01, ):    
@@ -482,34 +484,39 @@ def SDE_Counts_Measurement(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), 
         'Minpol_Count_Array': list(Minpol_Count_Array),
         'Maxpol_Settings': maxpol_settings,
         'Minpol_Settings': minpol_settings,
-    }
-    data_filename = f"{name}_counts_data_snspd_splice{snspd_splice}__{now_str}.pkl"
-    os.makedirs("data_sde", exist_ok=True)
-    data_filepath = os.path.join("data_sde", data_filename)
-    with open(data_filepath, "wb") as file:
+    }    
+    
+    output_dir = os.path.join(current_file_dir, 'data_sde')
+    os.makedirs(output_dir, exist_ok=True)
+    filename = f"{name}_counts_data_snspd_splice{snspd_splice}__{now_str}.pkl"
+    filepath = os.path.join(output_dir, filename)
+    with open(filepath, "wb") as file:
         pickle.dump(data_dict, file)
-    logger.info(f"data_dict saved to: {data_filepath}")
+    logger.info(f"data_dict saved to: {filepath}")
     logger.info("Completed: Algorithm S3.2. SDE Counts Measurement - True Counting")
-    return data_filepath
+    return filepath
 
 # %%
 if __name__ == '__main__':
+    # snspd_sde_setup()
         
-    now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
-    optical_switch_calibration_filepath = optical_switch_calibration(now_str=now_str, )
-
-    now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
-    nonlinearity_factor_filepath = nonlinearity_factor_raw_power_meaurements(now_str=now_str, )
+    # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
+    # optical_switch_calibration_filepath = optical_switch_calibration(now_str=now_str, )
 
     # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
-    # IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name):
+    # nonlinearity_factor_filepath = nonlinearity_factor_raw_power_meaurements(now_str=now_str, )
+
+    # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
+    # IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name)
+    IV_pickle_filepath = os.path.join(current_file_dir, "data_sde", "SK3_IV_curve_data__20250110-122541.pkl")
 
     # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
     # trigger_voltage = find_min_trigger_threshold(instruments, now_str=now_str)
+    trigger_voltage = 0.14
+
+    now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
+    pol_counts_filepath = sweep_polarizations(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, name=name, num_pols=13, trigger_voltage=trigger_voltage, counting_time=0.5, N=1)
 
     # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
-    # pol_counts_filepath = sweep_polarizations(now_str=now_str, IV_pickle_filepath='data/SK3_IV_curve_data_20241211-172258.pkl', name=name, num_pols=33, trigger_voltage=trigger_voltage, counting_time=0.5, N=1)
-
-    # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
-    # data_filepath = SDE_Counts_Measurement(now_str=now_str, IV_pickle_filepath='data/SK3_IV_curve_data_20241211-172258.pkl', pol_counts_filepath=pol_counts_filepath, name=name, trigger_voltage=trigger_voltage)
+    # data_filepath = SDE_Counts_Measurement(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, pol_counts_filepath=pol_counts_filepath, name=name, trigger_voltage=trigger_voltage)
     # attenuator_calibration_filepath = attenuator_calibration(now_str=now_str)

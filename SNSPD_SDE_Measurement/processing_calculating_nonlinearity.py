@@ -169,8 +169,6 @@ if __name__ == '__main__':
         rng_disc[rng] = rng_disc_factor
 
 
-
-
     # Save calibration data to a pickle file
     nonlinear_calibration_data = {
         "fit_params": fit.params.valuesdict(),

@@ -3,14 +3,11 @@
 from setuptools import setup
 
 install_requires=[
-   # 'numpy',
-   # 'matplotlib',
-   # 'pandas',
 ]
 
-setup(name='QITSDE',
+setup(name='',
       version='0.1',
-      description='QITSDE',
+      description='',
       install_requires=install_requires,
       author='Samuel Adler',
       author_email='samadler85@gmail.com',

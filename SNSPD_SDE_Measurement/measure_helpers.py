@@ -63,14 +63,14 @@ def SNSPD_IV_Curve(instruments, now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()
     df = pd.DataFrame(IV_curve_data)
 
     # Save the DataFrame as a pickle file
-    IV_pickle_file = f"{name}_IV_curve_data__{now_str}.pkl"
-    os.makedirs("data", exist_ok=True)  # Ensure the "data" directory exists
-    IV_pickle_filepath = os.path.join("data", IV_pickle_file)
-    df.to_pickle(IV_pickle_filepath)
-
-    logger.info(f"IV curve data saved to: {IV_pickle_filepath}")
+    output_dir = os.path.join(current_file_dir, 'data_sde')
+    os.makedirs(output_dir, exist_ok=True)
+    filename = f"{name}_IV_curve_data__{now_str}.pkl"
+    filepath = os.path.join(output_dir, filename)
+    df.to_pickle(filepath)
+    logger.info(f"IV curve data saved to: {filepath}")
     logger.info("COMPLETED: SNSPD IV Curve")
-    return IV_pickle_filepath
+    return filepath
 
 def get_counts(Cur_Array, instruments, trigger_voltage=0.12, bias_resistor=100e3, counting_time=1, N=3):
     """
@@ -118,33 +118,66 @@ def find_min_trigger_threshold(instruments, now_str="{:%Y%m%d-%H%M%S}".format(da
     counter.setup_timed_count(channel=channel)
 
     data = []
-    set_trigger_voltage = 0
-    trigger_voltages = np.linspace(0, max_trigger_voltage, 500)
-    for trigger_voltage in trigger_voltages:
+    # set_trigger_voltage = 0
+    # trigger_voltages = np.linspace(0, max_trigger_voltage, 500)
+    # for trigger_voltage in trigger_voltages:
+    #     counter.set_trigger(trigger_voltage=trigger_voltage, slope_positive=True, channel=channel)
+    #     time.sleep(0.1)
+    #     temp_cps_arr = np.empty(N, dtype=float)
+    #     for l in np.arange(temp_cps_arr.size):
+    #         temp_cps_arr[l] = counter.timed_count(counting_time=counting_time)/counting_time
+    #     temp_cps = np.mean(temp_cps_arr)
+    #     if set_trigger_voltage==0 and temp_cps==0:
+    #         temp_cps_arr = np.empty(N, dtype=float)
+    #         for l in np.arange(temp_cps_arr.size):
+    #             temp_cps_arr[l] = counter.timed_count(counting_time=counting_time)/counting_time
+    #         temp_cps = np.mean(temp_cps_arr)
+    #     data_temp = (trigger_voltage, temp_cps)
+    #     print(data_temp)
+    #     data.append(data_temp)
+    #     if set_trigger_voltage==0 and temp_cps==0:
+    #         set_trigger_voltage = trigger_voltage
+    #         break
+
+    def get_avg_cps(trigger_voltage):
         counter.set_trigger(trigger_voltage=trigger_voltage, slope_positive=True, channel=channel)
         time.sleep(0.1)
-        temp_cps_arr = np.empty(N, dtype=float)
-        for l in np.arange(temp_cps_arr.size):
-            temp_cps_arr[l] = counter.timed_count(counting_time=counting_time)/counting_time
-        temp_cps = np.mean(temp_cps_arr)
-        if set_trigger_voltage==0 and temp_cps==0:
-            temp_cps_arr = np.empty(N, dtype=float)
-            for l in np.arange(temp_cps_arr.size):
-                temp_cps_arr[l] = counter.timed_count(counting_time=counting_time)/counting_time
-            temp_cps = np.mean(temp_cps_arr)
+        cps_arr = np.empty(N, dtype=float)
+        for l in np.arange(cps_arr.size):
+            cps_arr[l] = counter.timed_count(counting_time=counting_time)/counting_time
+        avg_cps = np.mean(cps_arr)
+        return avg_cps
+
+    i = 0
+    trigger_voltage = max_trigger_voltage/2
+    temp_cps = get_avg_cps(trigger_voltage)
+    while i < 120:
+        if temp_cps > 0:
+            result = min((x[0] for x in data if x[1] == 0), default=None)
+            if result == None:
+                result = max_trigger_voltage
+            trigger_voltage = (trigger_voltage + result)/2
+        else:
+            result = max((x[0] for x in data if x[1] != 0), default=None)
+            if result == None:
+                result = 0
+            trigger_voltage = (trigger_voltage + result)/2
+        temp_cps = get_avg_cps(trigger_voltage)
         data_temp = (trigger_voltage, temp_cps)
-        print(data_temp)
+        logger.info(data_temp)
         data.append(data_temp)
-        if set_trigger_voltage==0 and temp_cps==0:
-            set_trigger_voltage = trigger_voltage
-            break
-    os.makedirs("data", exist_ok=True)
-    trigger_voltage_filename = f'trigger_voltage_data__{now_str}'
-    trigger_voltage_filepath = os.path.join("data", trigger_voltage_filename)
-    with open(trigger_voltage_filepath, "wb") as file:
+
+        i += 1
+
+    output_dir = os.path.join(current_file_dir, 'data_sde')
+    os.makedirs(output_dir, exist_ok=True)
+    filename = f'trigger_voltage_data__{now_str}'
+    filepath = os.path.join(output_dir, filename)
+    with open(filepath, "wb") as file:
         pickle.dump(data, file)
-    logger.info(f"trigger voltage data saved to: {trigger_voltage_filepath}")
-    return set_trigger_voltage
+    logger.info(f"trigger voltage data saved to: {filepath}")
+    logger.info(f"Final trigger voltage: {trigger_voltage}")
+    return trigger_voltage
 
 
 # Daniel Sorensen Code
