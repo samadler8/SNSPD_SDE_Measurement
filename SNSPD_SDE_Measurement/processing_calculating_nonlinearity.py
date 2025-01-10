@@ -27,6 +27,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+tau = 1.5
+
 def initialize_parameters(poly_order_list, ranges):
     """
     Initialize lmfit.Parameters for fitting polynomial coefficients.
@@ -39,7 +41,7 @@ def initialize_parameters(poly_order_list, ranges):
         lmfit.Parameters: Initialized parameters for the fitting process.
     """
     params = lmfit.Parameters()
-    params.add('tau', value=0.5)  # Add the initial parameter tau (set to 0.5 becasue tau refers to the second attenuator being set to 3 dBmW which approximately halves the power)
+    params.add('tau', value=math.log10(tau))  # Add the initial parameter tau
 
     for i, rng in enumerate(ranges):
         max_order = poly_order_list[i]
@@ -124,7 +126,7 @@ def find_poly_fit(processed_nonlinearity_data, ranges, poly_order_list):
 
 
 if __name__ == '__main__':
-    fpath = os.path.join(current_file_dir, 'data_sde', '.pkl')
+    fpath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data__20250109-182606.pkl')
     logger.info(f'Processing file: {fpath}')
 
     # Extract nonlinearity data and ranges
