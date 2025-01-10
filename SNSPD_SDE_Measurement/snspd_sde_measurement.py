@@ -85,16 +85,20 @@ rng_dict = {'A': 'AUTO',
     'Z' : 'HOLD'
 }
 
+# setup constants
 wavelength = 1566.314  # nm
-init_rng = 0 #dBm
-attval = 30 #dBm - for each attenuator
-max_cur = 15e-6 # A
 bias_resistor = 97e3 #Ohms
+init_rng = 0 #dBm
+
 counting_time = 0.5 #s
 num_pols = 13
 
+attval = 27 #dBm - for each attenuator
+tau = 2.5
 
 name = 'SK3'
+max_cur = 15e-6 # A
+
 cpm_splice = 2
 snspd_splice = 1
 
@@ -217,7 +221,7 @@ def nonlinearity_factor_raw_power_meaurements(now_str="{:%Y%m%d-%H%M%S}".format(
         att.set_att(0)
         att.enable()
 
-    att2_settings = [0, 3]
+    att2_settings = [0, tau]
     N = 50
 
     base_input_powers = np.arange(5, -14, -1)
@@ -270,7 +274,7 @@ def nonlinearity_factor_raw_power_meaurements(now_str="{:%Y%m%d-%H%M%S}".format(
     df = pd.DataFrame(data, columns=columns)
 
     # Save the DataFrame as a pickle file
-    nonlinearity_factor_filename = f'nonlinear_calibration_data__{now_str}.pkl'
+    nonlinearity_factor_filename = f'nonlinear_calibration_data_tau{tau}__{now_str}.pkl'
     output_dir = os.path.join(current_file_dir, "data_sde")
     os.makedirs(output_dir, exist_ok=True)
     nonlinearity_factor_filepath = os.path.join(output_dir, nonlinearity_factor_filename)
@@ -514,8 +518,8 @@ if __name__ == '__main__':
     # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
     # optical_switch_calibration_filepath = optical_switch_calibration(now_str=now_str, )
 
-    # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
-    # nonlinearity_factor_filepath = nonlinearity_factor_raw_power_meaurements(now_str=now_str, )
+    now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
+    nonlinearity_factor_filepath = nonlinearity_factor_raw_power_meaurements(now_str=now_str, )
 
     # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
     # IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name)
