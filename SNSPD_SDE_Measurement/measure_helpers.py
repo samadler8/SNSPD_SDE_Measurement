@@ -50,8 +50,8 @@ def SNSPD_IV_Curve(instruments, now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()
         srs.set_voltage(volt)
         time.sleep(0.1)  # Wait for stabilization
         Volt_Meas[i] = multi.read_voltage()
-        print(f"Applied Voltage: {volt}, Measured Voltage: {Volt_Meas[i]}")
-        print(f"{round(100*i/Volt_Meas.size, 2)}%")
+        logger.info(f"Applied Voltage: {volt}, Measured Voltage: {Volt_Meas[i]}")
+        logger.info(f"{round(100*i/Volt_Meas.size, 2)}%")
     srs.set_voltage(0)
     srs.set_output(output=False)
 
@@ -89,7 +89,7 @@ def get_counts(Cur_Array, instruments, trigger_voltage=0.12, bias_resistor=100e3
     counter.setup_timed_count(channel=1)
     counter.set_trigger(trigger_voltage=trigger_voltage, slope_positive=True, channel=1)
 
-    Count_Array = np.empty(len(Cur_Array), N, dtype=float)
+    Count_Array = np.empty((len(Cur_Array), N), dtype=float)
 
     for i in range(len(Cur_Array)):
         this_volt = round(Cur_Array[i] * bias_resistor, 3)
@@ -99,7 +99,7 @@ def get_counts(Cur_Array, instruments, trigger_voltage=0.12, bias_resistor=100e3
         for j in np.arange(temp_cps.size):
             temp_cps[j] = counter.timed_count(counting_time=counting_time)/counting_time
         Count_Array[i] = temp_cps
-        print(f"Voltage: {this_volt} V, Counts: {np.mean(Count_Array[i])}")
+        logger.info(f"Voltage: {this_volt} V, Counts: {np.mean(Count_Array[i])}")
     
     srs.set_voltage(0)
     srs.set_output(output=False)
@@ -133,7 +133,7 @@ def find_min_trigger_threshold(instruments, now_str="{:%Y%m%d-%H%M%S}".format(da
     #             temp_cps_arr[l] = counter.timed_count(counting_time=counting_time)/counting_time
     #         temp_cps = np.mean(temp_cps_arr)
     #     data_temp = (trigger_voltage, temp_cps)
-    #     print(data_temp)
+    #     logger.info(data_temp)
     #     data.append(data_temp)
     #     if set_trigger_voltage==0 and temp_cps==0:
     #         set_trigger_voltage = trigger_voltage
@@ -189,7 +189,7 @@ def find_min_trigger_threshold(instruments, now_str="{:%Y%m%d-%H%M%S}".format(da
 #     def optFunc(v, grad=None):
 #         pc.setAll(v)
 #         counts=cr.measureFor(tMeasure)/tMeasure
-#         print(f"P: {v}, Counts: {counts}")
+#         logger.info(f"P: {v}, Counts: {counts}")
 #         return counts
     
 #     instruments.att1.set_att(attValue)
@@ -216,10 +216,10 @@ def find_min_trigger_threshold(instruments, now_str="{:%Y%m%d-%H%M%S}".format(da
 #     optZ = pc.getAxis('Z')
 #     optPol = (optX,optY,optZ)
 #     if minimize:
-#         print("Found minimum polarization:")
+#         logger.info("Found minimum polarization:")
 #     else:
-#         print("Found maximum polarization:")
-#     print(optPol)
+#         logger.info("Found maximum polarization:")
+#     logger.info(optPol)
 #     return optPol
 
 

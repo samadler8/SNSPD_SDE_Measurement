@@ -344,13 +344,14 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
         att.disable()
 
     # Save the calibration data to a file
-    os.makedirs("data_sde", exist_ok=True)
-    attenuator_calibration_filename = f"attenuator_calibration_data_snspd_splice{snspd_splice}__{now_str}.pkl"
-    attenuator_calibration_filepath = os.path.join("data_sde", attenuator_calibration_filename)
-    powers_df.to_pickle(attenuator_calibration_filepath)
-    logger.info(f"attenuator_calibration saved to: {attenuator_calibration_filepath}")
+    output_dir = os.path.join(current_file_dir, 'data_sde')
+    os.makedirs(output_dir, exist_ok=True)
+    filename = f"attenuator_calibration_data__{now_str}.pkl"
+    filepath = os.path.join(output_dir, filename)
+    powers_df.to_pickle(filepath)
+    logger.info(f"attenuator_calibration saved to: {filepath}")
     logger.info("Completed: Algorithm S2. Attenuator Calibration")
-    return attenuator_calibration_filepath
+    return filepath
 
 
 # At this point, the "detector" fiber MUST be spliced to the SNSPD
@@ -452,8 +453,9 @@ def SDE_Counts_Measurement(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), 
     sw.set_route(monitor_port)
     for att in att_list:
         att.disable()
+    logging.info("Collecting dark counts")
     Dark_Count_Array = get_counts(Cur_Array, instruments, trigger_voltage=trigger_voltage, bias_resistor=bias_resistor, counting_time=counting_time)
-    logging.info("Got dark counts")
+    logging.info("Dark counts collected")
 
     # Max and min polarization measurements
     sw.set_route(detector_port)
@@ -463,13 +465,15 @@ def SDE_Counts_Measurement(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), 
     
     # Measure counts at max polarization
     pc.set_waveplate_positions(maxpol_settings)
+    logging.info("Collecting max polarization counts")
     Maxpol_Count_Array = get_counts(Cur_Array, instruments, trigger_voltage=trigger_voltage, bias_resistor=bias_resistor, counting_time=counting_time)
-    logging.info("Got counts for max polarization")
+    logging.info("Max polarization counts collected")
 
     # Measure counts at min polarization
     pc.set_waveplate_positions(minpol_settings)
+    logging.info("Collecting min polarization counts")
     Minpol_Count_Array = get_counts(Cur_Array, instruments, trigger_voltage=trigger_voltage, bias_resistor=bias_resistor, counting_time=counting_time)
-    logging.info("Got counts for min polarization")
+    logging.info("Min polarization counts collected")
 
     sw.set_route(monitor_port)
     for att in att_list:
@@ -514,9 +518,10 @@ if __name__ == '__main__':
     # trigger_voltage = find_min_trigger_threshold(instruments, now_str=now_str)
     trigger_voltage = 0.14
 
-    now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
-    pol_counts_filepath = sweep_polarizations(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, name=name, num_pols=13, trigger_voltage=trigger_voltage, counting_time=0.5, N=1)
-
     # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
-    # data_filepath = SDE_Counts_Measurement(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, pol_counts_filepath=pol_counts_filepath, name=name, trigger_voltage=trigger_voltage)
-    # attenuator_calibration_filepath = attenuator_calibration(now_str=now_str)
+    # pol_counts_filepath = sweep_polarizations(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, name=name, num_pols=13, trigger_voltage=trigger_voltage, counting_time=0.5, N=1)
+    pol_counts_filepath = os.path.join(current_file_dir, "data_sde", "SK3_pol_data_snspd_splice1__20250110-125128.pkl")
+
+    now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
+    data_filepath = SDE_Counts_Measurement(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, pol_counts_filepath=pol_counts_filepath, name=name, trigger_voltage=trigger_voltage)
+    attenuator_calibration_filepath = attenuator_calibration(now_str=now_str)
