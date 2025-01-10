@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 ## Plotting Functions
 # IV Curve
-def plot_IV_curve(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.now()), IV_pickle_filepath='', save_pdf=False):
+def plot_IV_curve(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pickle_filepath='', save_pdf=False):
     df = pd.read_pickle(IV_pickle_filepath)
 
     ic = get_ic(IV_pickle_filepath)
@@ -54,11 +54,10 @@ def plot_IV_curve(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.now()), IV_pick
     plt.savefig(f'{figpath}.png')
     if save_pdf:
         plt.savefig(f'{figpath}.pdf')
-
     return
 
 # Polarization Sweeps
-def plot_polarization_sweep(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.now()), pol_counts_filepath='',):
+def plot_polarization_sweep(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), pol_counts_filepath='',):
     with open(pol_counts_filepath, 'rb') as file:
         pol_counts = pickle.load(file)
     coords = np.array([item[0] for item in pol_counts])  # Array of (x, y, z)
@@ -96,7 +95,7 @@ def plot_polarization_sweep(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.now()
 
 
 # Counts vs Current
-def plot_min_max_avg_counts_vs_current(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.now()), data_filepath='', save_pdf=False):
+def plot_min_max_avg_counts_vs_current(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), data_filepath='', save_pdf=False):
     with open(data_filepath, 'rb') as file:
         data_dict = pickle.load(file)
 
@@ -132,7 +131,7 @@ def plot_min_max_avg_counts_vs_current(now_str="{:%Y:%m:%d-%H:%M:%S}".format(dat
     return
 
 # Counts vs Current
-def plot_raw_counts_unc(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.now()), data_filepath='', save_pdf=False):
+def plot_raw_counts_unc(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), data_filepath='', save_pdf=False):
     with open(data_filepath, 'rb') as file:
         data_dict = pickle.load(file)
 
@@ -188,7 +187,7 @@ def plot_raw_counts_unc(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.now()), d
 
     return
 
-def plot_temperature_dependence(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.now()), data_filepath='', save_pdf=False):
+def plot_temperature_dependence(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), data_filepath='', save_pdf=False):
     df = pd.read_pickle(data_filepath)
 
     output_dir = os.path.join(current_file_dir, 'pics_temperatureDependence')
@@ -451,7 +450,7 @@ def plot_switch(optical_switch_filepath, cpm_splice="", save_pdf=False):
     return
 
 # Counts vs Current
-def plot_processed_counts_unc(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.now()), data_filepath='', save_pdf=False):
+def plot_processed_counts_unc(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), data_filepath='', save_pdf=False):
     with open(data_filepath, 'rb') as file:
         data_dict = pickle.load(file)
 
@@ -511,20 +510,20 @@ def plot_processed_counts_unc(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.now
 
 # %% Main Code Block
 if __name__ == '__main__':
-    optical_switch_filepath = os.path.join(current_file_dir, 'data_sde', 'optical_switch_calibration_data_cpm_splice2__20250109-180754.pkl')
-    plot_switch(optical_switch_filepath, cpm_splice=2)
+    # optical_switch_filepath = os.path.join(current_file_dir, 'data_sde', 'optical_switch_calibration_data_cpm_splice2__20250109-180754.pkl')
+    # plot_switch(optical_switch_filepath, cpm_splice=2)
 
-    # nonlinearity_data_filepath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data__20250109-182606.pkl')
-    # plot_raw_nonlinearity_data(nonlinearity_data_filepath)
+    nonlinearity_data_filepath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data__20250109-182606.pkl')
+    plot_raw_nonlinearity_data(nonlinearity_data_filepath)
     # nonlinearity_calculation_filepath = os.path.join(current_file_dir, 'data_sde', '.pkl')
     # plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculation_filepath)
     # plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_filepath, )
 
-    now_str = "{:%Y:%m:%d-%H:%M:%S}".format(datetime.now())
-    IV_pickle_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_IV_curve_data__20250110-122541.pkl')
-    plot_IV_curve(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, save_pdf=False)
+    # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
+    # IV_pickle_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_IV_curve_data__20250110-122541.pkl')
+    # plot_IV_curve(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, save_pdf=False)
 
-    # now_str = "{:%Y:%m:%d-%H:%M:%S}".format(datetime.now())
+    # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
     # plot_polarization_sweep(now_str=now_str, pol_counts_filepath=pol_counts_filepath, save_pdf=False)
 
     # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())

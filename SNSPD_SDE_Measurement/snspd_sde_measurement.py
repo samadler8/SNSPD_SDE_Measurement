@@ -220,7 +220,7 @@ def nonlinearity_factor_raw_power_meaurements(now_str="{:%Y%m%d-%H%M%S}".format(
     att2_settings = [0, 3]
     N = 50
 
-    base_input_powers = np.arange(10, -20, -1)  # Create an array from 10 to -20 inclusive
+    base_input_powers = np.arange(5, -14, -1)
     att_settings = {}
 
     rng_settings = [0, -10, -20, -30, -40, -50, -60]
@@ -266,7 +266,7 @@ def nonlinearity_factor_raw_power_meaurements(now_str="{:%Y%m%d-%H%M%S}".format(
         att.disable()
 
     # Convert the data to a pandas DataFrame
-    columns = ['Range', 'Atteunator 1', 'Atteunator 2', 'Power']
+    columns = ['Range', 'Attenuator 1', 'Attenuator 2', 'Power']
     df = pd.DataFrame(data, columns=columns)
 
     # Save the DataFrame as a pickle file
