@@ -1,6 +1,7 @@
 import os
 import pickle
 import logging
+import math
 
 import pandas as pd
 import numpy as np
@@ -147,28 +148,21 @@ def extract_nonlinearity_data(filepath):
     Returns:
         dict: A dictionary with data organized by range, containing uncertainty arrays.
     """
-
     # Load the dataframe from the pickle file
     df = pd.read_pickle(filepath)
 
     ranges = df['Range'].unique()
     for rng in ranges:
-        # Filter rows for the current range
-        filtered_df = df[df['Range'] == rng]
-
         # Define power thresholds for the current range
         max_power_threshold = 10**((rng - 0.1) / 10) * 1e-3
         min_power_threshold = 10**((rng - 13) / 10) * 1e-3
         if rng == -60:
             min_power_threshold = 10**((rng - 8) / 10) * 1e-3
 
-        # Filter out invalid power values within the 'Power' column
-        filtered_df['Power'] = filtered_df['Power'].apply(
+        # Filter out invalid power values within the 'Power' column directly in the original DataFrame
+        df.loc[df['Range'] == rng, 'Power'] = df.loc[df['Range'] == rng, 'Power'].apply(
             lambda powers: [power for power in powers if min_power_threshold < power < max_power_threshold]
         )
-
-        # Update the original DataFrame by keeping only rows with non-empty power lists
-        df.loc[df['Range'] == rng, 'Power'] = filtered_df['Power']
 
     # Remove rows where 'Power' lists are empty
     df = df[df['Power'].apply(len) > 0]
@@ -180,23 +174,26 @@ def extract_nonlinearity_data(filepath):
     data_dict = {}
     for rng in ranges:
         
-        filtered_df = df[(df['Range'] == rng)]
-        data_dict[rng] = {}
+        filtered_df = df[(df['Range'] == rng)].copy()
+        
 
         # Filter data for the two attenuation steps
         filtered_df_tau0 = filtered_df[filtered_df['Atteunator 2'] == taus[0]]
         filtered_df_tau1 = filtered_df[filtered_df['Atteunator 2'] == taus[1]]
 
         # Get unique and sorted attenuation settings
-        att_settings = filtered_df['Atteunator 1'].unique()
+        att_settings_tau0 = filtered_df_tau0['Atteunator 1'].unique()
+        att_settings_tau1 = filtered_df_tau1['Atteunator 1'].unique()
+        att_settings = list(set(att_settings_tau0) & set(att_settings_tau1))
         att_settings.sort()
-        data_dict[rng]['att'] = att_settings
+        filtered_df_tau0 = filtered_df_tau0[filtered_df_tau0['Atteunator 1'].isin(att_settings)]
+        filtered_df_tau1 = filtered_df_tau1[filtered_df_tau1['Atteunator 1'].isin(att_settings)]
+        if filtered_df_tau0.empty or filtered_df_tau1.empty:
+            continue
 
         # Initialize temporary arrays for storing data
         v_temp = np.empty(len(att_settings), dtype=object)
         vt_temp = np.empty(len(att_settings), dtype=object)
-
-        # Loop through each attenuation setting and populate data
         for i, a in enumerate(att_settings):
             filtered_df_tau0_a = filtered_df_tau0[filtered_df_tau0['Atteunator 1'] == a]
             v_temp[i] = np.array([value for sublist in filtered_df_tau0_a['Power'] for value in sublist])
@@ -204,6 +201,8 @@ def extract_nonlinearity_data(filepath):
             vt_temp[i] = np.array([value for sublist in filtered_df_tau1_a['Power'] for value in sublist])
 
         # Calculate mean and uncertainty for v and vt
+        data_dict[rng] = {}
+        data_dict[rng]['att'] = att_settings
         data_dict[rng]['v'] = get_uncertainty(v_temp)
         data_dict[rng]['vt'] = get_uncertainty(vt_temp)
 
