@@ -27,8 +27,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-cpm_splice = 1
-
 ## Plotting Functions
 # IV Curve
 def plot_IV_curve(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.now()), IV_pickle_filepath='', save_pdf=False):
@@ -356,7 +354,7 @@ def plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_fil
     plt.close()
 
 
-def plot_switch(optical_switch_filepath, save_pdf=False):
+def plot_switch(optical_switch_filepath, cpm_splice="", save_pdf=False):
     """
     Plot the calibration data from the optical switch and the ratio of CPM to MPM with uncertainty.
 
@@ -371,13 +369,17 @@ def plot_switch(optical_switch_filepath, save_pdf=False):
     power_mpm = np.array(switchdata['power_mpm'])
     power_cpm = np.array(switchdata['power_cpm'])
 
+    # combined = ''.join(power_cpm)
+    # numbers = [f'+{num}' for num in combined.replace('\n', '').split('+') if num]
+    # power_cpm = np.array([float(num) for num in numbers])
+
     # Reshape for consistency (if necessary)
     power_mpm = power_mpm.reshape(1, -1)
     power_cpm = power_cpm.reshape(1, -1)
 
     # Compute mean and standard deviation for each measurement
-    power_mpm_unc = get_uncertainty(power_mpm)
-    power_cpm_unc = get_uncertainty(power_cpm)
+    power_mpm_unc = get_uncertainty(power_mpm)[0]
+    power_cpm_unc = get_uncertainty(power_cpm)[0]
 
     # Extract mean and standard deviation
     power_mpm_mean = power_mpm_unc.nominal_value
@@ -387,12 +389,12 @@ def plot_switch(optical_switch_filepath, save_pdf=False):
 
     # Calculate the CPM/MPM ratio and uncertainty
     ratio = power_cpm / power_mpm
-    ratio_unc = get_uncertainty(ratio)
+    ratio_unc = get_uncertainty(ratio)[0]
     ratio_mean = ratio_unc.nominal_value
     ratio_std = ratio_unc.std_dev
 
     # Prepare data for the box plot
-    data = [power_mpm_mean.flatten(), power_cpm_mean.flatten()]
+    data = [[power_mpm_mean], [power_cpm_mean]]  # Wrap in lists to make them sequences
     labels = ['MPM', 'CPM']
 
     # Create the plot with two subplots
@@ -416,11 +418,11 @@ def plot_switch(optical_switch_filepath, save_pdf=False):
 
     # Subplot 2: CPM/MPM ratio
     ax = axs[1]
-    x = np.arange(len(ratio_mean))  # X-axis values (indices)
+    x = np.arange(1)  # X-axis values (indices)
     ax.errorbar(
         x, 
-        ratio_mean.flatten(), 
-        yerr=ratio_std.flatten(), 
+        ratio_mean, 
+        yerr=ratio_std, 
         fmt='o', 
         color='green', 
         ecolor='black', 
@@ -509,22 +511,26 @@ def plot_processed_counts_unc(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.now
 
 # %% Main Code Block
 if __name__ == '__main__':
+    optical_switch_filepath = os.path.join(current_file_dir, 'data_sde', 'optical_switch_calibration_data_cpm_splice2__20250109-180754.pkl')
+    plot_switch(optical_switch_filepath, cpm_splice=2)
 
-    # now_str = "{:%Y:%m:%d-%H:%M:%S}".format(datetime.now())
-    # plot_IV_curve(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, save_pdf=False)
+    # nonlinearity_data_filepath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data__20250109-182606.pkl')
+    # plot_raw_nonlinearity_data(nonlinearity_data_filepath)
+    # nonlinearity_calculation_filepath = os.path.join(current_file_dir, 'data_sde', '.pkl')
+    # plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculation_filepath)
+    # plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_filepath, )
+
+    now_str = "{:%Y:%m:%d-%H:%M:%S}".format(datetime.now())
+    IV_pickle_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_IV_curve_data__20250110-122541.pkl')
+    plot_IV_curve(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, save_pdf=False)
 
     # now_str = "{:%Y:%m:%d-%H:%M:%S}".format(datetime.now())
     # plot_polarization_sweep(now_str=now_str, pol_counts_filepath=pol_counts_filepath, save_pdf=False)
 
-    now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
-    data_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_data_dict__20241212-142132.pkl')
-    plot_min_max_avg_counts_vs_current(now_str=now_str, data_filepath=data_filepath, save_pdf=False)
+    # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
+    # data_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_data_dict__20241212-142132.pkl')
+    # plot_min_max_avg_counts_vs_current(now_str=now_str, data_filepath=data_filepath, save_pdf=False)
 
-    # nonlinearity_data_filepath = os.path.join(current_file_dir, 'data_sde', 'nonlinearity_factor_raw_power_meaurements_data_20241210-174441.pkl')
-    # plot_nonlinearity_data(nonlinearity_data_filepath)
-    # nonlinearity_calculation_filepath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data__20250102-045010.pkl')
-    # plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculation_filepath)
-    # plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_filepath, )
 
-    # optical_switch_filepath = os.path.join(current_file_dir, 'data_sde', 'optical_switch_calibration_data.pkl')
-    # plot_switch(optical_switch_filepath)
+
+
