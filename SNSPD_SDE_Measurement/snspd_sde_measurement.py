@@ -87,7 +87,7 @@ rng_dict = {'A': 'AUTO',
 
 wavelength = 1566.314  # nm
 init_rng = 0 #dBm
-attval = 31 #dBm - for each attenuator
+attval = 30 #dBm - for each attenuator
 max_cur = 15e-6 # A
 bias_resistor = 97e3 #Ohms
 counting_time = 0.5 #s
@@ -280,7 +280,7 @@ def nonlinearity_factor_raw_power_meaurements(now_str="{:%Y%m%d-%H%M%S}".format(
     return nonlinearity_factor_filepath
 
 # Algorithm S2. Attenuator Calibration
-def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
+def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now())):
     logger.info("Starting: Algorithm S2. Attenuator Calibration")
     sw.set_route(monitor_port)
 
@@ -294,6 +294,7 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
 
     # Calibrate each attenuator in att_list
     init_powers = []
+    rows = []  # Collect rows to add to the DataFrame
     for i, atti in enumerate(att_list):
         # Step 2: Monitor setup for initial power measurements
         mpm.set_range(init_rng)
@@ -322,21 +323,27 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
         for _ in range(N):
             temp_powers.append(mpm.get_power())
         mpm.get_power()
-        powers_df = powers_df.append({
+        
+        # Collect the row to add later
+        rows.append({
             'Attenuator': i,
             'Attenuation (dB)': attval,
             'Range': att_rng,
-            'Power': temp_powers
-        }, ignore_index=True)
+            'Power Measurement': temp_powers
+        })
 
         logging.info(f"{round(100 * i / len(att_list), 2)}% completed")
 
-    powers_df = powers_df.append({
+    # Add initial power measurements row
+    rows.append({
         'Attenuator': None,
         'Attenuation (dB)': 0,
         'Range': init_rng,
-        'Power': init_powers
-    }, ignore_index=True)
+        'Power Measurement': init_powers
+    })
+
+    # Add all rows to the DataFrame at once
+    powers_df = pd.concat([powers_df, pd.DataFrame(rows)], ignore_index=True)
 
     # Reset attenuators
     for att in att_list:
