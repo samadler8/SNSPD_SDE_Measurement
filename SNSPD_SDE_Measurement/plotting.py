@@ -27,6 +27,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+cpm_splice = 1
+
 ## Plotting Functions
 # IV Curve
 def plot_IV_curve(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.now()), IV_pickle_filepath='', save_pdf=False):
@@ -35,9 +37,10 @@ def plot_IV_curve(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.now()), IV_pick
     ic = get_ic(IV_pickle_filepath)
 
     # Plot the IV curve
+    output_dir = os.path.join(current_file_dir, 'figs')
+    os.makedirs(output_dir, exist_ok=True)
     figname = f'SNSPD_IV_Curve__{now_str}'
-    os.makedirs('figs', exist_ok=True)
-    figpath = os.path.join("figs", figname)
+    figpath = os.path.join(output_dir, figname)
     plt.figure(figsize=(8, 6))
     plt.plot(df['Current'], df['Voltage'], label="IV Curve", color="blue", linewidth=2)
 
@@ -55,7 +58,6 @@ def plot_IV_curve(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.now()), IV_pick
         plt.savefig(f'{figpath}.pdf')
 
     return
-
 
 # Polarization Sweeps
 def plot_polarization_sweep(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.now()), pol_counts_filepath='',):
@@ -107,13 +109,10 @@ def plot_min_max_avg_counts_vs_current(now_str="{:%Y:%m:%d-%H:%M:%S}".format(dat
     Maxpol_Settings = data_dict['Maxpol_Settings']
     Minpol_Settings = data_dict['Minpol_Settings']
 
-    # if count arrays are 2D, average over one dimension
-
-
-    os.makedirs('figs', exist_ok=True)
-
-    filename = f'counts_vs_current_curves__{now_str}'
-    figpath = os.path.join(current_file_dir, 'figs_sde', filename)
+    output_dir = os.path.join(current_file_dir, 'figs_sde')
+    os.makedirs(output_dir, exist_ok=True)
+    figname = f'counts_vs_current_curves__{now_str}'
+    figpath = os.path.join(output_dir, figname)
     plt.close('all')
     plt.figure(figsize = [20,10])
     plt.plot(Cur_Array, Maxpol_Count_Array, '--*', color = 'cyan', label = f'Max Polarization {Maxpol_Settings}', linewidth=0.5)
@@ -122,7 +121,64 @@ def plot_min_max_avg_counts_vs_current(now_str="{:%Y:%m:%d-%H:%M:%S}".format(dat
     plt.plot(Cur_Array, np.maximum(Minpol_Count_Array - Dark_Count_Array, 0), '-*', color = 'red', label = f'Min Polarization - Dark Counts')
     plt.plot(Cur_Array, Dark_Count_Array, '-*', color = 'black', label = 'Dark Counts')
     plt.plot(Cur_Array, np.maximum((Maxpol_Count_Array + Minpol_Count_Array)/2 - Dark_Count_Array, 0), '-*', color = 'green', label = 'Average Counts - Dark Counts')
-    plt.title(f'{filename}')
+    plt.title(f'{figname}')
+    plt.xlabel('Bias current [uA]')
+    plt.ylabel('Counts [per sec]')
+    plt.legend(loc='upper left', bbox_to_anchor=(1.04, 1), fontsize=10)
+    plt.tight_layout()
+    plt.savefig(f'{figpath}.png')
+    if save_pdf:
+        plt.savefig(f'{figpath}.pdf')
+    plt.close('all')
+
+    return
+
+# Counts vs Current
+def plot_raw_counts_unc(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.now()), data_filepath='', save_pdf=False):
+    with open(data_filepath, 'rb') as file:
+        data_dict = pickle.load(file)
+
+    Cur_Array = np.array(data_dict['Cur_Array'])
+    Dark_Count_Array = np.array(data_dict['Dark_Count_Array'])
+    Maxpol_Count_Array = np.array(data_dict['Maxpol_Count_Array'])
+    Minpol_Count_Array = np.array(data_dict['Minpol_Count_Array'])
+    Maxpol_Settings = data_dict['Maxpol_Settings']
+    Minpol_Settings = data_dict['Minpol_Settings']
+
+    Cur_Array_uA = Cur_Array * 1e6
+
+    Dark_Counts = get_uncertainty(Dark_Count_Array)
+    Maxpol_Counts = get_uncertainty(Maxpol_Count_Array)
+    Minpol_Counts = get_uncertainty(Minpol_Count_Array)
+
+    Avg_Counts = (Maxpol_Counts + Minpol_Settings) / 2
+
+    output_dir = os.path.join(current_file_dir, 'figs_sde')
+    os.makedirs(output_dir, exist_ok=True)
+    figname = f'counts_vs_current_curves__{now_str}'
+    figpath = os.path.join(output_dir, figname)
+    plt.close('all')
+    plt.figure(figsize = [20,10])
+    plt.errorbar(Cur_Array_uA, unp.nominal_values(Maxpol_Counts), 
+                 yerr=unp.std_devs(Maxpol_Counts), fmt='--*', color='cyan', 
+                 label=f'Max Polarization {Maxpol_Settings}', linewidth=0.5)
+    plt.errorbar(Cur_Array_uA, unp.nominal_values(Minpol_Counts), 
+                 yerr=unp.std_devs(Minpol_Counts), fmt='--*', color='red', 
+                 label=f'Min Polarization {Minpol_Settings}', linewidth=0.5)
+    plt.errorbar(Cur_Array_uA, np.maximum(unp.nominal_values(Maxpol_Counts - Dark_Counts), 0), 
+                 yerr=unp.std_devs(Maxpol_Counts - Dark_Counts), fmt='-*', color='cyan', 
+                 label='Max Polarization - Dark Counts')
+    plt.errorbar(Cur_Array_uA, np.maximum(unp.nominal_values(Minpol_Counts - Dark_Counts), 0), 
+                 yerr=unp.std_devs(Minpol_Counts - Dark_Counts), fmt='-*', color='red', 
+                 label='Min Polarization - Dark Counts')
+    plt.errorbar(Cur_Array_uA, unp.nominal_values(Dark_Counts), 
+                 yerr=unp.std_devs(Dark_Counts), fmt='-*', color='black', 
+                 label='Dark Counts')
+    plt.errorbar(Cur_Array_uA, np.maximum(unp.nominal_values(Avg_Counts - Dark_Counts), 0), 
+                 yerr=unp.std_devs(Avg_Counts - Dark_Counts), fmt='-*', color='green', 
+                 label='Average Counts - Dark Counts')
+
+    plt.title(f'{figname}')
     plt.xlabel('Bias current [uA]')
     plt.ylabel('Counts [per sec]')
     plt.legend(loc='upper left', bbox_to_anchor=(1.04, 1), fontsize=10)
@@ -137,7 +193,10 @@ def plot_min_max_avg_counts_vs_current(now_str="{:%Y:%m:%d-%H:%M:%S}".format(dat
 def plot_temperature_dependence(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.now()), data_filepath='', save_pdf=False):
     df = pd.read_pickle(data_filepath)
 
-    figpath = f'pics_temperatureDependence/plateau_width_temperature_dependence__{now_str}'
+    output_dir = os.path.join(current_file_dir, 'pics_temperatureDependence')
+    os.makedirs(output_dir, exist_ok=True)
+    figname = f'plateau_width_temperature_dependence__{now_str}'
+    figpath = os.path.join(output_dir, figname)
     plt.figure(figsize=[20, 10])
     plt.plot(df['temperature'], df['plateau_widths'], '-*', color='k')
     plt.title('Plateau Width Temperature Dependence')
@@ -150,7 +209,7 @@ def plot_temperature_dependence(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.n
         plt.savefig(f'{figpath}.pdf')
     plt.close()
 
-def plot_nonlinearity_data(nonlinearity_data_filepath, save_pdf=False):
+def plot_raw_nonlinearity_data(nonlinearity_data_filepath, save_pdf=False):
     """
     Plot nonlinearity data with log-scaled y-axis, different colors for each range,
     and different markers for 'v' and 'vt'.
@@ -190,9 +249,10 @@ def plot_nonlinearity_data(nonlinearity_data_filepath, save_pdf=False):
     
     # Save the plot
     now_str = datetime.now().strftime('%Y%m%d_%H%M%S')
-    filename = f'nonlinearity_processed_data_{now_str}'
-    figpath = os.path.join(current_file_dir, 'figs_sde', filename)
-    os.makedirs(os.path.join(current_file_dir, 'figs_sde'), exist_ok=True)
+    output_dir = os.path.join(current_file_dir, 'figs_sde')
+    os.makedirs(output_dir, exist_ok=True)
+    figname = f'nonlinear_calibration_data__{now_str}'
+    figpath = os.path.join(output_dir, figname)
 
     plt.tight_layout()
     plt.savefig(f'{figpath}.png')
@@ -233,7 +293,7 @@ def plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculatio
         # Fit curve
         v_data = unp.nominal_values(values['v'])
         if 'tau' in fit_params:
-            tv_fit = fit_params['tau'] * P_range(fit_params, rng, v_data)
+            tv_fit = fit_params['tau'] * nonlinear_power_corrections(fit_params, rng, v_data)
             tv_fit_dbm = 10 * np.log10(tv_fit / 1e-3)
             ax.plot(values['att'], tv_fit_dbm, color=color, linestyle='-', label=f'Fit tau*v {rng}')
 
@@ -246,8 +306,10 @@ def plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculatio
 
     # Save the plot
     now_str = datetime.now().strftime('%Y%m%d_%H%M%S')
-    figpath = os.path.join(current_file_dir, 'figs_sde', f'nonlinearity_data_with_fits_{now_str}')
-    os.makedirs('figs_sde', exist_ok=True)
+    output_dir = os.path.join(current_file_dir, 'figs_sde')
+    os.makedirs(output_dir, exist_ok=True)
+    figname = f'nonlinear_calibration_calculation__{now_str}'
+    figpath = os.path.join(output_dir, figname)
     plt.tight_layout()
     plt.savefig(f'{figpath}.png')
     if save_pdf:
@@ -271,7 +333,7 @@ def plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_fil
     for rng in ranges:
         v_data = unp.nominal_values(processed_data[rng]['v'])
 
-        v_data_fit = P_range(fit_params, rng, v_data)
+        v_data_fit = nonlinear_power_corrections(fit_params, rng, v_data)
         fit_ratio = v_data / v_data_fit
 
         plt.plot(v_data, fit_ratio, 'o-', label=f'Fit Ratio Range {rng}')
@@ -283,10 +345,10 @@ def plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_fil
     plt.grid()
     # Save the plot
     now_str = datetime.now().strftime('%Y%m%d_%H%M%S')
-    filename = f'v_vs_fit_ratio_{now_str}'
-    figpath = os.path.join(current_file_dir, 'figs_sde', filename)
-    os.makedirs(os.path.join(current_file_dir, 'figs_sde'), exist_ok=True)
-
+    output_dir = os.path.join(current_file_dir, 'figs_sde')
+    os.makedirs(output_dir, exist_ok=True)
+    figname = f'nonlinear_fit_ratio_{now_str}'
+    figpath = os.path.join(output_dir, figname)
     plt.tight_layout()
     plt.savefig(f'{figpath}.png')
     if save_pdf:
@@ -295,33 +357,50 @@ def plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_fil
 
 
 def plot_switch(optical_switch_filepath, save_pdf=False):
+    """
+    Plot the calibration data from the optical switch and the ratio of CPM to MPM with uncertainty.
+
+    Parameters:
+        optical_switch_filepath (str): Path to the calibration data pickle file.
+        save_pdf (bool): Whether to save the plot as a PDF in addition to PNG.
+    """
     # Load calibration data from the pickle file
     switchdata = pd.read_pickle(optical_switch_filepath)
 
     # Extract measurement data from the DataFrame
     power_mpm = np.array(switchdata['power_mpm'])
-    power_cpm = np.array(switchdata['power_cpm'])  # Convert to NumPy array
+    power_cpm = np.array(switchdata['power_cpm'])
 
-    power_mpm = power_mpm.reshape(1, -1)  # Ensure 1 row and the necessary number of columns
+    # Reshape for consistency (if necessary)
+    power_mpm = power_mpm.reshape(1, -1)
     power_cpm = power_cpm.reshape(1, -1)
 
     # Compute mean and standard deviation for each measurement
     power_mpm_unc = get_uncertainty(power_mpm)
     power_cpm_unc = get_uncertainty(power_cpm)
 
-    # Prepare data for plotting
+    # Extract mean and standard deviation
     power_mpm_mean = power_mpm_unc.nominal_value
     power_mpm_std = power_mpm_unc.std_dev
     power_cpm_mean = power_cpm_unc.nominal_value
     power_cpm_std = power_cpm_unc.std_dev
+
+    # Calculate the CPM/MPM ratio and uncertainty
+    ratio = power_cpm / power_mpm
+    ratio_unc = get_uncertainty(ratio)
+    ratio_mean = ratio_unc.nominal_value
+    ratio_std = ratio_unc.std_dev
+
+    # Prepare data for the box plot
     data = [power_mpm_mean.flatten(), power_cpm_mean.flatten()]
     labels = ['MPM', 'CPM']
 
-    # Create the box plot
-    fig, ax = plt.subplots(figsize=(8, 6))
-    ax.boxplot(data, labels=labels, patch_artist=True, boxprops=dict(facecolor='lightblue', color='blue'))
+    # Create the plot with two subplots
+    fig, axs = plt.subplots(2, 1, figsize=(8, 10), gridspec_kw={'height_ratios': [2, 1]})
 
-    # Add mean and standard deviation as scatter points
+    # Subplot 1: Power readings (box plot with error bars)
+    ax = axs[0]
+    ax.boxplot(data, labels=labels, patch_artist=True, boxprops=dict(facecolor='lightblue', color='blue'))
     ax.errorbar(
         [1, 2], 
         [power_mpm_mean, power_cpm_mean], 
@@ -330,29 +409,101 @@ def plot_switch(optical_switch_filepath, save_pdf=False):
         color='red', 
         label='Mean ± Std Dev'
     )
-
-    # Customize plot
     ax.set_title('Power Meter Readings (MPM vs CPM)', fontsize=14)
     ax.set_ylabel('Power (W)', fontsize=12)
     ax.grid(axis='y', linestyle='--', alpha=0.7)
     ax.legend()
 
-
-    # also plot cpm/mpm
+    # Subplot 2: CPM/MPM ratio
+    ax = axs[1]
+    x = np.arange(len(ratio_mean))  # X-axis values (indices)
+    ax.errorbar(
+        x, 
+        ratio_mean.flatten(), 
+        yerr=ratio_std.flatten(), 
+        fmt='o', 
+        color='green', 
+        ecolor='black', 
+        capsize=3, 
+        label='Ratio ± Std Dev'
+    )
+    ax.set_title('CPM/MPM Ratio with Uncertainty', fontsize=14)
+    ax.set_xlabel('Measurement Index', fontsize=12)
+    ax.set_ylabel('Ratio (CPM/MPM)', fontsize=12)
+    ax.grid(axis='y', linestyle='--', alpha=0.7)
+    ax.legend()
 
     # Save the plot
     now_str = datetime.now().strftime('%Y%m%d_%H%M%S')
-    filename = f'optical_switch__{now_str}'
-    figpath = os.path.join(current_file_dir, 'figs_sde', filename)
-    os.makedirs(os.path.join(current_file_dir, 'figs_sde'), exist_ok=True)
+    output_dir = os.path.join(current_file_dir, 'figs_sde')
+    os.makedirs(output_dir, exist_ok=True)
+    figname = f'optical_switch_calibration_data_cpm_splice{cpm_splice}__{now_str}'
+    figpath = os.path.join(output_dir, figname)
 
     plt.tight_layout()
     plt.savefig(f'{figpath}.png')
     if save_pdf:
         plt.savefig(f'{figpath}.pdf')
     plt.close()
+
     return
 
+# Counts vs Current
+def plot_processed_counts_unc(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.now()), data_filepath='', save_pdf=False):
+    with open(data_filepath, 'rb') as file:
+        data_dict = pickle.load(file)
+
+    Cur_Array = np.array(data_dict['Cur_Array'])
+    Dark_Count_Array = np.array(data_dict['Dark_Count_Array'])
+    Maxpol_Count_Array = np.array(data_dict['Maxpol_Count_Array'])
+    Minpol_Count_Array = np.array(data_dict['Minpol_Count_Array'])
+    Maxpol_Settings = data_dict['Maxpol_Settings']
+    Minpol_Settings = data_dict['Minpol_Settings']
+
+    Cur_Array_uA = Cur_Array * 1e6
+
+    Dark_Counts = get_uncertainty(Dark_Count_Array)
+    Maxpol_Counts = get_uncertainty(Maxpol_Count_Array)
+    Minpol_Counts = get_uncertainty(Minpol_Count_Array)
+
+    Avg_Counts = (Maxpol_Counts + Minpol_Settings) / 2
+
+    os.makedirs('figs', exist_ok=True)
+
+    figname = f'counts_vs_current_curves__{now_str}'
+    figpath = os.path.join(current_file_dir, 'figs_sde', figname)
+    plt.close('all')
+    plt.figure(figsize = [20,10])
+    plt.errorbar(Cur_Array_uA, unp.nominal_values(Maxpol_Counts), 
+                 yerr=unp.std_devs(Maxpol_Counts), fmt='--*', color='cyan', 
+                 label=f'Max Polarization {Maxpol_Settings}', linewidth=0.5)
+    plt.errorbar(Cur_Array_uA, unp.nominal_values(Minpol_Counts), 
+                 yerr=unp.std_devs(Minpol_Counts), fmt='--*', color='red', 
+                 label=f'Min Polarization {Minpol_Settings}', linewidth=0.5)
+    plt.errorbar(Cur_Array_uA, np.maximum(unp.nominal_values(Maxpol_Counts - Dark_Counts), 0), 
+                 yerr=unp.std_devs(Maxpol_Counts - Dark_Counts), fmt='-*', color='cyan', 
+                 label='Max Polarization - Dark Counts')
+    plt.errorbar(Cur_Array_uA, np.maximum(unp.nominal_values(Minpol_Counts - Dark_Counts), 0), 
+                 yerr=unp.std_devs(Minpol_Counts - Dark_Counts), fmt='-*', color='red', 
+                 label='Min Polarization - Dark Counts')
+    plt.errorbar(Cur_Array_uA, unp.nominal_values(Dark_Counts), 
+                 yerr=unp.std_devs(Dark_Counts), fmt='-*', color='black', 
+                 label='Dark Counts')
+    plt.errorbar(Cur_Array_uA, np.maximum(unp.nominal_values(Avg_Counts - Dark_Counts), 0), 
+                 yerr=unp.std_devs(Avg_Counts - Dark_Counts), fmt='-*', color='green', 
+                 label='Average Counts - Dark Counts')
+
+    plt.title(f'{figname}')
+    plt.xlabel('Bias current [uA]')
+    plt.ylabel('Counts [per sec]')
+    plt.legend(loc='upper left', bbox_to_anchor=(1.04, 1), fontsize=10)
+    plt.tight_layout()
+    plt.savefig(f'{figpath}.png')
+    if save_pdf:
+        plt.savefig(f'{figpath}.pdf')
+    plt.close('all')
+
+    return
 
 
 

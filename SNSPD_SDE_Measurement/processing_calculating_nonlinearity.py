@@ -179,6 +179,6 @@ if __name__ == '__main__':
     }
     logger.debug(f"nonlinear_calibration_data: {nonlinear_calibration_data}")
     now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
-    calibration_filepath = os.path.join(current_file_dir, "data_sde", f"nonlinear_calibration_data__{now_str}.pkl")
+    calibration_filepath = os.path.join(current_file_dir, "data_sde", f"nonlinear_calibration_calculation__{now_str}.pkl")
     pd.to_pickle(nonlinear_calibration_data, calibration_filepath)
     logger.info(f"Calibration data saved to {calibration_filepath}")

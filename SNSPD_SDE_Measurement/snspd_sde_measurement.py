@@ -45,7 +45,7 @@ att3 = AndoAQ820133('GPIB0::4::INSTR', 4)
 sw = AndoAQ8201418('GPIB0::4::INSTR', 5)
 mpm = AndoAQ82012('GPIB0::4::INSTR', 6)
 counter = Agilent53131a('GPIB0::5::INSTR')
-cpm = Agilent8163A('GPIB0::9::INSTR')
+cpm = Agilent8163A('GPIB0::9::INSTR', 1)
 pc = FiberControlMPC101('GPIB0::3::INSTR')
 multi = Agilent34411A('GPIB0::21::INSTR')
 
@@ -92,13 +92,17 @@ max_cur = 15e-6 # A
 bias_resistor = 97e3 #Ohms
 counting_time = 0.5 #s
 num_pols = 13
+
+
 name = 'SK3'
+cpm_splice = 2
+snspd_splice = 1
 
 def zero_pm():
     sw.set_route(detector_port)
     for att in att_list:
         att.disable()
-    time.sleep(0.1)
+    time.sleep(0.3)
     mpm.zero()
 
 # Initialize and turn on everything
@@ -114,7 +118,7 @@ mpm.set_lambda(wavelength)
 mpm.set_range('A')
 zero_pm()
 
-cpm.set_wavelength(wavelength)
+cpm.set_pm_wavelength(wavelength)
 
 counter.basic_setup()
 counter.set_impedance(ohms=50, channel=1)
@@ -127,6 +131,22 @@ srs.set_output(output=False)
 
 # Algorithm S1.1 Missing Algorithm (optical switch calibration)
 def optical_switch_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
+    """
+    Perform optical switch calibration and save the calibration data.
+
+    Parameters:
+        now_str (str): Timestamp for the filename. Defaults to current time.
+        num_iterations (int): Number of iterations for data collection. Default is 50.
+        output_dir (str): Directory to save calibration data. Default is 'data_sde'.
+        init_rng: Initial range for power meter.
+        att_list (list): List of attenuator objects to initialize.
+        cpm_splice: Splice identifier for CPM.
+        monitor_port: Monitor port for the optical switch.
+        detector_port: Detector port for the optical switch.
+
+    Returns:
+        str: Filepath of the saved calibration data.
+    """
     logger.info("Starting: Algorithm S1.1 Missing Algorithm (optical switch calibration)")
     logger.warning("Ensure detector fiber it spliced to calibrated power meter")
     # Initialize power meter
@@ -138,22 +158,29 @@ def optical_switch_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now())
         att.set_att(0)
         att.enable()
 
-    N = 100
-    data = []
+    N = 50
+
+    power_mpm = np.empty(N**2, dtype=float)
+    power_cpm = np.empty(N**2, dtype=float)
 
     # Collect power data
     for i in range(N):
         sw.set_route(monitor_port)
-        time.sleep(0.1)
-        power_mpm = mpm.get_power()
+        time.sleep(0.3)
+        mpm.get_power()
+        for j in range(N):
+            power_mpm[i*N + j] = mpm.get_power()
+        mpm.get_power()
 
         sw.set_route(detector_port)
-        time.sleep(0.1)
-        power_cpm = cpm.read_power()
+        time.sleep(0.3)
+        cpm.read_power()
+        for j in range(N):
+            power_cpm[i*N + j] = cpm.read_power()
+        cpm.read_power()
 
-        data.append((power_mpm, power_cpm))
-        logger.debug(f"Iteration {i+1}/{N}: Monitor Power={power_mpm}, Detector Power={power_cpm}")
-        logger.debug(f"Progress: {round(100 * (i + 1) / N, 2)}%")
+        logger.info(f"Iteration {i+1}/{N}: Monitor Power={power_mpm[i*N:i*N+N]}, Detector Power={power_cpm[i*N:i*N+N]}")
+        logger.info(f"Progress: {round(100 * (i + 1) / N, 2)}%")
 
     # Reset switch and attenuators
     sw.set_route(monitor_port)
@@ -162,13 +189,17 @@ def optical_switch_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now())
         att.disable()
 
     # Save data to a DataFrame
-    columns = ['power_mpm', 'power_cpm']
-    df = pd.DataFrame(data, columns=columns)
+    df = pd.DataFrame(
+        {
+            'power_mpm': power_mpm, 
+            'power_cpm': power_cpm,
+            }
+            )
 
     # Save the DataFrame as a pickle file
-    output_dir = "data_sde"
+    output_dir = os.path.join(current_file_dir, "data_sde")
     os.makedirs(output_dir, exist_ok=True)
-    filename = f"optical_switch_calibration_data__{now_str}.pkl"
+    filename = f"optical_switch_calibration_data_cpm_splice{cpm_splice}__{now_str}.pkl"
     filepath = os.path.join(output_dir, filename)
     df.to_pickle(filepath)
 
@@ -185,8 +216,8 @@ def nonlinearity_factor_raw_power_meaurements(now_str="{:%Y%m%d-%H%M%S}".format(
         att.set_att(0)
         att.enable()
 
-    att2_settings =- [0, 3]
-    N = 10
+    att2_settings = [0, 3]
+    N = 50
 
     base_input_powers = np.arange(10, -20, -1)  # Create an array from 10 to -20 inclusive
     att_settings = {}
@@ -217,13 +248,15 @@ def nonlinearity_factor_raw_power_meaurements(now_str="{:%Y%m%d-%H%M%S}".format(
             for att2_val in att2_settings:
                 att2.set_att(att2_val)
                 powers_temp = []
-                time.sleep(0.1)
+                time.sleep(0.3)
+                mpm.get_power()
                 for _ in range(N):
                     powers_temp.append(mpm.get_power())
+                mpm.get_power()
                 data_temp = (rng, a, att2_val, powers_temp)
                 data.append(data_temp)
-                logging.debug(f"data_temp: {data_temp}")
-                logging.debug(f"{100*i/total_data}%")
+                logging.info(f"data_temp: {data_temp}")
+                logging.info(f"{round(100*i/total_data, 2)}%")
                 i += 1
 
     sw.set_route(monitor_port)
@@ -232,13 +265,14 @@ def nonlinearity_factor_raw_power_meaurements(now_str="{:%Y%m%d-%H%M%S}".format(
         att.disable()
 
     # Convert the data to a pandas DataFrame
-    columns = ['Range', 'Atteunator 1', 'Atteunator 2', 'Iteration', 'Power']
+    columns = ['Range', 'Atteunator 1', 'Atteunator 2', 'Power']
     df = pd.DataFrame(data, columns=columns)
 
     # Save the DataFrame as a pickle file
-    nonlinearity_factor_filename = f'nonlinearity_data__{now_str}.pkl'
-    os.makedirs("data_sde", exist_ok=True)
-    nonlinearity_factor_filepath = os.path.join("data_sde", nonlinearity_factor_filename)
+    nonlinearity_factor_filename = f'nonlinear_calibration_data__{now_str}.pkl'
+    output_dir = os.path.join(current_file_dir, "data_sde")
+    os.makedirs(output_dir, exist_ok=True)
+    nonlinearity_factor_filepath = os.path.join(output_dir, nonlinearity_factor_filename)
     df.to_pickle(nonlinearity_factor_filepath)
     logger.info(f"nonlinearity_factor saved to: {nonlinearity_factor_filepath}")
     logger.info("Completed: Algorithm S1. Nonlinearity factor raw power meaurements")
@@ -250,7 +284,7 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
     sw.set_route(monitor_port)
 
     # Parameters
-    N = 10
+    N = 50
     att_rng = math.ceil((-10 - attval + 5) / 10) * 10 
 
     # Initialize an empty DataFrame to store results
@@ -267,9 +301,11 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
         for attj in att_list:
             attj.set_att(0)
             attj.enable()
-        time.sleep(0.1)
+        time.sleep(0.3)
+        mpm.get_power()
         for _ in range(N):
             init_powers.append(mpm.get_power())
+        mpm.get_power()
 
         # Step 3: Apply attenuation and measure power
         mpm.set_range(att_rng)
@@ -280,9 +316,11 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
             attj.enable()
         atti.set_att(attval)
         temp_powers = []
-        time.sleep(0.1)
+        time.sleep(0.3)
+        mpm.get_power()
         for _ in range(N):
             temp_powers.append(mpm.get_power())
+        mpm.get_power()
         powers_df = powers_df.append({
             'Attenuator': i,
             'Attenuation (dB)': attval,
@@ -290,7 +328,7 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
             'Power': temp_powers
         }, ignore_index=True)
 
-        logging.debug(f"{round(100 * i / len(att_list), 2)}% completed")
+        logging.info(f"{round(100 * i / len(att_list), 2)}% completed")
 
     powers_df = powers_df.append({
         'Attenuator': None,
@@ -306,7 +344,7 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
 
     # Save the calibration data to a file
     os.makedirs("data_sde", exist_ok=True)
-    attenuator_calibration_filename = f"attenuator_calibration_data__{now_str}.pkl"
+    attenuator_calibration_filename = f"attenuator_calibration_data_snspd_splice{snspd_splice}__{now_str}.pkl"
     attenuator_calibration_filepath = os.path.join("data_sde", attenuator_calibration_filename)
     powers_df.to_pickle(attenuator_calibration_filepath)
     logger.info(f"attenuator_calibration saved to: {attenuator_calibration_filepath}")
@@ -319,7 +357,7 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
 
 def meas_counts(position, N=3, counting_time=1):
     pc.set_waveplate_positions(position)
-    time.sleep(0.1)  # Wait for the motion to complete
+    time.sleep(0.3)  # Wait for the motion to complete
     temp_cps = np.empty(N, dtype=float)
     for l in np.arange(temp_cps.size):
         cps = counter.timed_count(counting_time=counting_time)/counting_time
@@ -366,9 +404,9 @@ def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pi
                 position = (x, y, z)
                 counts = meas_counts(position, N=N, counting_time=counting_time)
                 temp_data = (position, counts)
-                logging.debug(temp_data)
+                logging.info(temp_data)
                 pol_counts.append(temp_data)
-                logging.debug(f"{round(100*(i*positions.size**2 + j*positions.size + k)/((positions.size)**3), 2)}%")
+                logging.info(f"{round(100*(i*positions.size**2 + j*positions.size + k)/((positions.size)**3), 2)}%")
     
     
     srs.set_voltage(0)
@@ -379,7 +417,7 @@ def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pi
         att.set_att(0)
         att.disable()
 
-    pol_counts_filename = f"{name}_pol_counts__{now_str}.pkl"
+    pol_counts_filename = f"{name}_pol_data_snspd_splice{snspd_splice}__{now_str}.pkl"
     os.makedirs("data_sde", exist_ok=True)
     pol_counts_filepath = os.path.join("data_sde", pol_counts_filename)
     with open(pol_counts_filepath, "wb") as file:
@@ -413,7 +451,7 @@ def SDE_Counts_Measurement(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), 
     for att in att_list:
         att.disable()
     Dark_Count_Array = get_counts(Cur_Array, instruments, trigger_voltage=trigger_voltage, bias_resistor=bias_resistor, counting_time=counting_time)
-    logging.debug("Got dark counts")
+    logging.info("Got dark counts")
 
     # Max and min polarization measurements
     sw.set_route(detector_port)
@@ -424,12 +462,12 @@ def SDE_Counts_Measurement(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), 
     # Measure counts at max polarization
     pc.set_waveplate_positions(maxpol_settings)
     Maxpol_Count_Array = get_counts(Cur_Array, instruments, trigger_voltage=trigger_voltage, bias_resistor=bias_resistor, counting_time=counting_time)
-    logging.debug("Got counts for max polarization")
+    logging.info("Got counts for max polarization")
 
     # Measure counts at min polarization
     pc.set_waveplate_positions(minpol_settings)
     Minpol_Count_Array = get_counts(Cur_Array, instruments, trigger_voltage=trigger_voltage, bias_resistor=bias_resistor, counting_time=counting_time)
-    logging.debug("Got counts for min polarization")
+    logging.info("Got counts for min polarization")
 
     sw.set_route(monitor_port)
     for att in att_list:
@@ -445,7 +483,7 @@ def SDE_Counts_Measurement(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), 
         'Maxpol_Settings': maxpol_settings,
         'Minpol_Settings': minpol_settings,
     }
-    data_filename = f"{name}_data_dict__{now_str}.pkl"
+    data_filename = f"{name}_counts_data_snspd_splice{snspd_splice}__{now_str}.pkl"
     os.makedirs("data_sde", exist_ok=True)
     data_filepath = os.path.join("data_sde", data_filename)
     with open(data_filepath, "wb") as file:
@@ -457,11 +495,11 @@ def SDE_Counts_Measurement(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), 
 # %%
 if __name__ == '__main__':
         
-    # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
-    # optical_switch_calibration_filepath = optical_switch_calibration(now_str=now_str, )
+    now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
+    optical_switch_calibration_filepath = optical_switch_calibration(now_str=now_str, )
 
-    # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
-    # nonlinearity_factor_filepath = nonlinearity_factor_raw_power_meaurements(now_str=now_str, )
+    now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
+    nonlinearity_factor_filepath = nonlinearity_factor_raw_power_meaurements(now_str=now_str, )
 
     # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
     # IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name):
@@ -469,9 +507,9 @@ if __name__ == '__main__':
     # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
     # trigger_voltage = find_min_trigger_threshold(instruments, now_str=now_str)
 
-    now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
-    pol_counts_filepath = sweep_polarizations(now_str=now_str, IV_pickle_filepath='data/SK3_IV_curve_data_20241211-172258.pkl', name=name, num_pols=33, trigger_voltage=trigger_voltage, counting_time=0.5, N=1)
+    # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
+    # pol_counts_filepath = sweep_polarizations(now_str=now_str, IV_pickle_filepath='data/SK3_IV_curve_data_20241211-172258.pkl', name=name, num_pols=33, trigger_voltage=trigger_voltage, counting_time=0.5, N=1)
 
-    now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
-    data_filepath = SDE_Counts_Measurement(now_str=now_str, IV_pickle_filepath='data/SK3_IV_curve_data_20241211-172258.pkl', pol_counts_filepath=pol_counts_filepath, name=name, trigger_voltage=trigger_voltage)
-    attenuator_calibration_filepath = attenuator_calibration(now_str=now_str)
+    # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
+    # data_filepath = SDE_Counts_Measurement(now_str=now_str, IV_pickle_filepath='data/SK3_IV_curve_data_20241211-172258.pkl', pol_counts_filepath=pol_counts_filepath, name=name, trigger_voltage=trigger_voltage)
+    # attenuator_calibration_filepath = attenuator_calibration(now_str=now_str)

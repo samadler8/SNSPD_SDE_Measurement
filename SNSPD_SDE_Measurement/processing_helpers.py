@@ -6,8 +6,16 @@ import numpy as np
 
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
 current_file_dir = Path(__file__).parent
+logging.basicConfig(
+    level=logging.INFO,  # Set to INFO or WARNING for less verbosity
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler("script_log.log", mode="a"),
+        logging.StreamHandler()  # Logs to console
+    ]
+)
+logger = logging.getLogger(__name__)
 
 def compute_sha1_hash(filename):
     if os.path.isfile(filename):
