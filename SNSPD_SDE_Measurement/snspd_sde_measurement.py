@@ -222,9 +222,9 @@ def nonlinearity_factor_raw_power_meaurements(now_str="{:%Y%m%d-%H%M%S}".format(
     N = 25
 
     base_input_powers = base_input_powers = np.concatenate([
-        np.arange(1, -6, -0.1), # overlapping data
-        np.arange(-6, -9, -1),
-        np.arange(-9, -16, -0.1) # overlapping data
+        np.arange(1, -5, -0.1), # overlapping data
+        np.arange(-5, -9, -1),
+        np.arange(-9, -15, -0.1) # overlapping data
     ])
     att_settings = {}
 
@@ -233,7 +233,7 @@ def nonlinearity_factor_raw_power_meaurements(now_str="{:%Y%m%d-%H%M%S}".format(
     total_data = 0
     for rng in rng_settings:
         input_powers = base_input_powers + rng  # Element-wise addition
-        att_settings[rng] = [val for val in -(input_powers - -10) if val > 0]
+        att_settings[rng] = [val for val in -(input_powers - -10) if (val > 0 and val < 62)]
         total_data += len(att_settings[rng])
 
     att_settings = {

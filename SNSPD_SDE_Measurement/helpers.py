@@ -138,7 +138,7 @@ def get_uncertainty(rawdata):
     return unp.uarray(avg, unc)
 
 
-def extract_nonlinearity_data(filepath):
+def extract_nonlinearity_data(filepath, filtered=True):
     """
     Extract nonlinearity data from a file and organize it by ranges and attenuation settings.
 
@@ -160,14 +160,15 @@ def extract_nonlinearity_data(filepath):
             min_power_threshold = 10**((rng - 8) / 10) * 1e-3
 
         # Filter out invalid power values within the 'Power' column directly in the original DataFrame
-        df.loc[df['Range'] == rng, 'Power'] = df.loc[df['Range'] == rng, 'Power'].apply(
-            lambda powers: [power for power in powers if min_power_threshold < power < max_power_threshold]
-        )
+        if filtered:
+            df.loc[df['Range'] == rng, 'Power'] = df.loc[df['Range'] == rng, 'Power'].apply(
+                lambda powers: [power for power in powers if min_power_threshold < power < max_power_threshold]
+            )
 
     # Remove rows where 'Power' lists are empty
     df = df[df['Power'].apply(len) > 0]
 
-    taus = df['Atteunator 2'].unique()
+    taus = df['Attenuator 2'].unique()
     taus.sort()
     
     ranges = df['Range'].unique()
@@ -178,16 +179,16 @@ def extract_nonlinearity_data(filepath):
         
 
         # Filter data for the two attenuation steps
-        filtered_df_tau0 = filtered_df[filtered_df['Atteunator 2'] == taus[0]]
-        filtered_df_tau1 = filtered_df[filtered_df['Atteunator 2'] == taus[1]]
+        filtered_df_tau0 = filtered_df[filtered_df['Attenuator 2'] == taus[0]]
+        filtered_df_tau1 = filtered_df[filtered_df['Attenuator 2'] == taus[1]]
 
         # Get unique and sorted attenuation settings
-        att_settings_tau0 = filtered_df_tau0['Atteunator 1'].unique()
-        att_settings_tau1 = filtered_df_tau1['Atteunator 1'].unique()
+        att_settings_tau0 = filtered_df_tau0['Attenuator 1'].unique()
+        att_settings_tau1 = filtered_df_tau1['Attenuator 1'].unique()
         att_settings = list(set(att_settings_tau0) & set(att_settings_tau1))
         att_settings.sort()
-        filtered_df_tau0 = filtered_df_tau0[filtered_df_tau0['Atteunator 1'].isin(att_settings)]
-        filtered_df_tau1 = filtered_df_tau1[filtered_df_tau1['Atteunator 1'].isin(att_settings)]
+        filtered_df_tau0 = filtered_df_tau0[filtered_df_tau0['Attenuator 1'].isin(att_settings)]
+        filtered_df_tau1 = filtered_df_tau1[filtered_df_tau1['Attenuator 1'].isin(att_settings)]
         if filtered_df_tau0.empty or filtered_df_tau1.empty:
             continue
 
@@ -195,9 +196,9 @@ def extract_nonlinearity_data(filepath):
         v_temp = np.empty(len(att_settings), dtype=object)
         vt_temp = np.empty(len(att_settings), dtype=object)
         for i, a in enumerate(att_settings):
-            filtered_df_tau0_a = filtered_df_tau0[filtered_df_tau0['Atteunator 1'] == a]
+            filtered_df_tau0_a = filtered_df_tau0[filtered_df_tau0['Attenuator 1'] == a]
             v_temp[i] = np.array([value for sublist in filtered_df_tau0_a['Power'] for value in sublist])
-            filtered_df_tau1_a = filtered_df_tau1[filtered_df_tau1['Atteunator 1'] == a]
+            filtered_df_tau1_a = filtered_df_tau1[filtered_df_tau1['Attenuator 1'] == a]
             vt_temp[i] = np.array([value for sublist in filtered_df_tau1_a['Power'] for value in sublist])
 
         # Calculate mean and uncertainty for v and vt

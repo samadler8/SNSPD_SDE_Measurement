@@ -126,7 +126,7 @@ def find_poly_fit(processed_nonlinearity_data, ranges, poly_order_list):
 
 
 if __name__ == '__main__':
-    fpath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data__20250109-182606.pkl')
+    fpath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data_tau2__20250110-210258.pkl')
     logger.info(f'Processing file: {fpath}')
 
     # Extract nonlinearity data and ranges
@@ -178,7 +178,11 @@ if __name__ == '__main__':
         "rng_disc": rng_disc,
     }
     logger.debug(f"nonlinear_calibration_data: {nonlinear_calibration_data}")
-    now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
-    calibration_filepath = os.path.join(current_file_dir, "data_sde", f"nonlinear_calibration_calculation__{now_str}.pkl")
-    pd.to_pickle(nonlinear_calibration_data, calibration_filepath)
-    logger.info(f"Calibration data saved to {calibration_filepath}")
+
+    output_dir = os.path.join(current_file_dir, 'data_sde')
+    os.makedirs(output_dir, exist_ok=True)
+    _, data_filename = os.path.split(os.path.splitext(fpath)[0])
+    filename = f'calculation_{data_filename}'
+    filepath = os.path.join(output_dir, filename)
+    pd.to_pickle(nonlinear_calibration_data, filepath)
+    logger.info(f"Calibration calculation saved to {filepath}")

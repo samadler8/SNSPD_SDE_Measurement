@@ -170,7 +170,7 @@ def plot_temperature_dependence(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()
         plt.savefig(f'{figpath}.pdf')
     plt.close()
 
-def plot_raw_nonlinearity_data(nonlinearity_data_filepath, save_pdf=False):
+def plot_raw_nonlinearity_data(nonlinearity_data_filepath, filtered=True, save_pdf=False):
     """
     Plot nonlinearity data with log-scaled y-axis, different colors for each range,
     and different markers for 'v' and 'vt'.
@@ -179,7 +179,7 @@ def plot_raw_nonlinearity_data(nonlinearity_data_filepath, save_pdf=False):
         nonlinearity_data_filepath (str): Path to the pickle file containing nonlinearity data.
     """
 
-    processed_data = extract_nonlinearity_data(nonlinearity_data_filepath)
+    processed_data = extract_nonlinearity_data(nonlinearity_data_filepath, filtered=filtered)
     # Define markers and a colormap
     markers = {'v': 'o', 'vt': '^'}  # Circles for 'v' and triangles for 'vt'
     colormap = cm.get_cmap('tab10')  # Use a qualitative colormap
@@ -212,7 +212,7 @@ def plot_raw_nonlinearity_data(nonlinearity_data_filepath, save_pdf=False):
     output_dir = os.path.join(current_file_dir, 'figs_sde')
     os.makedirs(output_dir, exist_ok=True)
     _, data_filename = os.path.split(os.path.splitext(nonlinearity_data_filepath)[0])
-    figname = f'raw_plot_{data_filename}'
+    figname = f'raw_plot_filtered{int(filtered)}_{data_filename}'
     figpath = os.path.join(output_dir, figname)
 
     plt.tight_layout()
@@ -318,7 +318,7 @@ def plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_fil
     plt.close()
 
 
-def plot_switch(optical_switch_filepath, cpm_splice="", save_pdf=False):
+def plot_switch(optical_switch_filepath, save_pdf=False):
     """
     Plot the calibration data from the optical switch and the ratio of CPM to MPM with uncertainty.
 
@@ -438,8 +438,6 @@ def plot_processed_counts_unc(data_filepath='', sde_processed_filepath="", save_
     Maxpol_Counts = get_uncertainty(Maxpol_Count_Array)
     Minpol_Counts = get_uncertainty(Minpol_Count_Array)
 
-    Avg_Counts = (Maxpol_Counts + Minpol_Counts) / 2
-
     output_dir = os.path.join(current_file_dir, 'figs_sde')
     os.makedirs(output_dir, exist_ok=True)
     _, data_filename = os.path.split(os.path.splitext(data_filepath)[0])
@@ -448,9 +446,9 @@ def plot_processed_counts_unc(data_filepath='', sde_processed_filepath="", save_
     plt.close('all')
     plt.figure(figsize = [20,10])
     plt.plot(Cur_Array_uA, counts_expected/np.maximum(unp.nominal_values(Maxpol_Counts - Dark_Counts), 0), 
-                 fmt='-*', color='cyan', label='Max Polarization - Dark Counts')
+                 fmt='-*', color='cyan', label=f'Max Polarization - Dark Counts {Maxpol_Settings}')
     plt.plot(Cur_Array_uA, counts_expected/np.maximum(unp.nominal_values(Minpol_Counts - Dark_Counts), 0), 
-                 fmt='-*', color='red', label='Min Polarization - Dark Counts')
+                 fmt='-*', color='red', label=f'Min Polarization - Dark Counts {Minpol_Settings}')
     plt.errorbar(Cur_Array_uA, counts_expected/unp.nominal_values(Dark_Counts), 
                  yerr=unp.std_devs(Dark_Counts), fmt='-*', color='black', 
                  label='Dark Counts')
@@ -477,11 +475,11 @@ if __name__ == '__main__':
     # optical_switch_filepath = os.path.join(current_file_dir, 'data_sde', 'optical_switch_calibration_data_cpm_splice2__20250109-180754.pkl')
     # plot_switch(optical_switch_filepath, cpm_splice=2)
 
-    nonlinearity_data_filepath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data__20250109-182606.pkl')
-    plot_raw_nonlinearity_data(nonlinearity_data_filepath)
-    # nonlinearity_calculation_filepath = os.path.join(current_file_dir, 'data_sde', '.pkl')
-    # plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculation_filepath)
-    # plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_filepath, )
+    nonlinearity_data_filepath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data_tau2__20250110-210258.pkl')
+    # plot_raw_nonlinearity_data(nonlinearity_data_filepath, filtered=False)
+    nonlinearity_calculation_filepath = os.path.join(current_file_dir, 'data_sde', '.pkl')
+    plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculation_filepath)
+    plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_filepath, )
 
     # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
     # IV_pickle_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_IV_curve_data__20250110-122541.pkl')
