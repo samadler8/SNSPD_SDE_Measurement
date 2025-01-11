@@ -209,7 +209,6 @@ def plot_raw_nonlinearity_data(nonlinearity_data_filepath, save_pdf=False):
     ax.legend(fontsize=12)
     
     # Save the plot
-    now_str = datetime.now().strftime('%Y%m%d_%H%M%S')
     output_dir = os.path.join(current_file_dir, 'figs_sde')
     os.makedirs(output_dir, exist_ok=True)
     _, data_filename = os.path.split(os.path.splitext(nonlinearity_data_filepath)[0])
@@ -267,7 +266,6 @@ def plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculatio
     ax.legend(fontsize=12)
 
     # Save the plot
-    now_str = datetime.now().strftime('%Y%m%d_%H%M%S')
     output_dir = os.path.join(current_file_dir, 'figs_sde')
     os.makedirs(output_dir, exist_ok=True)
     _, data_filename = os.path.split(os.path.splitext(nonlinearity_data_filepath)[0])
@@ -479,8 +477,8 @@ if __name__ == '__main__':
     # optical_switch_filepath = os.path.join(current_file_dir, 'data_sde', 'optical_switch_calibration_data_cpm_splice2__20250109-180754.pkl')
     # plot_switch(optical_switch_filepath, cpm_splice=2)
 
-    # nonlinearity_data_filepath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data__20250109-182606.pkl')
-    # plot_raw_nonlinearity_data(nonlinearity_data_filepath)
+    nonlinearity_data_filepath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data__20250109-182606.pkl')
+    plot_raw_nonlinearity_data(nonlinearity_data_filepath)
     # nonlinearity_calculation_filepath = os.path.join(current_file_dir, 'data_sde', '.pkl')
     # plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculation_filepath)
     # plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_filepath, )
@@ -489,8 +487,8 @@ if __name__ == '__main__':
     # IV_pickle_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_IV_curve_data__20250110-122541.pkl')
     # plot_IV_curve(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, save_pdf=False)
 
-    data_filepath = os.path.join(current_file_dir, "data_sde", "SK3_counts_data_snspd_splice1__20250110-155421.pkl")
-    plot_raw_counts_unc(data_filepath=data_filepath)
+    # data_filepath = os.path.join(current_file_dir, "data_sde", "SK3_counts_data_snspd_splice1__20250110-155421.pkl")
+    # plot_raw_counts_unc(data_filepath=data_filepath)
 
     # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
     # plot_polarization_sweep(now_str=now_str, pol_counts_filepath=pol_counts_filepath, save_pdf=False)
