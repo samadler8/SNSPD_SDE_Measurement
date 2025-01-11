@@ -236,6 +236,11 @@ def nonlinearity_factor_raw_power_meaurements(now_str="{:%Y%m%d-%H%M%S}".format(
         att_settings[rng] = [val for val in -(input_powers - -10) if val > 0]
         total_data += len(att_settings[rng])
 
+    att_settings = {
+        rng: [round(val, 1) for val in values]
+        for rng, values in att_settings.items()
+    }
+
     total_data *= len(att2_settings)
 
     data = []
@@ -523,7 +528,7 @@ if __name__ == '__main__':
         
     # optical_switch_calibration_filepath = optical_switch_calibration(now_str=now_str, )
     
-    taus = [1.5, 1.75, 2, 2.25, 2.75]
+    taus = [1.5, 1.75, 2, 2.25, 2.5, 2.75]
     for tau in taus:
         nonlinearity_factor_filepath = nonlinearity_factor_raw_power_meaurements(now_str=now_str, tau=tau)
 
