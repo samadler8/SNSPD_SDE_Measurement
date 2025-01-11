@@ -414,7 +414,7 @@ def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pi
     this_volt = round(ic*0.80 * bias_resistor, 3)
     srs.set_voltage(this_volt)
 
-    positions = np.linspace(-99.0, 100.0, num_pols)
+    positions = np.linspace(-80.0, 80.0, num_pols) # Max range is -99 to 100 but I want to limit these edge cases
     pol_counts = []
     for i, x in enumerate(positions):
         x = round(x, 3)
@@ -535,19 +535,19 @@ if __name__ == '__main__':
     # IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name)
     IV_pickle_filepath = os.path.join(current_file_dir, "data_sde", "SK3_IV_curve_data__20250110-122541.pkl")
 
-    # trigger_voltage = find_min_trigger_threshold(instruments, now_str=now_str)
-    trigger_voltage = 0.14
+    trigger_voltage = find_min_trigger_threshold(instruments, now_str=now_str)
+    # trigger_voltage = 0.14
 
-    # pol_counts_filepath = sweep_polarizations(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, attval=attval, name=name, num_pols=13, trigger_voltage=trigger_voltage, counting_time=0.5, N=1)
-    pol_counts_filepath = os.path.join(current_file_dir, "data_sde", "SK3_pol_data_snspd_splice1__20250110-125128.pkl")
+    pol_counts_filepath = sweep_polarizations(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, attval=attval, name=name, num_pols=13, trigger_voltage=trigger_voltage, counting_time=0.5, N=1)
+    # pol_counts_filepath = os.path.join(current_file_dir, "data_sde", "SK3_pol_data_snspd_splice1__20250110-125128.pkl")
 
-    nonlinearity_factor_filepath = nonlinearity_factor_raw_power_meaurements(now_str=now_str, tau=3)
-    
-    attvals = [25, 34, 24, 35, 23, 36, 22, 37, 21, 38]
+    # nonlinearity_factor_filepath = nonlinearity_factor_raw_power_meaurements(now_str=now_str, tau=2.5)
+
+    attvals = [29, 30, 28, 31, 27, 32, 26, 33, 25, 34, 24, 35, 23, 36, 22, 37, 21, 38]
     for attval in attvals:
         data_filepath = SDE_Counts_Measurement(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, pol_counts_filepath=pol_counts_filepath, attval=attval, name=name, trigger_voltage=trigger_voltage)
         attenuator_calibration_filepath = attenuator_calibration(now_str=now_str, attval=attval)
 
-    taus = [2, 2.5, 1.5]
-    for tau in taus:
-        nonlinearity_factor_filepath = nonlinearity_factor_raw_power_meaurements(now_str=now_str, tau=tau)
+    # taus = [2, 3, 1.5]
+    # for tau in taus:
+    #     nonlinearity_factor_filepath = nonlinearity_factor_raw_power_meaurements(now_str=now_str, tau=tau)
