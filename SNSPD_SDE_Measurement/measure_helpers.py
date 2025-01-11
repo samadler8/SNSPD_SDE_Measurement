@@ -106,10 +106,34 @@ def get_counts(Cur_Array, instruments, trigger_voltage=0.12, bias_resistor=100e3
 
     return Count_Array
 
-def find_min_trigger_threshold(instruments, now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), max_trigger_voltage=0.2, N=3, channel=1, ohms=50, counting_time=0.5):
+def find_min_trigger_threshold(
+    instruments, 
+    now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), 
+    max_trigger_voltage=0.2, 
+    N=7, 
+    channel=1, 
+    ohms=50, 
+    counting_time=0.5
+):
+    """
+    Finds the minimum trigger threshold voltage for the counter using binary search.
+    
+    Parameters:
+        instruments (dict): Dictionary containing instrument instances ('srs' and 'counter').
+        now_str (str): Timestamp for saving data files.
+        max_trigger_voltage (float): Maximum voltage to test for triggering.
+        N (int): Number of measurements to average for each voltage.
+        channel (int): Counter channel to use.
+        ohms (int): Impedance value in ohms.
+        counting_time (float): Measurement time for each count.
+    
+    Returns:
+        float: Final calculated trigger voltage.
+    """
     srs = instruments['srs']
     counter = instruments['counter']
 
+    # Initialize SRS and counter
     srs.set_voltage(0)
     srs.set_output(output=True)
 
@@ -117,67 +141,49 @@ def find_min_trigger_threshold(instruments, now_str="{:%Y%m%d-%H%M%S}".format(da
     counter.set_impedance(ohms=ohms, channel=channel)
     counter.setup_timed_count(channel=channel)
 
-    data = []
-    # set_trigger_voltage = 0
-    # trigger_voltages = np.linspace(0, max_trigger_voltage, 500)
-    # for trigger_voltage in trigger_voltages:
-    #     counter.set_trigger(trigger_voltage=trigger_voltage, slope_positive=True, channel=channel)
-    #     time.sleep(0.1)
-    #     temp_cps_arr = np.empty(N, dtype=float)
-    #     for l in np.arange(temp_cps_arr.size):
-    #         temp_cps_arr[l] = counter.timed_count(counting_time=counting_time)/counting_time
-    #     temp_cps = np.mean(temp_cps_arr)
-    #     if set_trigger_voltage==0 and temp_cps==0:
-    #         temp_cps_arr = np.empty(N, dtype=float)
-    #         for l in np.arange(temp_cps_arr.size):
-    #             temp_cps_arr[l] = counter.timed_count(counting_time=counting_time)/counting_time
-    #         temp_cps = np.mean(temp_cps_arr)
-    #     data_temp = (trigger_voltage, temp_cps)
-    #     logger.info(data_temp)
-    #     data.append(data_temp)
-    #     if set_trigger_voltage==0 and temp_cps==0:
-    #         set_trigger_voltage = trigger_voltage
-    #         break
+    # Data storage for trigger voltage and counts
+    measurements = []
 
-    def get_avg_cps(trigger_voltage):
+    def measure_avg_cps(trigger_voltage):
+        """Measure average counts per second (CPS) at a given trigger voltage."""
         counter.set_trigger(trigger_voltage=trigger_voltage, slope_positive=True, channel=channel)
-        time.sleep(0.1)
-        cps_arr = np.empty(N, dtype=float)
-        for l in np.arange(cps_arr.size):
-            cps_arr[l] = counter.timed_count(counting_time=counting_time)/counting_time
-        avg_cps = np.mean(cps_arr)
-        return avg_cps
+        time.sleep(0.1)  # Allow system to stabilize
+        cps_values = [counter.timed_count(counting_time=counting_time) / counting_time for _ in range(N)]
+        return np.mean(cps_values)
 
-    i = 0
-    trigger_voltage = max_trigger_voltage/2
-    temp_cps = get_avg_cps(trigger_voltage)
-    while i < 120:
-        if temp_cps > 0:
-            result = min((x[0] for x in data if x[1] == 0), default=None)
-            if result == None:
-                result = max_trigger_voltage
-            trigger_voltage = (trigger_voltage + result)/2
+    # Binary search for trigger voltage
+    low_voltage = 0
+    high_voltage = max_trigger_voltage
+    tolerance = 0.01
+
+    while abs(high_voltage - low_voltage) > tolerance:
+        mid_voltage = (low_voltage + high_voltage) / 2
+        avg_cps = measure_avg_cps(mid_voltage)
+        
+        measurements.append((mid_voltage, avg_cps))
+        logger.info(f"Voltage: {mid_voltage:.3f}, Avg CPS: {avg_cps:.3f}")
+
+        if avg_cps == 0:
+            high_voltage = mid_voltage  # Narrow search range to lower voltages
+        elif avg_cps < 1:
+            low_voltage = (mid_voltage + low_voltage) / 2
         else:
-            result = max((x[0] for x in data if x[1] != 0), default=None)
-            if result == None:
-                result = 0
-            trigger_voltage = (trigger_voltage + result)/2
-        temp_cps = get_avg_cps(trigger_voltage)
-        data_temp = (trigger_voltage, temp_cps)
-        logger.info(data_temp)
-        data.append(data_temp)
+            high_voltage = mid_voltage  # Narrow search range to higher voltages
 
-        i += 1
+    # Apply a safety margin to the final trigger voltage
+    final_trigger_voltage = high_voltage * 1.1
 
+    # Save measurement data
     output_dir = os.path.join(current_file_dir, 'data_sde')
     os.makedirs(output_dir, exist_ok=True)
-    filename = f'trigger_voltage_data__{now_str}'
+    filename = f'trigger_voltage_data__{now_str}.pkl'
     filepath = os.path.join(output_dir, filename)
     with open(filepath, "wb") as file:
-        pickle.dump(data, file)
-    logger.info(f"trigger voltage data saved to: {filepath}")
-    logger.info(f"Final trigger voltage: {trigger_voltage}")
-    return trigger_voltage
+        pickle.dump(measurements, file)
+
+    logger.info(f"Trigger voltage data saved to: {filepath}")
+    logger.info(f"Final trigger voltage: {final_trigger_voltage:.3f}")
+    return final_trigger_voltage
 
 
 # Daniel Sorensen Code
