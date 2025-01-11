@@ -222,9 +222,9 @@ def nonlinearity_factor_raw_power_meaurements(now_str="{:%Y%m%d-%H%M%S}".format(
     N = 25
 
     base_input_powers = base_input_powers = np.concatenate([
-        np.arange(5, 0, -0.1), # overlapping data
-        np.arange(0, -10, -1),
-        np.arange(-10, -15, -0.1) # overlapping data
+        np.arange(1, -6, -0.1), # overlapping data
+        np.arange(-6, -9, -1),
+        np.arange(-9, -16, -0.1) # overlapping data
     ])
     att_settings = {}
 
@@ -240,6 +240,8 @@ def nonlinearity_factor_raw_power_meaurements(now_str="{:%Y%m%d-%H%M%S}".format(
         rng: [round(val, 1) for val in values]
         for rng, values in att_settings.items()
     }
+
+    print(att_settings)
 
     total_data *= len(att2_settings)
 
@@ -528,9 +530,7 @@ if __name__ == '__main__':
         
     # optical_switch_calibration_filepath = optical_switch_calibration(now_str=now_str, )
     
-    taus = [1.5, 1.75, 2, 2.25, 2.5, 2.75]
-    for tau in taus:
-        nonlinearity_factor_filepath = nonlinearity_factor_raw_power_meaurements(now_str=now_str, tau=tau)
+    # nonlinearity_factor_filepath = nonlinearity_factor_raw_power_meaurements(now_str=now_str, tau=tau)
 
     # IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name)
     IV_pickle_filepath = os.path.join(current_file_dir, "data_sde", "SK3_IV_curve_data__20250110-122541.pkl")
@@ -545,3 +545,7 @@ if __name__ == '__main__':
     for attval in attvals:
         data_filepath = SDE_Counts_Measurement(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, pol_counts_filepath=pol_counts_filepath, attval=attval, name=name, trigger_voltage=trigger_voltage)
         attenuator_calibration_filepath = attenuator_calibration(now_str=now_str, attval=attval)
+
+    taus = [3, 2, 2.5, 1.5]
+    for tau in taus:
+        nonlinearity_factor_filepath = nonlinearity_factor_raw_power_meaurements(now_str=now_str, tau=tau)
