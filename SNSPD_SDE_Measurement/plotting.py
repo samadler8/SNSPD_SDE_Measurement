@@ -93,45 +93,8 @@ def plot_polarization_sweep(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), p
 
     return
 
-
 # Counts vs Current
-def plot_min_max_avg_counts_vs_current(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), data_filepath='', save_pdf=False):
-    with open(data_filepath, 'rb') as file:
-        data_dict = pickle.load(file)
-
-    Cur_Array = np.array(data_dict['Cur_Array'])
-    Dark_Count_Array = np.array(data_dict['Dark_Count_Array'])
-    Maxpol_Count_Array = np.array(data_dict['Maxpol_Count_Array'])
-    Minpol_Count_Array = np.array(data_dict['Minpol_Count_Array'])
-    Maxpol_Settings = data_dict['Maxpol_Settings']
-    Minpol_Settings = data_dict['Minpol_Settings']
-
-    output_dir = os.path.join(current_file_dir, 'figs_sde')
-    os.makedirs(output_dir, exist_ok=True)
-    figname = f'counts_vs_current_curves__{now_str}'
-    figpath = os.path.join(output_dir, figname)
-    plt.close('all')
-    plt.figure(figsize = [20,10])
-    plt.plot(Cur_Array, Maxpol_Count_Array, '--*', color = 'cyan', label = f'Max Polarization {Maxpol_Settings}', linewidth=0.5)
-    plt.plot(Cur_Array, Minpol_Count_Array, '--*', color = 'red', label = f'Min Polarization {Minpol_Settings}', linewidth=0.5)
-    plt.plot(Cur_Array, np.maximum(Maxpol_Count_Array - Dark_Count_Array, 0), '-*', color = 'cyan', label = f'Max Polarization - Dark Counts')
-    plt.plot(Cur_Array, np.maximum(Minpol_Count_Array - Dark_Count_Array, 0), '-*', color = 'red', label = f'Min Polarization - Dark Counts')
-    plt.plot(Cur_Array, Dark_Count_Array, '-*', color = 'black', label = 'Dark Counts')
-    plt.plot(Cur_Array, np.maximum((Maxpol_Count_Array + Minpol_Count_Array)/2 - Dark_Count_Array, 0), '-*', color = 'green', label = 'Average Counts - Dark Counts')
-    plt.title(f'{figname}')
-    plt.xlabel('Bias current [uA]')
-    plt.ylabel('Counts [per sec]')
-    plt.legend(loc='upper left', bbox_to_anchor=(1.04, 1), fontsize=10)
-    plt.tight_layout()
-    plt.savefig(f'{figpath}.png')
-    if save_pdf:
-        plt.savefig(f'{figpath}.pdf')
-    plt.close('all')
-
-    return
-
-# Counts vs Current
-def plot_raw_counts_unc(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), data_filepath='', save_pdf=False):
+def plot_raw_counts_unc(data_filepath='', save_pdf=False):
     with open(data_filepath, 'rb') as file:
         data_dict = pickle.load(file)
 
@@ -148,11 +111,12 @@ def plot_raw_counts_unc(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), data_
     Maxpol_Counts = get_uncertainty(Maxpol_Count_Array)
     Minpol_Counts = get_uncertainty(Minpol_Count_Array)
 
-    Avg_Counts = (Maxpol_Counts + Minpol_Settings) / 2
+    Avg_Counts = (Maxpol_Counts + Minpol_Counts) / 2
 
     output_dir = os.path.join(current_file_dir, 'figs_sde')
     os.makedirs(output_dir, exist_ok=True)
-    figname = f'counts_vs_current_curves__{now_str}'
+    _, data_filename = os.path.split(os.path.splitext(data_filepath)[0])
+    figname = f'raw_plot_{data_filename}'
     figpath = os.path.join(output_dir, figname)
     plt.close('all')
     plt.figure(figsize = [20,10])
@@ -248,7 +212,8 @@ def plot_raw_nonlinearity_data(nonlinearity_data_filepath, save_pdf=False):
     now_str = datetime.now().strftime('%Y%m%d_%H%M%S')
     output_dir = os.path.join(current_file_dir, 'figs_sde')
     os.makedirs(output_dir, exist_ok=True)
-    figname = f'nonlinear_calibration_data__{now_str}'
+    _, data_filename = os.path.split(os.path.splitext(nonlinearity_data_filepath)[0])
+    figname = f'raw_plot_{data_filename}'
     figpath = os.path.join(output_dir, figname)
 
     plt.tight_layout()
@@ -305,7 +270,8 @@ def plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculatio
     now_str = datetime.now().strftime('%Y%m%d_%H%M%S')
     output_dir = os.path.join(current_file_dir, 'figs_sde')
     os.makedirs(output_dir, exist_ok=True)
-    figname = f'nonlinear_calibration_calculation__{now_str}'
+    _, data_filename = os.path.split(os.path.splitext(nonlinearity_data_filepath)[0])
+    figname = f'fitted_{data_filename}'
     figpath = os.path.join(output_dir, figname)
     plt.tight_layout()
     plt.savefig(f'{figpath}.png')
@@ -344,7 +310,8 @@ def plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_fil
     now_str = datetime.now().strftime('%Y%m%d_%H%M%S')
     output_dir = os.path.join(current_file_dir, 'figs_sde')
     os.makedirs(output_dir, exist_ok=True)
-    figname = f'nonlinear_fit_ratio_{now_str}'
+    _, data_filename = os.path.split(os.path.splitext(nonlinearity_data_filepath)[0])
+    figname = f'fit_ratio_{data_filename}'
     figpath = os.path.join(output_dir, figname)
     plt.tight_layout()
     plt.savefig(f'{figpath}.png')
@@ -438,7 +405,8 @@ def plot_switch(optical_switch_filepath, cpm_splice="", save_pdf=False):
     now_str = datetime.now().strftime('%Y%m%d_%H%M%S')
     output_dir = os.path.join(current_file_dir, 'figs_sde')
     os.makedirs(output_dir, exist_ok=True)
-    figname = f'optical_switch_calibration_data_cpm_splice{cpm_splice}__{now_str}'
+    _, data_filename = os.path.split(os.path.splitext(optical_switch_filepath)[0])
+    figname = f'plot_{data_filename}'
     figpath = os.path.join(output_dir, figname)
 
     plt.tight_layout()
@@ -450,9 +418,14 @@ def plot_switch(optical_switch_filepath, cpm_splice="", save_pdf=False):
     return
 
 # Counts vs Current
-def plot_processed_counts_unc(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), data_filepath='', save_pdf=False):
+def plot_processed_counts_unc(data_filepath='', sde_processed_filepath="", save_pdf=False):
     with open(data_filepath, 'rb') as file:
         data_dict = pickle.load(file)
+    sde_processed_df = pd.read_csv(sde_processed_filepath)
+    counts_expected = sde_processed_df["Counts_Expected"].iloc[0]
+    Processed_Cur_Array = sde_processed_df["Bias"]
+    Processed_Eff = sde_processed_df["Efficiency"]
+    
 
     Cur_Array = np.array(data_dict['Cur_Array'])
     Dark_Count_Array = np.array(data_dict['Dark_Count_Array'])
@@ -467,32 +440,25 @@ def plot_processed_counts_unc(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()),
     Maxpol_Counts = get_uncertainty(Maxpol_Count_Array)
     Minpol_Counts = get_uncertainty(Minpol_Count_Array)
 
-    Avg_Counts = (Maxpol_Counts + Minpol_Settings) / 2
+    Avg_Counts = (Maxpol_Counts + Minpol_Counts) / 2
 
     output_dir = os.path.join(current_file_dir, 'figs_sde')
     os.makedirs(output_dir, exist_ok=True)
-    figname = f'counts_vs_current_curves__{now_str}'
+    _, data_filename = os.path.split(os.path.splitext(data_filepath)[0])
+    figname = f'efficiency_plot_{data_filename}'
     figpath = os.path.join(output_dir, figname)
     plt.close('all')
     plt.figure(figsize = [20,10])
-    plt.errorbar(Cur_Array_uA, unp.nominal_values(Maxpol_Counts), 
-                 yerr=unp.std_devs(Maxpol_Counts), fmt='--*', color='cyan', 
-                 label=f'Max Polarization {Maxpol_Settings}', linewidth=0.5)
-    plt.errorbar(Cur_Array_uA, unp.nominal_values(Minpol_Counts), 
-                 yerr=unp.std_devs(Minpol_Counts), fmt='--*', color='red', 
-                 label=f'Min Polarization {Minpol_Settings}', linewidth=0.5)
-    plt.errorbar(Cur_Array_uA, np.maximum(unp.nominal_values(Maxpol_Counts - Dark_Counts), 0), 
-                 yerr=unp.std_devs(Maxpol_Counts - Dark_Counts), fmt='-*', color='cyan', 
-                 label='Max Polarization - Dark Counts')
-    plt.errorbar(Cur_Array_uA, np.maximum(unp.nominal_values(Minpol_Counts - Dark_Counts), 0), 
-                 yerr=unp.std_devs(Minpol_Counts - Dark_Counts), fmt='-*', color='red', 
-                 label='Min Polarization - Dark Counts')
-    plt.errorbar(Cur_Array_uA, unp.nominal_values(Dark_Counts), 
+    plt.plot(Cur_Array_uA, counts_expected/np.maximum(unp.nominal_values(Maxpol_Counts - Dark_Counts), 0), 
+                 fmt='-*', color='cyan', label='Max Polarization - Dark Counts')
+    plt.plot(Cur_Array_uA, counts_expected/np.maximum(unp.nominal_values(Minpol_Counts - Dark_Counts), 0), 
+                 fmt='-*', color='red', label='Min Polarization - Dark Counts')
+    plt.errorbar(Cur_Array_uA, counts_expected/unp.nominal_values(Dark_Counts), 
                  yerr=unp.std_devs(Dark_Counts), fmt='-*', color='black', 
                  label='Dark Counts')
-    plt.errorbar(Cur_Array_uA, np.maximum(unp.nominal_values(Avg_Counts - Dark_Counts), 0), 
-                 yerr=unp.std_devs(Avg_Counts - Dark_Counts), fmt='-*', color='green', 
-                 label='Average Counts - Dark Counts')
+    plt.errorbar(Processed_Cur_Array, unp.nominal_values(Processed_Eff), 
+                 yerr=unp.std_devs(Processed_Eff), fmt='-*', color='green', 
+                 label='Average Efficiency')
 
     plt.title(f'{figname}')
     plt.xlabel('Bias current [uA]')
@@ -513,8 +479,8 @@ if __name__ == '__main__':
     # optical_switch_filepath = os.path.join(current_file_dir, 'data_sde', 'optical_switch_calibration_data_cpm_splice2__20250109-180754.pkl')
     # plot_switch(optical_switch_filepath, cpm_splice=2)
 
-    nonlinearity_data_filepath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data__20250109-182606.pkl')
-    plot_raw_nonlinearity_data(nonlinearity_data_filepath)
+    # nonlinearity_data_filepath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data__20250109-182606.pkl')
+    # plot_raw_nonlinearity_data(nonlinearity_data_filepath)
     # nonlinearity_calculation_filepath = os.path.join(current_file_dir, 'data_sde', '.pkl')
     # plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculation_filepath)
     # plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_filepath, )
@@ -522,6 +488,9 @@ if __name__ == '__main__':
     # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
     # IV_pickle_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_IV_curve_data__20250110-122541.pkl')
     # plot_IV_curve(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, save_pdf=False)
+
+    data_filepath = os.path.join(current_file_dir, "data_sde", "SK3_counts_data_snspd_splice1__20250110-155421.pkl")
+    plot_raw_counts_unc(data_filepath=data_filepath)
 
     # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
     # plot_polarization_sweep(now_str=now_str, pol_counts_filepath=pol_counts_filepath, save_pdf=False)
