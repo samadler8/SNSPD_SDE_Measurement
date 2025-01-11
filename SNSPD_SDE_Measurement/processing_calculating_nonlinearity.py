@@ -119,7 +119,7 @@ def find_poly_fit(processed_nonlinearity_data, ranges, poly_order_list):
     # Polynomial orders should minimize reduced chi-square
     params = initialize_parameters(poly_order_list, ranges)
     fit = lmfit.minimize(calculate_residuals, params, method='leastsq', args=(processed_nonlinearity_data,))
-    logger.debug(lmfit.fit_report(fit.params))
+    logger.info(lmfit.fit_report(fit.params))
     return fit
 
 
@@ -148,8 +148,6 @@ if __name__ == '__main__':
     rng_disc_factor = ufloat(1, 0)
 
     for rng in ranges:
-        logger.debug(f'rng in ranges: {rng}')
-
         if rng + 10 not in ranges:
             logger.warning(f"Skipping range {rng} as {rng + 10} is not in ranges.")
             continue
@@ -177,7 +175,7 @@ if __name__ == '__main__':
         "covar": fit.covar,
         "rng_disc": rng_disc,
     }
-    logger.debug(f"nonlinear_calibration_data: {nonlinear_calibration_data}")
+    logger.info(f"nonlinear_calibration_data: {nonlinear_calibration_data}")
 
     output_dir = os.path.join(current_file_dir, 'data_sde')
     os.makedirs(output_dir, exist_ok=True)

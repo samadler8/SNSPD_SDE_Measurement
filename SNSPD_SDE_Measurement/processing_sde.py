@@ -56,7 +56,7 @@ class PMCorrectLinearUnc:
         try:
             # Load data from pickle file
             data = pd.read_pickle(self.fname)
-            logging.debug(f"PMCorrectLinearUnc load data: {data}")
+            logging.info(f"PMCorrectLinearUnc load data: {data}")
             self.fit_params = data["fit_params"]
             self.covar = data["covar"]
             self.rng_disc = data["rng_disc"]
@@ -72,7 +72,7 @@ class PMCorrectLinearUnc:
         """
         if rng is None:
             rng = self.estimate_range(v)
-            logger.debug(f"Estimated range: {rng} for reading: {v}")
+            logger.info(f"Estimated range: {rng} for reading: {v}")
 
         if not self.fit_params or self.covar is None or self.covar.size == 0:
             logger.error("Fit parameters or covariance matrix not loaded.")
@@ -97,7 +97,7 @@ class PMCorrectLinearUnc:
     #     """
     #     if rng is None:
     #         rng = self.estimate_range(v)
-    #         logger.debug(f"Estimated range: {rng} for reading: {v}")
+    #         logger.info(f"Estimated range: {rng} for reading: {v}")
 
     #     corrected_power = self.fix_power_nonlinearity_unc(v, rng)
     #     return corrected_power / self.rng_disc[rng]
@@ -167,15 +167,13 @@ def extract_raw_powers_unc(att_cal_filepath):
     '''
     Extracts powers with uncertainty from the attenuation calibration file.
     '''
-    logging.debug(f"extract_raw_powers_unc")
+    logging.info(f"extract_raw_powers_unc")
 
     with open(att_cal_filepath, 'rb') as file:
         powers_data = pickle.load(file)
 
     if not isinstance(powers_data, pd.DataFrame):
         powers_data = pd.DataFrame(powers_data)
-
-    logging.debug(f"powers_data: {powers_data}")
 
     columns = ['Attenuator', 'Attenuation (dB)', 'Range', 'Power Mean', 'Power Std']
     new_powers_data = pd.DataFrame(columns=columns)
@@ -259,7 +257,6 @@ def compute_efficiency_unc(config):
 
     # att_cal_data = extract_raw_powers_unc(config['attcal_file'])
     att_cal_data = pd.read_pickle(config['attcal_file'])
-    logging.debug(f"att_cal_data: {att_cal_data}")
     atts = [1, 2, 3]
 
     filtered0_att_cal_data = att_cal_data[att_cal_data['Attenuation (dB)'] == 0]
@@ -275,25 +272,25 @@ def compute_efficiency_unc(config):
         power_atts.append(correction.nonlinear_power_correction(power_att, rng_att))
         power_atts.append(power_att)
 
-    logging.debug(f"Corrected attenuation powers")
-    logging.debug(f"power_0: {power_0}")
-    logging.debug(f"power_atts: {power_atts}")
+    logging.info(f"Corrected attenuation powers")
+    logging.info(f"power_0: {power_0}")
+    logging.info(f"power_atts: {power_atts}")
     # Energy per photon
     E = codata.h * codata.c / (wavelength)
-    logging.debug(f"E: {E}")
+    logging.info(f"E: {E}")
 
 
     # Calculate expected counts
     counts_expected = unp.nominal_values(power_0) / E
-    logging.debug(f"counts_expected without attenuation: {counts_expected}")
+    logging.info(f"counts_expected without attenuation: {counts_expected}")
     for power_att in power_atts:
         counts_expected *= unp.nominal_values(power_att) / unp.nominal_values(power_0)
-    logging.debug(f"counts_expected post attenuation: {counts_expected}")
+    logging.info(f"counts_expected post attenuation: {counts_expected}")
 
     # Apply switch correction and calibration factor
     counts_expected = counts_expected / switch_correction
     counts_expected = counts_expected / ufloat(config['CF'], config['CF_err'])
-    logging.debug(f"counts_expected post corrections: {counts_expected}")
+    logging.info(f"counts_expected post corrections: {counts_expected}")
 
 
     # Store results in the configuration dictionary

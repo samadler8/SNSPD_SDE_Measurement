@@ -23,10 +23,10 @@ def compute_sha1_hash(filename):
         with open(filename, 'rb') as stream:
             for chunk in iter(lambda: stream.read(4096), b''):
                 sha1.update(chunk)
-        logger.debug(f"SHA1hash({os.path.basename(filename)}): {sha1.hexdigest()}")
+        logger.info(f"SHA1hash({os.path.basename(filename)}): {sha1.hexdigest()}")
         return sha1.hexdigest()
     else:
-        logger.debug("compute_sha1_hash: File does not exist. Returning None.")
+        logger.warning("compute_sha1_hash: File does not exist. Returning None.")
         return None
 
 def get_plateau(current_array, count_array):
