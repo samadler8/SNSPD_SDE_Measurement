@@ -365,7 +365,7 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), at
     # Save the calibration data to a file
     output_dir = os.path.join(current_file_dir, 'data_sde')
     os.makedirs(output_dir, exist_ok=True)
-    filename = f"attenuator_calibration_data__{now_str}.pkl"
+    filename = f"attenuator_calibration_data_attval{attval}__{now_str}.pkl"
     filepath = os.path.join(output_dir, filename)
     powers_df.to_pickle(filepath)
     logger.info(f"attenuator_calibration saved to: {filepath}")
@@ -511,7 +511,7 @@ def SDE_Counts_Measurement(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), 
     
     output_dir = os.path.join(current_file_dir, 'data_sde')
     os.makedirs(output_dir, exist_ok=True)
-    filename = f"{name}_counts_data_snspd_splice{snspd_splice}__{now_str}.pkl"
+    filename = f"{name}_counts_data_snspd_splice{snspd_splice}_attval{attval}__{now_str}.pkl"
     filepath = os.path.join(output_dir, filename)
     with open(filepath, "wb") as file:
         pickle.dump(data_dict, file)
@@ -541,11 +541,13 @@ if __name__ == '__main__':
     # pol_counts_filepath = sweep_polarizations(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, attval=attval, name=name, num_pols=13, trigger_voltage=trigger_voltage, counting_time=0.5, N=1)
     pol_counts_filepath = os.path.join(current_file_dir, "data_sde", "SK3_pol_data_snspd_splice1__20250110-125128.pkl")
 
+    nonlinearity_factor_filepath = nonlinearity_factor_raw_power_meaurements(now_str=now_str, tau=3)
+    
     attvals = [25, 34, 24, 35, 23, 36, 22, 37, 21, 38]
     for attval in attvals:
         data_filepath = SDE_Counts_Measurement(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, pol_counts_filepath=pol_counts_filepath, attval=attval, name=name, trigger_voltage=trigger_voltage)
         attenuator_calibration_filepath = attenuator_calibration(now_str=now_str, attval=attval)
 
-    taus = [3, 2, 2.5, 1.5]
+    taus = [2, 2.5, 1.5]
     for tau in taus:
         nonlinearity_factor_filepath = nonlinearity_factor_raw_power_meaurements(now_str=now_str, tau=tau)
