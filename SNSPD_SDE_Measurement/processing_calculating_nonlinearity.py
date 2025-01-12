@@ -30,13 +30,13 @@ logger = logging.getLogger(__name__)
 
 tau = 1.5
 
-def initialize_parameters(poly_order_list, ranges):
+def initialize_parameters(poly_order_list, rng_settings):
     """
     Initialize lmfit.Parameters for fitting polynomial coefficients.
 
     Args:
         poly_order_list (list): List of maximum polynomial orders for each range.
-        ranges (list): List of ranges corresponding to the data.
+        rng_settings (list): List of rng_settings corresponding to the data.
 
     Returns:
         lmfit.Parameters: Initialized parameters for the fitting process.
@@ -44,7 +44,7 @@ def initialize_parameters(poly_order_list, ranges):
     params = lmfit.Parameters()
     params.add('tau', value=math.log10(tau))  # Add the initial parameter tau
 
-    for i, rng in enumerate(ranges):
+    for i, rng in enumerate(rng_settings):
         max_order = poly_order_list[i]
         for order in range(2, max_order + 1):
             param_name = get_param_name(rng, order)
@@ -58,7 +58,7 @@ def calculate_residuals(params, processed_nonlinearity_data):
 
     Args:
         params (lmfit.Parameters): Parameters to optimize.
-        processed_nonlinearity_data (dict): Averaged data structured by ranges.
+        processed_nonlinearity_data (dict): Averaged data structured by rng_settings.
 
     Returns:
         np.ndarray: Residuals for the fit.
@@ -89,26 +89,26 @@ def calculate_residuals(params, processed_nonlinearity_data):
     # Return residuals as a flattened array
     return np.hstack(residuals)
 
-def reduced_chi_squared(poly_order_list, processed_nonlinearity_data, ranges):
+def reduced_chi_squared(poly_order_list, processed_nonlinearity_data, rng_settings):
     """
     Compute the reduced chi-squared for the polynomial fit.
 
     Args:
         poly_order_list (list): Polynomial orders for each range.
-        d (dict): Averaged data structured by ranges.
-        ranges (list): List of ranges corresponding to the data.
+        d (dict): Averaged data structured by rng_settings.
+        rng_settings (list): List of rng_settings corresponding to the data.
 
     Returns:
         float: Reduced chi-squared value.
     """
     poly_order_list = np.array(poly_order_list, dtype=int)
-    params = initialize_parameters(poly_order_list, ranges)
+    params = initialize_parameters(poly_order_list, rng_settings)
     fit_result = lmfit.minimize(calculate_residuals, params, method='leastsq', args=(processed_nonlinearity_data,))
     return fit_result.redchi
 
-def find_poly_fit(processed_nonlinearity_data, ranges, poly_order_list):
+def find_poly_fit(processed_nonlinearity_data, rng_settings, poly_order_list):
     # Polynomial orders should minimize reduced chi-square
-    params = initialize_parameters(poly_order_list, ranges)
+    params = initialize_parameters(poly_order_list, rng_settings)
     fit = lmfit.minimize(calculate_residuals, params, method='leastsq', args=(processed_nonlinearity_data,))
     logger.info(lmfit.fit_report(fit.params))
     return fit
@@ -120,29 +120,27 @@ if __name__ == '__main__':
     fpath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data_tau2__20250110-210258.pkl')
     logger.info(f'Processing file: {fpath}')
 
-    # Extract nonlinearity data and ranges
+    # Extract nonlinearity data and rng_settings
     processed_nonlinearity_data = extract_nonlinearity_data(fpath)
-    print(processed_nonlinearity_data)
-    ranges = list(processed_nonlinearity_data.keys())
-    print(ranges)
+    rng_settings = list(processed_nonlinearity_data.keys())
 
     # Optimize polynomial orders
-    poly_order_param_space = (slice(1, 6, 1),) * len(ranges)  # order range: 1 to 5 inclusive
-    optimized_orders = brute(reduced_chi_squared, poly_order_param_space, args=(processed_nonlinearity_data, ranges)) # Optimize polynomial orders for each range using a brute force approach.
+    poly_order_param_space = (slice(1, 6, 1),) * len(rng_settings)  # order range: 1 to 5 inclusive
+    optimized_orders = brute(reduced_chi_squared, poly_order_param_space, args=(processed_nonlinearity_data, rng_settings)) # Optimize polynomial orders for each range using a brute force approach.
     poly_order_list = optimized_orders.astype(int).tolist()
     logger.info(f'Optimized polynomial orders: {poly_order_list}')
 
     # Fit polynomial and calculate range discontinuities
-    fit = find_poly_fit(processed_nonlinearity_data, ranges, poly_order_list)
+    fit = find_poly_fit(processed_nonlinearity_data, rng_settings, poly_order_list)
     logger.info(f'Fit reduced chi-squared: {fit.redchi}')
 
     rng_disc = {}
     rng_disc[-10] = ufloat(1, 0)  # Initialize for the base range
     rng_disc_factor = ufloat(1, 0)
 
-    for rng in ranges:
-        if rng + 10 not in ranges:
-            logger.warning(f"Skipping range {rng} as {rng + 10} is not in ranges.")
+    for rng in rng_settings:
+        if rng + 10 not in rng_settings:
+            logger.warning(f"Skipping range {rng} as {rng + 10} is not in rng_settings.")
             continue
 
         # Check for overlapping data
