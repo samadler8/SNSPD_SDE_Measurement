@@ -276,6 +276,7 @@ def plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculatio
     if save_pdf:
         plt.savefig(f'{figpath}.pdf')
     plt.close()
+    return
 
 
 
@@ -475,11 +476,11 @@ if __name__ == '__main__':
     # optical_switch_filepath = os.path.join(current_file_dir, 'data_sde', 'optical_switch_calibration_data_cpm_splice2__20250109-180754.pkl')
     # plot_switch(optical_switch_filepath, cpm_splice=2)
 
-    nonlinearity_data_filepath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data_tau2__20250110-210258.pkl')
-    # plot_raw_nonlinearity_data(nonlinearity_data_filepath, filtered=False)
-    nonlinearity_calculation_filepath = os.path.join(current_file_dir, 'data_sde', '.pkl')
-    plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculation_filepath)
-    plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_filepath, )
+    nonlinearity_data_filepath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data_tau2.5__20250110-210258.pkl')
+    plot_raw_nonlinearity_data(nonlinearity_data_filepath, filtered=False)
+    # nonlinearity_calculation_filepath = os.path.join(current_file_dir, 'data_sde', '.pkl')
+    # plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculation_filepath)
+    # plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_filepath, )
 
     # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
     # IV_pickle_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_IV_curve_data__20250110-122541.pkl')

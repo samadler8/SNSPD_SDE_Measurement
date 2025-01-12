@@ -91,7 +91,7 @@ def get_uncertainty(rawdata):
         # Initialize the minimum uncertainty array
         min_unc = np.zeros_like(avg)
 
-        # Define minimum uncertainty based on quantization error for different ranges
+        # Define minimum uncertainty based on quantization error for different rng_settings
         min_unc[avg > 1e-9] = 1e-12 * 0.5 / (3**0.5)
         min_unc[avg > 1e-6] = 1e-9 * 0.5 / (3**0.5)
         min_unc[avg > 1e-3] = 1e-6 * 0.5 / (3**0.5)
@@ -111,7 +111,7 @@ def get_uncertainty(rawdata):
                 avg_row = row.mean()
                 std_row = row.std(ddof=1)
 
-                # Apply minimum uncertainty based on quantization error for different ranges
+                # Apply minimum uncertainty based on quantization error for different rng_settings
                 if avg_row > 1e-9:
                     min_unc = 1e-12 * 0.5 / (3**0.5)
                 elif avg_row > 1e-6:
@@ -140,7 +140,7 @@ def get_uncertainty(rawdata):
 
 def extract_nonlinearity_data(filepath, filtered=True):
     """
-    Extract nonlinearity data from a file and organize it by ranges and attenuation settings.
+    Extract nonlinearity data from a file and organize it by rng_settings and attenuation settings.
 
     Parameters:
         filepath (str): Path to the pickled dataframe file containing the data.
@@ -150,12 +150,27 @@ def extract_nonlinearity_data(filepath, filtered=True):
     """
     # Load the dataframe from the pickle file
     df = pd.read_pickle(filepath)
+    
+    
+    mpm_min_max_powers = { # Raw data from saved files
+        0: [4.87977727286486e-05, 0.00011558460681562231],
+        -10: [4.94196880847838e-06, 9.85825391709997e-05],
+        -20: [4.893279240819371e-07, 9.858253917099965e-06],
+        -30: [4.9328737449464914e-08, 9.894640051300763e-07],
+        -40: [4.7918145290822406e-09, 9.865066110230991e-08],
+        -50: [4.809500785490998e-10, 9.876430227771067e-09],
+        -60: [5e-11, 9.81974024865487e-10],
+    }
 
-    ranges = df['Range'].unique()
-    for rng in ranges:
+    for rng in rng_settings:
+        mpm_min_max_powers[rng][0] -= 0.001
+        mpm_min_max_powers[rng][1] += 0.001
+
+    rng_settings = df['Range'].unique()
+    for rng in rng_settings:
         # Define power thresholds for the current range
-        max_power_threshold = 10**((rng - 0.1) / 10) * 1e-3
-        min_power_threshold = 10**((rng - 13) / 10) * 1e-3
+        max_power_threshold = mpm_min_max_powers[rng][1]
+        min_power_threshold = mpm_min_max_powers[rng][0]
         if rng == -60:
             min_power_threshold = 10**((rng - 8) / 10) * 1e-3
 
@@ -171,9 +186,9 @@ def extract_nonlinearity_data(filepath, filtered=True):
     taus = df['Attenuator 2'].unique()
     taus.sort()
     
-    ranges = df['Range'].unique()
+    rng_settings = df['Range'].unique()
     data_dict = {}
-    for rng in ranges:
+    for rng in rng_settings:
         
         filtered_df = df[(df['Range'] == rng)].copy()
         

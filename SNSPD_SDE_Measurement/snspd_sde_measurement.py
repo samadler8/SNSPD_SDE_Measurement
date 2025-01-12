@@ -84,6 +84,19 @@ rng_dict = {'A': 'AUTO',
     'L' : -60,
     'Z' : 'HOLD'
 }
+rng_settings = [0, -10, -20, -30, -40, -50, -60]
+mpm_min_max_powers = { # Raw data from saved files
+    0: [4.87977727286486e-05, 0.00011558460681562231],
+    -10: [4.94196880847838e-06, 9.85825391709997e-05],
+    -20: [4.893279240819371e-07, 9.858253917099965e-06],
+    -30: [4.9328737449464914e-08, 9.894640051300763e-07],
+    -40: [4.7918145290822406e-09, 9.865066110230991e-08],
+    -50: [4.809500785490998e-10, 9.876430227771067e-09],
+    -60: [5e-11, 9.81974024865487e-10],
+}
+for rng in rng_settings:
+    mpm_min_max_powers[rng][0] -= 0.001
+    mpm_min_max_powers[rng][1] += 0.001
 
 # setup constants
 wavelength = 1566.314  # nm
@@ -92,6 +105,7 @@ init_rng = 0 #dBm
 
 counting_time = 0.5 #s
 num_pols = 13
+N_init = 5
 
 name = 'SK3'
 max_cur = 15e-6 # A
@@ -105,6 +119,11 @@ def zero_pm():
         att.disable()
     time.sleep(0.3)
     mpm.zero()
+
+def reset_attenuators():
+    for att in att_list:
+        att.set_att(0)
+        att.enable()
 
 # Initialize and turn on everything
 def snspd_sde_setup():
@@ -152,6 +171,17 @@ def optical_switch_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now())
     logger.info("Starting: Algorithm S1.1 Missing Algorithm (optical switch calibration)")
     logger.warning("Ensure detector fiber it spliced to calibrated power meter")
     # Initialize power meter
+    sw.set_route(monitor_port)
+    reset_attenuators()
+    for rng in rng_settings:
+        mpm.set_range(init_rng)
+        time.sleep(0.3)
+        mpm.get_power()
+        powers = [mpm.get_power() for _ in range(N_init)]  # Collect power readings
+        if all(mpm_min_max_powers[rng][1] > power > mpm_min_max_powers[rng][0] for power in powers):
+            break
+    init_rng = rng
+
     mpm.set_range(init_rng)
     mpm.zero()
 
@@ -210,9 +240,9 @@ def optical_switch_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now())
 
     return filepath
 
-# Algorithm S1. Nonlinearity factor raw power meaurements
-def nonlinearity_factor_raw_power_meaurements(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), tau=3):
-    logger.info("Starting: Algorithm S1. Nonlinearity factor raw power meaurements")
+# Algorithm S1. Nonlinearity factor raw power measurements
+def nonlinearity_factor_raw_power_measurements(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), tau=3):
+    logger.info("Starting: Algorithm S1. Nonlinearity factor raw power measurements")
     sw.set_route(monitor_port)
     for att in att_list:
         att.set_att(0)
@@ -221,27 +251,94 @@ def nonlinearity_factor_raw_power_meaurements(now_str="{:%Y%m%d-%H%M%S}".format(
     att2_settings = [0, tau]
     N = 25
 
-    base_input_powers = base_input_powers = np.concatenate([
-        np.arange(1, -5, -0.1), # overlapping data
-        np.arange(-5, -9, -1),
-        np.arange(-9, -15, -0.1) # overlapping data
-    ])
-    att_settings = {}
-
-    rng_settings = [0, -10, -20, -30, -40, -50, -60]
-
-    total_data = 0
+    att_min_max_settings = {}
     for rng in rng_settings:
-        input_powers = base_input_powers + rng  # Element-wise addition
-        att_settings[rng] = [val for val in -(input_powers - -10) if (val > 0 and val < 60)]
+        mpm.set_range(rng)
+        zero_pm()
+        sw.set_route(monitor_port)
+        reset_attenuators()
+        a = -rng - 2.5
+        while True:
+            a -= 1
+            att1.set_att(a)
+            time.sleep(0.3)
+            mpm.get_power()
+            for _ in range(N_init):
+                if mpm.get_power() > mpm_min_max_powers[rng][1]:
+                    break
+            else:
+                continue  # Only executes if 'for' loop completes without breaking
+            break
+        while True:
+            a += 0.1
+            att1.set_att(a)
+            time.sleep(0.3)
+            mpm.get_power()
+            for _ in range(N_init):
+                if mpm.get_power() < mpm_min_max_powers[rng][1]:
+                    break
+            else:
+                continue  # Only executes if 'for' loop completes without breaking
+            break
+        a_min = a - 0.1
+
+        att2.set_att(tau)
+        while True:
+            a += 1
+            att1.set_att(a)
+            time.sleep(0.3)
+            mpm.get_power()
+            for _ in range(N_init):
+                if mpm.get_power() < mpm_min_max_powers[rng][0]:
+                    break
+            else:
+                continue  # Only executes if 'for' loop completes without breaking
+            break
+        while True:
+            a -= 0.1
+            att1.set_att(a)
+            time.sleep(0.3)
+            mpm.get_power()
+            for _ in range(N_init):
+                if mpm.get_power() > mpm_min_max_powers[rng][0]:
+                    break
+            else:
+                continue  # Only executes if 'for' loop completes without breaking
+            break
+        a_max = a + 0.1
+
+        att_min_max_settings[rng] = [a_min, a_max]
+
+    att_settings = {}
+    total_data = 0
+    for i in range(len(rng_settings)):
+        current_range = rng_settings[i]
+        prev_range = rng_settings[i - 1] if i > 0 else None
+        next_range = rng_settings[i + 1] if i < len(rng_settings) - 1 else None
+
+        if prev_range is None:  # First element (use next_range)
+            att_settings[current_range] = np.concatenate([
+                np.arange(att_min_max_settings[current_range][0], att_min_max_settings[next_range][0], 1),
+                np.arange(att_min_max_settings[next_range][0], att_min_max_settings[current_range][1], 0.1),
+            ])
+        elif next_range is None:  # Last element (use prev_range)
+            att_settings[current_range] = np.concatenate([
+                np.arange(att_min_max_settings[current_range][0], att_min_max_settings[prev_range][1], 0.1),
+                np.arange(att_min_max_settings[prev_range][1], att_min_max_settings[current_range][1], 1),
+            ])
+        else:  # Middle elements
+            att_settings[current_range] = np.concatenate([
+                np.arange(att_min_max_settings[current_range][0], att_min_max_settings[prev_range][1], 0.1),
+                np.arange(att_min_max_settings[prev_range][1], att_min_max_settings[current_range][0], 1),
+                np.arange(att_min_max_settings[next_range][0], att_min_max_settings[current_range][1], 0.1),
+            ])
+
         total_data += len(att_settings[rng])
 
     att_settings = {
         rng: [round(val, 1) for val in values]
         for rng, values in att_settings.items()
     }
-
-    print(att_settings)
 
     total_data *= len(att2_settings)
 
@@ -253,9 +350,7 @@ def nonlinearity_factor_raw_power_meaurements(now_str="{:%Y%m%d-%H%M%S}".format(
         mpm.set_range(rng)
         zero_pm()
         sw.set_route(monitor_port)
-        for att in att_list:
-            att.set_att(0)
-            att.enable()
+        reset_attenuators()
         for a in att_settings[rng]:
             att1.set_att(a)
             for att2_val in att2_settings:
@@ -263,15 +358,14 @@ def nonlinearity_factor_raw_power_meaurements(now_str="{:%Y%m%d-%H%M%S}".format(
                 powers_temp = []
                 time.sleep(0.3)
                 mpm.get_power()
-                for _ in range(N):
-                    powers_temp.append(mpm.get_power())
+                powers_temp = [mpm.get_power() for _ in range(N)]
                 mpm.get_power()
                 data_temp = (rng, a, att2_val, powers_temp)
                 data.append(data_temp)
                 logging.info(f"data_temp: {data_temp}")
-                logging.info(f"{round(100*i/total_data, 2)}%")
                 i += 1
-
+                logging.info(f"{round(100*i/total_data, 2)}%")
+                
     sw.set_route(monitor_port)
     for att in att_list:
         att.set_att(0)
@@ -288,7 +382,7 @@ def nonlinearity_factor_raw_power_meaurements(now_str="{:%Y%m%d-%H%M%S}".format(
     nonlinearity_factor_filepath = os.path.join(output_dir, nonlinearity_factor_filename)
     df.to_pickle(nonlinearity_factor_filepath)
     logger.info(f"nonlinearity_factor saved to: {nonlinearity_factor_filepath}")
-    logger.info("Completed: Algorithm S1. Nonlinearity factor raw power meaurements")
+    logger.info("Completed: Algorithm S1. Nonlinearity factor raw power measurements")
     return nonlinearity_factor_filepath
 
 # Algorithm S2. Attenuator Calibration
@@ -298,7 +392,14 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), at
 
     # Parameters
     N = 50
-    att_rng = math.ceil((-10 - attval + 5) / 10) * 10 
+    for rng in rng_settings:
+        mpm.set_range(rng)
+        time.sleep(0.3)
+        mpm.get_power()
+        powers = [mpm.get_power() for _ in range(N_init)]  # Collect power readings
+        if all(mpm_min_max_powers[rng][1] > power > mpm_min_max_powers[rng][0] for power in powers):
+            break
+    att_rng = rng
 
     # Initialize an empty DataFrame to store results
     columns = ['Attenuator', 'Attenuation (dB)', 'Range', 'Power Measurement']
@@ -312,9 +413,7 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), at
         mpm.set_range(init_rng)
         zero_pm()
         sw.set_route(monitor_port)
-        for attj in att_list:
-            attj.set_att(0)
-            attj.enable()
+        reset_attenuators()
         time.sleep(0.3)
         mpm.get_power()
         for _ in range(N):
@@ -325,9 +424,7 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), at
         mpm.set_range(att_rng)
         zero_pm()
         sw.set_route(monitor_port)
-        for attj in att_list:
-            attj.set_att(0)
-            attj.enable()
+        reset_attenuators()
         atti.set_att(attval)
         temp_powers = []
         time.sleep(0.3)
@@ -530,7 +627,7 @@ if __name__ == '__main__':
         
     # optical_switch_calibration_filepath = optical_switch_calibration(now_str=now_str, )
     
-    # nonlinearity_factor_filepath = nonlinearity_factor_raw_power_meaurements(now_str=now_str, tau=tau)
+    # nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(now_str=now_str, tau=tau)
 
     # IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name)
     IV_pickle_filepath = os.path.join(current_file_dir, "data_sde", "SK3_IV_curve_data__20250110-122541.pkl")
@@ -541,7 +638,7 @@ if __name__ == '__main__':
     pol_counts_filepath = sweep_polarizations(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, attval=attval, name=name, num_pols=13, trigger_voltage=trigger_voltage, counting_time=0.5, N=1)
     # pol_counts_filepath = os.path.join(current_file_dir, "data_sde", "SK3_pol_data_snspd_splice1__20250110-125128.pkl")
 
-    # nonlinearity_factor_filepath = nonlinearity_factor_raw_power_meaurements(now_str=now_str, tau=2.5)
+    # nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(now_str=now_str, tau=2.5)
 
     attvals = [29, 30, 28, 31, 27, 32, 26, 33, 25, 34, 24, 35, 23, 36, 22, 37, 21, 38]
     for attval in attvals:
@@ -550,4 +647,4 @@ if __name__ == '__main__':
 
     # taus = [2, 3, 1.5]
     # for tau in taus:
-    #     nonlinearity_factor_filepath = nonlinearity_factor_raw_power_meaurements(now_str=now_str, tau=tau)
+    #     nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(now_str=now_str, tau=tau)

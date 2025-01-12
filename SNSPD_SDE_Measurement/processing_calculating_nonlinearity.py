@@ -3,6 +3,7 @@ import logging
 
 import pickle
 import lmfit
+import math
 
 import numpy as np
 import pandas as pd
@@ -21,7 +22,7 @@ logging.basicConfig(
     level=logging.INFO,  # Set to INFO or WARNING for less verbosity
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler("script_log.log", mode="a"),
+        logging.FileHandler("calculating_nonlinearity_log.log", mode="a"),
         logging.StreamHandler()  # Logs to console
     ]
 )
@@ -64,22 +65,13 @@ def calculate_residuals(params, processed_nonlinearity_data):
     """
     residuals = []
 
-    convert_to_dBmW_before_fitting = 0
-
     for rng, data in processed_nonlinearity_data.items():
         # Extract nominal values and uncertainties
         v = unp.nominal_values(data['v'])
         vt = unp.nominal_values(data['vt'])
         v_std = unp.std_devs(data['v'])
         vt_std = unp.std_devs(data['vt'])
-        if convert_to_dBmW_before_fitting:
-            # Convert nominal values from W to dBmW
-            v = 10 * np.log10(v / 1e-3)  # Convert Watts to dBmW
-            vt = 10 * np.log10(vt / 1e-3)  # Convert Watts to dBmW
-            # Convert uncertainties from W to dBmW
-            v_std = (v_std / v) * (10 / np.log(10))  # Uncertainty in dBmW
-            vt_std = (vt_std / vt) * (10 / np.log(10))  # Uncertainty in dBmW
-
+        
         # Initialize the model
         model = vt - params['tau'] * v
         order = 2
@@ -94,7 +86,6 @@ def calculate_residuals(params, processed_nonlinearity_data):
         # Normalize residuals by estimated uncertainty
         uncertainty = np.sqrt(vt_std**2 + (params['tau'] * v_std)**2)
         residuals.append(model / uncertainty)
-
     # Return residuals as a flattened array
     return np.hstack(residuals)
 
@@ -126,12 +117,12 @@ def find_poly_fit(processed_nonlinearity_data, ranges, poly_order_list):
 
 
 if __name__ == '__main__':
-    fpath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data_tau2__20250110-210258.pkl')
+    fpath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data_tau2.5__20250110-210258.pkl')
     logger.info(f'Processing file: {fpath}')
 
     # Extract nonlinearity data and ranges
     processed_nonlinearity_data = extract_nonlinearity_data(fpath)
-    ranges = processed_nonlinearity_data.keys()
+    ranges = list(processed_nonlinearity_data.keys())
 
     # Optimize polynomial orders
     poly_order_param_space = (slice(1, 6, 1),) * len(ranges)  # order range: 1 to 5 inclusive
@@ -182,5 +173,6 @@ if __name__ == '__main__':
     _, data_filename = os.path.split(os.path.splitext(fpath)[0])
     filename = f'calculation_{data_filename}'
     filepath = os.path.join(output_dir, filename)
-    pd.to_pickle(nonlinear_calibration_data, filepath)
+    with open(filepath, 'wb') as f:
+        pickle.dump(nonlinear_calibration_data, f)
     logger.info(f"Calibration calculation saved to {filepath}")
