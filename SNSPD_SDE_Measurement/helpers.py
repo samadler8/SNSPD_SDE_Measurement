@@ -151,7 +151,7 @@ def extract_nonlinearity_data(filepath, filtered=True):
     # Load the dataframe from the pickle file
     df = pd.read_pickle(filepath)
     
-    
+    rng_settings = [0, -10, -20, -30, -40, -50, -60]
     mpm_min_max_powers = { # Raw data from saved files
         0: [4.87977727286486e-05, 0.00011558460681562231],
         -10: [4.94196880847838e-06, 9.85825391709997e-05],
