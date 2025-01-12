@@ -233,7 +233,7 @@ def nonlinearity_factor_raw_power_meaurements(now_str="{:%Y%m%d-%H%M%S}".format(
     total_data = 0
     for rng in rng_settings:
         input_powers = base_input_powers + rng  # Element-wise addition
-        att_settings[rng] = [val for val in -(input_powers - -10) if (val > 0 and val < 62)]
+        att_settings[rng] = [val for val in -(input_powers - -10) if (val > 0 and val < 60)]
         total_data += len(att_settings[rng])
 
     att_settings = {
