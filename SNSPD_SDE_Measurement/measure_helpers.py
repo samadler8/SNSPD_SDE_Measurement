@@ -166,11 +166,11 @@ def find_min_trigger_threshold(
         logger.info(f"Voltage: {mid_voltage:.3f}, Avg CPS: {avg_cps:.3f}")
 
         if avg_cps == 0:
-            high_voltage = mid_voltage  # Narrow search range to lower voltages
+            high_voltage = mid_voltage
         elif avg_cps < 1:
             low_voltage = (mid_voltage + low_voltage) / 2
         else:
-            high_voltage = mid_voltage  # Narrow search range to higher voltages
+            low_voltage = mid_voltage
 
     # Apply a safety margin to the final trigger voltage
     final_trigger_voltage = high_voltage * 1.1
