@@ -153,27 +153,21 @@ def extract_nonlinearity_data(filepath, filtered=True):
     
     rng_settings = [0, -10, -20, -30, -40, -50, -60]
     mpm_min_max_powers = { # Raw data from saved files
-        0: [4.87977727286486e-05, 0.00011558460681562231],
-        -10: [4.94196880847838e-06, 9.85825391709997e-05],
-        -20: [4.893279240819371e-07, 9.858253917099965e-06],
-        -30: [4.9328737449464914e-08, 9.894640051300763e-07],
-        -40: [4.7918145290822406e-09, 9.865066110230991e-08],
-        -50: [4.809500785490998e-10, 9.876430227771067e-09],
-        -60: [5e-11, 9.81974024865487e-10],
+        0: [5e-05, 9.75e-04],
+        -10: [5e-06, 9.75e-05],
+        -20: [5e-07, 9.75e-06],
+        -30: [5e-08, 9.75e-07],
+        -40: [5e-09, 9.75e-08],
+        -50: [5e-10, 9.75e-09],
+        -60: [5e-11, 9.75e-10],
     }
-
-    for rng in rng_settings:
-        mpm_min_max_powers[rng][0] -= 0.001
-        mpm_min_max_powers[rng][1] += 0.001
 
     rng_settings = df['Range'].unique()
     for rng in rng_settings:
         # Define power thresholds for the current range
         max_power_threshold = mpm_min_max_powers[rng][1]
         min_power_threshold = mpm_min_max_powers[rng][0]
-        if rng == -60:
-            min_power_threshold = 10**((rng - 8) / 10) * 1e-3
-
+        
         # Filter out invalid power values within the 'Power' column directly in the original DataFrame
         if filtered:
             df.loc[df['Range'] == rng, 'Power'] = df.loc[df['Range'] == rng, 'Power'].apply(
@@ -221,7 +215,7 @@ def extract_nonlinearity_data(filepath, filtered=True):
         data_dict[rng]['att'] = att_settings
         data_dict[rng]['v'] = get_uncertainty(v_temp)
         data_dict[rng]['vt'] = get_uncertainty(vt_temp)
-
+    
     return data_dict
 
 def get_param_name(rng, order):

@@ -117,12 +117,14 @@ def find_poly_fit(processed_nonlinearity_data, ranges, poly_order_list):
 
 
 if __name__ == '__main__':
-    fpath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data_tau2.5__20250110-210258.pkl')
+    fpath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data_tau2__20250110-210258.pkl')
     logger.info(f'Processing file: {fpath}')
 
     # Extract nonlinearity data and ranges
     processed_nonlinearity_data = extract_nonlinearity_data(fpath)
+    print(processed_nonlinearity_data)
     ranges = list(processed_nonlinearity_data.keys())
+    print(ranges)
 
     # Optimize polynomial orders
     poly_order_param_space = (slice(1, 6, 1),) * len(ranges)  # order range: 1 to 5 inclusive
