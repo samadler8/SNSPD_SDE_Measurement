@@ -245,7 +245,7 @@ def nonlinear_power_corrections_unc(params, covar, rng, v):
     while name in params:
         coeff = params_unc[list(params.keys()).index(name)]
         out += coeff*(v**order)
-        # logging.debug(coeff*(v**order))
+        # logging.info(coeff*(v**order))
         order += 1
         name = get_param_name(rng, order)
     return out
