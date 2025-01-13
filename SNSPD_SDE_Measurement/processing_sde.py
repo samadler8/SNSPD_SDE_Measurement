@@ -363,17 +363,15 @@ if __name__ == '__main__':
     bias, eff, counts_expected = compute_efficiency_unc(config)
 
     data = {
-        "Bias": bias,
-        "Efficiency": eff,
-        "Counts_Expected": counts_expected,
+        "Bias": bias,  # Normal data
+        "Efficiency_nominal": unp.nominal_values(eff),  # Extract nominal values
+        "Efficiency_stddev": unp.std_devs(eff),         # Extract uncertainties
+        "Counts_Expected_nominal": unp.nominal_values(counts_expected),
+        "Counts_Expected_stddev": unp.std_devs(counts_expected),
     }
-    df = pd.DataFrame(data)
 
-    # Define the file path for saving the CSV
-    csv_dir = os.path.join(current_file_dir, 'data_sde')
-    os.makedirs(csv_dir, exist_ok=True)
-
-    csv_filepath = os.path.join(csv_dir, f'final_results__{"{:%Y%m%d-%H%M%S}".format(datetime.now())}.csv')
-
-    # Save the DataFrame to a CSV file
-    df.to_csv(csv_filepath, index=False)
+    output_dir = os.path.join(current_file_dir, 'data_sde')
+    os.makedirs(output_dir, exist_ok=True)
+    filepath = os.path.join(output_dir, f'final_results__{"{:%Y%m%d-%H%M%S}".format(datetime.now())}.pkl')
+    with open(filepath, 'wb') as f:
+            pickle.dump(data, f)

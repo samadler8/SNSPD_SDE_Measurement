@@ -422,11 +422,14 @@ def plot_switch(optical_switch_filepath, save_pdf=False):
 def plot_processed_counts_unc(data_filepath='', sde_processed_filepath="", save_pdf=False):
     with open(data_filepath, 'rb') as file:
         data_dict = pickle.load(file)
-    sde_processed_df = pd.read_csv(sde_processed_filepath)
-    counts_expected = sde_processed_df["Counts_Expected"].iloc[0]
-    Processed_Cur_Array = sde_processed_df["Bias"]
-    Processed_Eff = sde_processed_df["Efficiency"]
-    
+    with open(sde_processed_filepath, 'rb') as file:
+        sde_processed = pickle.load(file)
+
+    Bias = sde_processed["Bias"]
+    Efficiency_nominal = sde_processed["Efficiency_nominal"]
+    Efficiency_stddev = sde_processed["Efficiency_stddev"]
+    Counts_Expected_nominal = sde_processed["Counts_Expected_nominal"]
+    Counts_Expected_stddev = sde_processed["Counts_Expected_stddev"]
 
     Cur_Array = np.array(data_dict['Cur_Array'])
     Dark_Count_Array = np.array(data_dict['Dark_Count_Array'])
@@ -440,6 +443,11 @@ def plot_processed_counts_unc(data_filepath='', sde_processed_filepath="", save_
     Dark_Counts = get_uncertainty(Dark_Count_Array)
     Maxpol_Counts = get_uncertainty(Maxpol_Count_Array)
     Minpol_Counts = get_uncertainty(Minpol_Count_Array)
+    array_length = len(Cur_Array_uA)
+    counts_expected_array = unp.uarray(
+        np.full(array_length, Counts_Expected_nominal),
+        np.full(array_length, Counts_Expected_stddev)
+    )
 
     output_dir = os.path.join(current_file_dir, 'figs_sde')
     os.makedirs(output_dir, exist_ok=True)
@@ -447,23 +455,55 @@ def plot_processed_counts_unc(data_filepath='', sde_processed_filepath="", save_
     figname = f'efficiency_plot_{data_filename}'
     figpath = os.path.join(output_dir, figname)
     plt.close('all')
-    plt.figure(figsize = [20,10])
-    plt.plot(Cur_Array_uA, counts_expected/np.maximum(unp.nominal_values(Maxpol_Counts - Dark_Counts), 0), 
-                 fmt='-*', color='cyan', label=f'Max Polarization - Dark Counts {Maxpol_Settings}')
-    plt.plot(Cur_Array_uA, counts_expected/np.maximum(unp.nominal_values(Minpol_Counts - Dark_Counts), 0), 
-                 fmt='-*', color='red', label=f'Min Polarization - Dark Counts {Minpol_Settings}')
-    plt.errorbar(Cur_Array_uA, counts_expected/unp.nominal_values(Dark_Counts), 
-                 yerr=unp.std_devs(Dark_Counts), fmt='-*', color='black', 
-                 label='Dark Counts')
-    plt.errorbar(Processed_Cur_Array, unp.nominal_values(Processed_Eff), 
-                 yerr=unp.std_devs(Processed_Eff), fmt='-*', color='green', 
-                 label='Average Efficiency')
+    plt.figure(figsize = [20, 10])
+    
+    y_data = (Maxpol_Counts - Dark_Counts) / counts_expected_array
+    plt.errorbar(
+        Cur_Array_uA, 
+        unp.nominal_values(y_data),
+        yerr=unp.std_devs(y_data), 
+        fmt='-*', 
+        color='cyan', 
+        label=f'Max Polarization - Dark Counts {Maxpol_Settings}'
+    )
+
+    y_data = (Minpol_Counts - Dark_Counts) / counts_expected_array
+    plt.errorbar(
+        Cur_Array_uA, 
+        unp.nominal_values(y_data),
+        yerr=unp.std_devs(y_data), 
+        fmt='-*',
+        color='red', 
+        label=f'Min Polarization - Dark Counts {Minpol_Settings}'
+    )
+
+    # Errorbar for Dark Counts
+    y_data = (Dark_Counts) / counts_expected_array
+    plt.errorbar(
+        Cur_Array_uA, 
+        unp.nominal_values(y_data),
+        yerr=unp.std_devs(y_data), 
+        fmt='-*',
+        color='black', 
+        label='Dark Counts'
+    )
+
+    # Errorbar for Average Efficiency
+    plt.errorbar(
+        Bias*1e6, 
+        Efficiency_nominal, 
+        yerr=Efficiency_stddev, 
+        fmt='-*', 
+        color='green', 
+        label='Average Efficiency'
+    )
 
     plt.title(f'{figname}')
     plt.xlabel('Bias current [uA]')
-    plt.ylabel('Counts [per sec]')
+    plt.ylabel('Efficiency')
     plt.legend(loc='upper left', bbox_to_anchor=(1.04, 1), fontsize=10)
     plt.tight_layout()
+    plt.show()
     plt.savefig(f'{figpath}.png')
     if save_pdf:
         plt.savefig(f'{figpath}.pdf')
@@ -475,29 +515,31 @@ def plot_processed_counts_unc(data_filepath='', sde_processed_filepath="", save_
 
 # %% Main Code Block
 if __name__ == '__main__':
+    now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
+
     # optical_switch_filepath = os.path.join(current_file_dir, 'data_sde', 'optical_switch_calibration_data_cpm_splice2__20250109-180754.pkl')
     # plot_switch(optical_switch_filepath, cpm_splice=2)
 
-    nonlinearity_data_filepath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data_tau2.5__20250110-210258.pkl')
+    # nonlinearity_data_filepath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data_tau2.5__20250110-210258.pkl')
     # plot_raw_nonlinearity_data(nonlinearity_data_filepath, filtered=False)
-    nonlinearity_calculation_filepath = os.path.join(current_file_dir, 'data_sde', 'calculation_0_nonlinear_calibration_data_tau2__20250110-210258.pkl')
-    plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculation_filepath)
-    plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_filepath, )
+    # nonlinearity_calculation_filepath = os.path.join(current_file_dir, 'data_sde', 'calculation_0_nonlinear_calibration_data_tau2__20250110-210258.pkl')
+    # plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculation_filepath)
+    # plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_filepath, )
 
-    # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
     # IV_pickle_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_IV_curve_data__20250110-122541.pkl')
     # plot_IV_curve(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, save_pdf=False)
 
     # data_filepath = os.path.join(current_file_dir, "data_sde", "SK3_counts_data_snspd_splice1__20250110-155421.pkl")
     # plot_raw_counts_unc(data_filepath=data_filepath)
 
-    # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
     # plot_polarization_sweep(now_str=now_str, pol_counts_filepath=pol_counts_filepath, save_pdf=False)
 
-    # now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
     # data_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_data_dict__20241212-142132.pkl')
     # plot_min_max_avg_counts_vs_current(now_str=now_str, data_filepath=data_filepath, save_pdf=False)
 
+    data_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_counts_data_snspd_splice1_attval29__20250111-180558.pkl')
+    sde_processed_filepath = os.path.join(current_file_dir, 'data_sde', 'final_results__20250112-204928.pkl')
+    plot_processed_counts_unc(data_filepath=data_filepath, sde_processed_filepath=sde_processed_filepath, save_pdf=False)
 
 
 
