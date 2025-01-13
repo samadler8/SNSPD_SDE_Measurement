@@ -479,7 +479,7 @@ def meas_counts(position, N=3, counting_time=1):
     return cps
 
 # Algorithm S3.1. SDE Counts Measurement - Polarization Sweep
-def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pickle_filepath='', attval=30, name='', trigger_voltage=0.01, num_pols=13, counting_time=0.5, N=1):
+def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pickle_filepath='', attval=30, name='', trigger_voltage=0.01, num_pols=13, counting_time=0.5, N=3):
     """Sweep through all polarizations to find max and min counts.
     Args:
         detector (object): Detector object with a `get_counts()` method.
@@ -507,20 +507,20 @@ def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pi
     srs.set_voltage(this_volt)
 
     num_repeats = 3
-    positions = np.linspace(-20.0, 20.0, num_pols) # Max range is -99 to 100 but I want to limit these edge cases
+    positions = np.linspace(-50.0, 50.0, num_pols) # Max range is -99 to 100 but I want to limit these edge cases
     positions = np.round(positions, 2)
     pol_data = {}
-    for _ in range(num_repeats):
+    for n in range(num_repeats):
         for i, x in enumerate(positions):
             for j, y in enumerate(positions):
                 for k, z in enumerate(positions):
                     position = (x, y, z)
                     cps = meas_counts(position, N=N, counting_time=counting_time)
-                    logging.info(f"Position: {position}, counts: {cps}")
+                    logging.info(f"Position: {position}, counts: {np.mean(cps)}")
                     if position not in pol_data:
                         pol_data[position] = []
                     pol_data[position].append(cps)
-                    logging.info(f"{round(100*(i*positions.size**2 + j*positions.size + k)/((positions.size)**3), 2)}% Complete")
+                    logging.info(f"{round(100*(n*num_repeats*positions.size**2 + i*positions.size**2 + j*positions.size + k)/((positions.size)**3), 2)}% Complete")
 
     pol_data_avg = {key: np.mean(value) for key, value in pol_data.items()}
     srs.set_voltage(0)
@@ -633,10 +633,10 @@ if __name__ == '__main__':
     # IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name)
     IV_pickle_filepath = os.path.join(current_file_dir, "data_sde", "SK3_IV_curve_data__20250110-122541.pkl")
 
-    trigger_voltage = find_min_trigger_threshold(instruments, now_str=now_str)
-    # trigger_voltage = 0.14
+    # trigger_voltage = find_min_trigger_threshold(instruments, now_str=now_str)
+    trigger_voltage = 0.127
 
-    pol_counts_filepath = sweep_polarizations(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, attval=attval, name=name, num_pols=13, trigger_voltage=trigger_voltage, counting_time=0.5, N=1)
+    pol_counts_filepath = sweep_polarizations(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, attval=attval, name=name, num_pols=num_pols, trigger_voltage=trigger_voltage, counting_time=0.5, N=3)
     # pol_counts_filepath = os.path.join(current_file_dir, "data_sde", "SK3_pol_data_snspd_splice1__20250110-125128.pkl")
 
     # nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(now_str=now_str, tau=2.5)
