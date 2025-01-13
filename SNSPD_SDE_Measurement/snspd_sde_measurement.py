@@ -520,7 +520,7 @@ def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pi
                     if position not in pol_data:
                         pol_data[position] = []
                     pol_data[position].append(cps)
-                    logging.info(f"{round(100*(n*num_repeats*positions.size**2 + i*positions.size**2 + j*positions.size + k)/((positions.size)**3), 2)}% Complete")
+                    logging.info(f"{round(100*(n*num_repeats*positions.size**2 + i*positions.size**2 + j*positions.size + k)/(num_repeats*positions.size**3), 2)}% Complete")
 
     pol_data_avg = {key: np.mean(value) for key, value in pol_data.items()}
     srs.set_voltage(0)
