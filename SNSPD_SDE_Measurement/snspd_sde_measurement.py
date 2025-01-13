@@ -473,12 +473,10 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), at
 def meas_counts(position, N=3, counting_time=1):
     pc.set_waveplate_positions(position)
     time.sleep(0.3)  # Wait for the motion to complete
-    temp_cps = np.empty(N, dtype=float)
-    for l in np.arange(temp_cps.size):
-        cps = counter.timed_count(counting_time=counting_time)/counting_time
-        temp_cps[l] = cps
-    avg_cps = np.mean(temp_cps)
-    return avg_cps
+    cps = []
+    for _ in range(N):
+        cps.append(counter.timed_count(counting_time=counting_time)/counting_time)
+    return cps
 
 # Algorithm S3.1. SDE Counts Measurement - Polarization Sweep
 def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pickle_filepath='', attval=30, name='', trigger_voltage=0.01, num_pols=13, counting_time=0.5, N=1):
@@ -508,22 +506,23 @@ def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pi
     this_volt = round(ic*0.80 * bias_resistor, 3)
     srs.set_voltage(this_volt)
 
-    positions = np.linspace(-80.0, 80.0, num_pols) # Max range is -99 to 100 but I want to limit these edge cases
-    pol_counts = []
-    for i, x in enumerate(positions):
-        x = round(x, 3)
-        for j, y in enumerate(positions):
-            y = round(y, 3)
-            for k, z in enumerate(positions):
-                z = round(z, 3)
-                position = (x, y, z)
-                counts = meas_counts(position, N=N, counting_time=counting_time)
-                temp_data = (position, counts)
-                logging.info(f"Position: {position}, counts: {counts}")
-                pol_counts.append(temp_data)
-                logging.info(f"{round(100*(i*positions.size**2 + j*positions.size + k)/((positions.size)**3), 2)}% Complete")
-    
-    
+    num_repeats = 3
+    positions = np.linspace(-20.0, 20.0, num_pols) # Max range is -99 to 100 but I want to limit these edge cases
+    positions = np.round(positions, 2)
+    pol_data = {}
+    for _ in range(num_repeats):
+        for i, x in enumerate(positions):
+            for j, y in enumerate(positions):
+                for k, z in enumerate(positions):
+                    position = (x, y, z)
+                    cps = meas_counts(position, N=N, counting_time=counting_time)
+                    logging.info(f"Position: {position}, counts: {cps}")
+                    if position not in pol_data:
+                        pol_data[position] = []
+                    pol_data[position].append(cps)
+                    logging.info(f"{round(100*(i*positions.size**2 + j*positions.size + k)/((positions.size)**3), 2)}% Complete")
+
+    pol_data_avg = {key: np.mean(value) for key, value in pol_data.items()}
     srs.set_voltage(0)
     srs.set_output(output=False)
 
@@ -532,13 +531,18 @@ def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pi
         att.set_att(0)
         att.disable()
 
+    maxpol_settings = max(pol_data_avg, key=lambda item: item[1])[0]
+    minpol_settings = min(pol_data_avg, key=lambda item: item[1])[0]
+    logger.info(f"max pol settings: {maxpol_settings}, cps: {pol_data_avg[maxpol_settings]}")
+    logger.info(f"min pol settings: {minpol_settings}, cps: {pol_data_avg[minpol_settings]}")
+
     output_dir = os.path.join(current_file_dir, 'data_sde')
     os.makedirs(output_dir, exist_ok=True)
     filename = f"{name}_pol_data_snspd_splice{snspd_splice}__{now_str}.pkl"
     filepath = os.path.join(output_dir, filename)
     with open(filepath, "wb") as file:
-        pickle.dump(pol_counts, file)
-    logger.info(f"pol_counts saved to: {filepath}")
+        pickle.dump(pol_data_avg, file)
+    logger.info(f"pol_data_avg saved to: {filepath}")
     logger.info("Completed: Algorithm S3.1. SDE Counts Measurement - Polarization Sweep")
     return filepath
 
