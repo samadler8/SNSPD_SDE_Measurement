@@ -64,7 +64,7 @@ class PMCorrectLinearUnc:
         except Exception as e:
             logger.error(f"Failed to load calibration data from {self.fname}: {e}")
 
-    def nonlinear_power_correction(self, v, rng=None):
+    def nonlinear_power_correction_unc(self, v, rng=None):
         """
         Correct the power reading, applying linearization and range discontinuities.
         Apply corrections for both nonlinearity and range discontinuity.
@@ -78,6 +78,10 @@ class PMCorrectLinearUnc:
             logger.error("Fit parameters or covariance matrix not loaded.")
             return ufloat(v, 0)
         
+        if rng not in self.rng_disc:
+            logger.warning(f"Range {rng} not found in rng_disc. Setting to 1 ± 1e-4.")
+            self.rng_disc[rng] = ufloat(1.0, 1e-4)
+            
         order = 2
         corrected_power = v
         name = get_param_name(rng, order)
@@ -226,9 +230,6 @@ def calculate_switch_correction_unc(filepath, correction):
 
     # Extract measurement data from the DataFrame
     power_mpm = np.array(switchdata['power_mpm'])
-    power_cpm = np.array(switchdata['power_cpm'])
-    
-    power_mpm = np.array([value for d in power_mpm for value in d.values()])
     power_mpm = power_mpm.reshape(1, -1)
     power_mpm_unc = get_uncertainty(power_mpm)
     
@@ -239,7 +240,7 @@ def calculate_switch_correction_unc(filepath, correction):
     # Apply nonlinearity corrections if provided
     if correction is not None:
         logger.info("Applying nonlinearity corrections.")
-        power_mpm_unc = correction.fix_power_unc(power_mpm_unc, init_rng,)
+        power_mpm_unc = correction.nonlinear_power_correction_unc(power_mpm_unc, init_rng,)
 
     switch_correction_unc = power_mpm_unc / power_cpm_unc
 
@@ -251,43 +252,49 @@ def compute_efficiency_unc(config):
     filename = config['filename']
     bias, net = extract_counts_unc(filename)
     
-    correction = PMCorrectLinearUnc(config['nonlinear_processed_path'])
+    correction = PMCorrectLinearUnc(config['nonlinear_calculation_path'])
 
-    switch_correction = calculate_switch_correction_unc(config['switch_file'], correction)
+    switch_correction = calculate_switch_correction_unc(config['switch_file'], correction)[0]
 
     # att_cal_data = extract_raw_powers_unc(config['attcal_file'])
     att_cal_data = pd.read_pickle(config['attcal_file'])
-    atts = [1, 2, 3]
+    atts = [0, 1, 2]
 
+    # print(att_cal_data)
     filtered0_att_cal_data = att_cal_data[att_cal_data['Attenuation (dB)'] == 0]
-    power_0 = ufloat(filtered0_att_cal_data['Power Mean'].iloc[0], filtered0_att_cal_data['Power Std'].iloc[0])
+    power_0 = np.array(filtered0_att_cal_data['Power Measurement'].iloc[0])
+    power_0 = power_0.reshape(1, -1)
+    power_0_unc = get_uncertainty(power_0)[0]
     rng_0 = filtered0_att_cal_data['Range'].iloc[0]
-    power_0 = correction.nonlinear_power_correction(power_0, rng_0)
-    power_atts = []
+    power_0_unc_corrected = correction.nonlinear_power_correction_unc(power_0_unc, rng_0)
+    power_atts_unc_corrected = []
     for att in atts:
         filteredAtt_att_cal_data = att_cal_data[att_cal_data['Attenuator'] == att]
-        power_att = ufloat(filteredAtt_att_cal_data['Power Mean'].iloc[0], filteredAtt_att_cal_data['Power Std'].iloc[0])
+        power_att = np.array(filteredAtt_att_cal_data['Power Measurement'].iloc[0])
+        power_att = power_att.reshape(1, -1)
+        power_att_unc = get_uncertainty(power_att)[0]
+        print(f"power_att_unc: {power_att_unc}")
         rng_att = filteredAtt_att_cal_data['Range'].iloc[0]
         # Something is (or at least was) going very wrong here
-        power_atts.append(correction.nonlinear_power_correction(power_att, rng_att))
-        power_atts.append(power_att)
+        power_atts_unc_corrected.append(correction.nonlinear_power_correction_unc(power_att_unc, rng_att))
 
     logging.info(f"Corrected attenuation powers")
-    logging.info(f"power_0: {power_0}")
-    logging.info(f"power_atts: {power_atts}")
+    logging.info(f"power_0_unc_corrected: {power_0_unc_corrected}")
+    logging.info(f"power_atts_unc_corrected: {power_atts_unc_corrected}")
     # Energy per photon
     E = codata.h * codata.c / (wavelength)
     logging.info(f"E: {E}")
 
 
     # Calculate expected counts
-    counts_expected = unp.nominal_values(power_0) / E
+    counts_expected = unp.nominal_values(power_0_unc_corrected) / E
     logging.info(f"counts_expected without attenuation: {counts_expected}")
-    for power_att in power_atts:
-        counts_expected *= unp.nominal_values(power_att) / unp.nominal_values(power_0)
+    for power_att_unc_corrected in power_atts_unc_corrected:
+        counts_expected *= unp.nominal_values(power_att_unc_corrected) / unp.nominal_values(power_0_unc_corrected)
     logging.info(f"counts_expected post attenuation: {counts_expected}")
 
     # Apply switch correction and calibration factor
+    logging.info(f"switch_correction: {switch_correction}")
     counts_expected = counts_expected / switch_correction
     counts_expected = counts_expected / ufloat(config['CF'], config['CF_err'])
     logging.info(f"counts_expected post corrections: {counts_expected}")
@@ -316,17 +323,17 @@ if __name__ == '__main__':
     cf_err = max(cf_err_list*cf_list)
     cf_interp = interp1d(wl, cf_list, kind='cubic')
 
-    nonlinear_calibration_path = os.path.join(current_file_dir, 'data_sde', '.pkl')
-    switch_path = os.path.join(current_file_dir, 'data_sde', '.pkl')
-    attcal_path = os.path.join(current_file_dir, 'data_sde', '.pkl')
-    fpath = os.path.join(current_file_dir, 'data_sde', '.pkl')
+    nonlinear_calculation_path = os.path.join(current_file_dir, 'data_sde', 'calculation_0_nonlinear_calibration_data_tau2__20250110-210258.pkl')
+    switch_path = os.path.join(current_file_dir, 'data_sde', 'optical_switch_calibration_data_cpm_splice2__20250109-180754.pkl')
+    attcal_path = os.path.join(current_file_dir, 'data_sde', 'attenuator_calibration_data_attval29__20250111-180558.pkl')
+    fpath = os.path.join(current_file_dir, 'data_sde', 'SK3_counts_data_snspd_splice1_attval29__20250111-180558.pkl')
 
     config = {}
     logger.info(f' Counts data file: {fpath}')
-    logger.info(f' Wavelength: {wavelength} nm')
+    logger.info(f' Wavelength: {wavelength} m')
 
     if os.path.isfile(NIST_pm_calib_path):
-        config['CF'] = cf_interp(wavelength)  # NIST power-meter calibration factor
+        config['CF'] = cf_interp(wavelength*1e9)  # NIST power-meter calibration factor
         config['CF_err'] = cf_err  # Standard error
     else:
         config['CF'] = 1.0
@@ -336,18 +343,18 @@ if __name__ == '__main__':
         sys.exit(1)
     else:
         logger.info(f' Switching ratio file: {switch_path}')
-    if not os.path.exists(nonlinear_calibration_path):
+    if not os.path.exists(nonlinear_calculation_path):
         logger.info(f' No nonlinearity analysis file found')
         sys.exit(1)
     else:
-        logger.info(f' Nonlinearity analysis file: {nonlinear_calibration_path}')
+        logger.info(f' Nonlinearity analysis file: {nonlinear_calculation_path}')
     
     config['filename'] = fpath
     config['file_sha1hash'] = compute_sha1_hash(fpath)
     config['script_filename'] = self_filename
     config['script_sha1hash'] = self_sha1hash
-    config['nonlinear_calibration_path'] = nonlinear_calibration_path
-    config['nonlinear_calibration_path_sha1hash'] = compute_sha1_hash(nonlinear_calibration_path)
+    config['nonlinear_calculation_path'] = nonlinear_calculation_path
+    config['nonlinear_calculation_path_sha1hash'] = compute_sha1_hash(nonlinear_calculation_path)
     config['attcal_file'] = attcal_path
     config['attcal_file_sha1hash'] = compute_sha1_hash(attcal_path)
     config['switch_file'] = switch_path
