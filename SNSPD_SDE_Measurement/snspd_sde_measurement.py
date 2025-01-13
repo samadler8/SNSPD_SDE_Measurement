@@ -531,8 +531,8 @@ def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pi
         att.set_att(0)
         att.disable()
 
-    maxpol_settings = max(pol_data_avg, key=lambda item: item[1])[0]
-    minpol_settings = min(pol_data_avg, key=lambda item: item[1])[0]
+    maxpol_settings = max(pol_data_avg, key=pol_data_avg.get)
+    minpol_settings = min(pol_data_avg, key=pol_data_avg.get)
     logger.info(f"max pol settings: {maxpol_settings}, cps: {pol_data_avg[maxpol_settings]}")
     logger.info(f"min pol settings: {minpol_settings}, cps: {pol_data_avg[minpol_settings]}")
 
@@ -630,11 +630,11 @@ if __name__ == '__main__':
     
     # nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(now_str=now_str, tau=tau)
 
-    # IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name)
-    IV_pickle_filepath = os.path.join(current_file_dir, "data_sde", "SK3_IV_curve_data__20250110-122541.pkl")
+    IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name)
+    # IV_pickle_filepath = os.path.join(current_file_dir, "data_sde", "SK3_IV_curve_data__20250110-122541.pkl")
 
-    # trigger_voltage = find_min_trigger_threshold(instruments, now_str=now_str)
-    trigger_voltage = 0.127
+    trigger_voltage = find_min_trigger_threshold(instruments, now_str=now_str)
+    # trigger_voltage = 0.127
 
     pol_counts_filepath = sweep_polarizations(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, attval=attval, name=name, num_pols=num_pols, trigger_voltage=trigger_voltage, counting_time=0.5, N=3)
     # pol_counts_filepath = os.path.join(current_file_dir, "data_sde", "SK3_pol_data_snspd_splice1__20250110-125128.pkl")
