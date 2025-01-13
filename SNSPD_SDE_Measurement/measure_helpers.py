@@ -150,7 +150,6 @@ def find_min_trigger_threshold(
         time.sleep(0.1)  # Allow system to stabilize
         cps_values = [counter.timed_count(counting_time=counting_time) / counting_time for _ in range(N)]
         avg_cps = np.mean(cps_values)
-        logging.info(f"trigger_voltage :{trigger_voltage}, avg_cps: {avg_cps}")
         return avg_cps
 
     # Binary search for trigger voltage

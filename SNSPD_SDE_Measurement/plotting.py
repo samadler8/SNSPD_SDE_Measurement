@@ -272,6 +272,7 @@ def plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculatio
     figname = f'fitted_{data_filename}'
     figpath = os.path.join(output_dir, figname)
     plt.tight_layout()
+    plt.show()
     plt.savefig(f'{figpath}.png')
     if save_pdf:
         plt.savefig(f'{figpath}.pdf')
@@ -298,7 +299,8 @@ def plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_fil
         v_data_fit = nonlinear_power_corrections(fit_params, rng, v_data)
         fit_ratio = v_data / v_data_fit
 
-        plt.plot(v_data, fit_ratio, 'o-', label=f'Fit Ratio Range {rng}')
+        v_data_dBm = 10 * np.log10(v_data / 1e-3)
+        plt.plot(v_data_dBm, fit_ratio, 'o-', label=f'Fit Ratio Range {rng}')
 
     plt.xlabel("v (Input Power, dBmW)")
     plt.ylabel("Fit / v")
@@ -306,13 +308,13 @@ def plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_fil
     plt.legend()
     plt.grid()
     # Save the plot
-    now_str = datetime.now().strftime('%Y%m%d_%H%M%S')
     output_dir = os.path.join(current_file_dir, 'figs_sde')
     os.makedirs(output_dir, exist_ok=True)
     _, data_filename = os.path.split(os.path.splitext(nonlinearity_data_filepath)[0])
     figname = f'fit_ratio_{data_filename}'
     figpath = os.path.join(output_dir, figname)
     plt.tight_layout()
+    plt.show()
     plt.savefig(f'{figpath}.png')
     if save_pdf:
         plt.savefig(f'{figpath}.pdf')

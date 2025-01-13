@@ -162,14 +162,15 @@ def extract_nonlinearity_data(filepath, filtered=True):
         -60: [5e-11, 9.75e-10],
     }
 
-    rng_settings = df['Range'].unique()
-    for rng in rng_settings:
-        # Define power thresholds for the current range
-        max_power_threshold = mpm_min_max_powers[rng][1]
-        min_power_threshold = mpm_min_max_powers[rng][0]
-        
-        # Filter out invalid power values within the 'Power' column directly in the original DataFrame
-        if filtered:
+    if filtered:
+        df = df[df['Attenuator 1'] <= 60].copy()
+        rng_settings = df['Range'].unique()
+        for rng in rng_settings:
+            # Define power thresholds for the current range
+            max_power_threshold = mpm_min_max_powers[rng][1]
+            min_power_threshold = mpm_min_max_powers[rng][0]
+            
+            # Filter out invalid power values within the 'Power' column directly in the original DataFrame
             df.loc[df['Range'] == rng, 'Power'] = df.loc[df['Range'] == rng, 'Power'].apply(
                 lambda powers: [power for power in powers if min_power_threshold < power < max_power_threshold]
             )
@@ -179,7 +180,7 @@ def extract_nonlinearity_data(filepath, filtered=True):
 
     taus = df['Attenuator 2'].unique()
     taus.sort()
-    
+
     rng_settings = df['Range'].unique()
     data_dict = {}
     for rng in rng_settings:

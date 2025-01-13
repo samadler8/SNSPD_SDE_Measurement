@@ -117,62 +117,64 @@ def find_poly_fit(processed_nonlinearity_data, rng_settings, poly_order_list):
 
 
 if __name__ == '__main__':
-    fpath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data_tau2.5__20250110-210258.pkl')
-    logger.info(f'Processing file: {fpath}')
+    fnames = ['nonlinear_calibration_data_tau2.5__20250110-210258.pkl', 'nonlinear_calibration_data_tau3__20250110-210258.pkl', 'nonlinear_calibration_data_tau2__20250110-210258.pkl', 'nonlinear_calibration_data_tau1.5__20250110-210258.pkl']
+    for fname in fnames:
+        fpath = os.path.join(current_file_dir, 'data_sde', fname)
+        logger.info(f'Processing file: {fpath}')
 
-    # Extract nonlinearity data and rng_settings
-    processed_nonlinearity_data = extract_nonlinearity_data(fpath)
-    rng_settings = list(processed_nonlinearity_data.keys())
+        # Extract nonlinearity data and rng_settings
+        processed_nonlinearity_data = extract_nonlinearity_data(fpath)
+        rng_settings = list(processed_nonlinearity_data.keys())
 
-    # Optimize polynomial orders
-    poly_order_param_space = (slice(1, 6, 1),) * len(rng_settings)  # order range: 1 to 5 inclusive
-    optimized_orders = brute(reduced_chi_squared, poly_order_param_space, args=(processed_nonlinearity_data, rng_settings)) # Optimize polynomial orders for each range using a brute force approach.
-    poly_order_list = optimized_orders.astype(int).tolist()
-    logger.info(f'Optimized polynomial orders: {poly_order_list}')
+        # Optimize polynomial orders
+        poly_order_param_space = (slice(1, 6, 1),) * len(rng_settings)  # order range: 1 to 5 inclusive
+        optimized_orders = brute(reduced_chi_squared, poly_order_param_space, args=(processed_nonlinearity_data, rng_settings)) # Optimize polynomial orders for each range using a brute force approach.
+        poly_order_list = optimized_orders.astype(int).tolist()
+        logger.info(f'Optimized polynomial orders: {poly_order_list}')
 
-    # Fit polynomial and calculate range discontinuities
-    fit = find_poly_fit(processed_nonlinearity_data, rng_settings, poly_order_list)
-    logger.info(f'Fit reduced chi-squared: {fit.redchi}')
+        # Fit polynomial and calculate range discontinuities
+        fit = find_poly_fit(processed_nonlinearity_data, rng_settings, poly_order_list)
+        logger.info(f'Fit reduced chi-squared: {fit.redchi}')
 
-    rng_disc = {}
-    rng_disc[-10] = ufloat(1, 0)  # Initialize for the base range
-    rng_disc_factor = ufloat(1, 0)
+        rng_disc = {}
+        rng_disc[-10] = ufloat(1, 0)  # Initialize for the base range
+        rng_disc_factor = ufloat(1, 0)
 
-    for rng in rng_settings:
-        if rng + 10 not in rng_settings:
-            logger.warning(f"Skipping range {rng} as {rng + 10} is not in rng_settings.")
-            continue
+        for rng in rng_settings:
+            if rng + 10 not in rng_settings:
+                logger.warning(f"Skipping range {rng} as {rng + 10} is not in rng_settings.")
+                continue
 
-        # Check for overlapping data
-        overlap = set(processed_nonlinearity_data[rng]['att']).intersection(processed_nonlinearity_data[rng + 10]['att'])
+            # Check for overlapping data
+            overlap = set(processed_nonlinearity_data[rng]['att']).intersection(processed_nonlinearity_data[rng + 10]['att'])
 
-        idx1 = [list(processed_nonlinearity_data[rng]['att']).index(x) for x in overlap]
-        idx2 = [list(processed_nonlinearity_data[rng + 10]['att']).index(x) for x in overlap]
+            idx1 = [list(processed_nonlinearity_data[rng]['att']).index(x) for x in overlap]
+            idx2 = [list(processed_nonlinearity_data[rng + 10]['att']).index(x) for x in overlap]
 
-        ratio = nonlinear_power_corrections_unc(fit.params, fit.covar, rng, processed_nonlinearity_data[rng]['v'][idx1]) / \
-                nonlinear_power_corrections_unc(fit.params, fit.covar, rng + 10, processed_nonlinearity_data[rng + 10]['v'][idx2])
+            ratio = nonlinear_power_corrections_unc(fit.params, fit.covar, rng, processed_nonlinearity_data[rng]['v'][idx1]) / \
+                    nonlinear_power_corrections_unc(fit.params, fit.covar, rng + 10, processed_nonlinearity_data[rng + 10]['v'][idx2])
 
-        ratio_nominal = unp.nominal_values(ratio)
-        ratio_std_dev = unp.std_devs(ratio)
+            ratio_nominal = unp.nominal_values(ratio)
+            ratio_std_dev = unp.std_devs(ratio)
 
-        rng_disc_factor *= ufloat(np.mean(ratio_nominal), np.std(ratio_std_dev))
-       
-        rng_disc[rng] = rng_disc_factor
+            rng_disc_factor *= ufloat(np.mean(ratio_nominal), np.std(ratio_std_dev))
+        
+            rng_disc[rng] = rng_disc_factor
 
 
-    # Save calibration data to a pickle file
-    nonlinear_calibration_data = {
-        "fit_params": fit.params.valuesdict(),
-        "covar": fit.covar,
-        "rng_disc": rng_disc,
-    }
-    logger.info(f"nonlinear_calibration_data: {nonlinear_calibration_data}")
+        # Save calibration data to a pickle file
+        nonlinear_calibration_data = {
+            "fit_params": fit.params.valuesdict(),
+            "covar": fit.covar,
+            "rng_disc": rng_disc,
+        }
+        logger.info(f"nonlinear_calibration_data: {nonlinear_calibration_data}")
 
-    output_dir = os.path.join(current_file_dir, 'data_sde')
-    os.makedirs(output_dir, exist_ok=True)
-    _, data_filename = os.path.split(os.path.splitext(fpath)[0])
-    filename = f'calculation_{data_filename}.pkl'
-    filepath = os.path.join(output_dir, filename)
-    with open(filepath, 'wb') as f:
-        pickle.dump(nonlinear_calibration_data, f)
-    logger.info(f"Calibration calculation saved to {filepath}")
+        output_dir = os.path.join(current_file_dir, 'data_sde')
+        os.makedirs(output_dir, exist_ok=True)
+        _, data_filename = os.path.split(os.path.splitext(fpath)[0])
+        filename = f'calculation_{data_filename}.pkl'
+        filepath = os.path.join(output_dir, filename)
+        with open(filepath, 'wb') as f:
+            pickle.dump(nonlinear_calibration_data, f)
+        logger.info(f"Calibration calculation saved to {filepath}")
