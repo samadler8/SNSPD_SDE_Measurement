@@ -117,7 +117,7 @@ def find_poly_fit(processed_nonlinearity_data, rng_settings, poly_order_list):
 
 
 if __name__ == '__main__':
-    fpath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data_tau2__20250110-210258.pkl')
+    fpath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data_tau2.5__20250110-210258.pkl')
     logger.info(f'Processing file: {fpath}')
 
     # Extract nonlinearity data and rng_settings
@@ -171,7 +171,7 @@ if __name__ == '__main__':
     output_dir = os.path.join(current_file_dir, 'data_sde')
     os.makedirs(output_dir, exist_ok=True)
     _, data_filename = os.path.split(os.path.splitext(fpath)[0])
-    filename = f'calculation_{data_filename}'
+    filename = f'calculation_{data_filename}.pkl'
     filepath = os.path.join(output_dir, filename)
     with open(filepath, 'wb') as f:
         pickle.dump(nonlinear_calibration_data, f)
