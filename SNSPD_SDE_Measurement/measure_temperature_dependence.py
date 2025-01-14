@@ -49,50 +49,47 @@ def temperature_dependence_sweep(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now(
     logger.info("STARTING: Temperature Dependence Sweep")
     ic = get_ic(IV_pickle_filepath)
 
-    num_biases = 100
-    Cur_Array = np.linspace(ic * 0.2, ic * 1.1, num_biases)
+    Cur_Array = np.linspace(ic * 0.2, ic * 1.1, 100)
 
     end_time = datetime.now() + timedelta(hours=3) 
 
     data_dict = {}
     output_dir = os.path.join(current_file_dir, 'data_temperatureDependence')
+    os.makedirs('data_temperatureDependence', exist_ok=True)
     filename = f'temperature_dependence_2micronLight__{now_str}'
     filepath = os.path.join(output_dir, filename)
-    os.makedirs('data_temperatureDependence', exist_ok=True)
-
+    
     i = 0
-    now_f = datetime.now()
-    while now_f < end_time:
+    now_i = datetime.now()
+    while now_i < end_time:
         # Counts
-        now_i = datetime.now()
+        
         laser.enable()
+        now_i = datetime.now()
         Count_Array = get_counts(Cur_Array, srs=srs, counter=counter, trigger_voltage=trigger_voltage, bias_resistor=bias_resistor, counting_time=counting_time, N=N)
-
+        now_f = datetime.now()
         # Dark Counts
         laser.disable()
         Dark_Count_Array = get_counts(Cur_Array, srs=srs, counter=counter, trigger_voltage=trigger_voltage, bias_resistor=bias_resistor, counting_time=counting_time, N=N)
-        now_f = datetime.now()
+        
 
         # save data
         data_dict_temp = {
-            'Cur_Array': list(Cur_Array),
-            'Count_Array': list(Count_Array),
-            'Dark_Count_Array': list(Dark_Count_Array),
+            'Cur_Array': np.array(Cur_Array),
+            'Count_Array': np.array(Count_Array),
+            'Dark_Count_Array': np.array(Dark_Count_Array),
             }
         now = datetime.fromtimestamp((now_i.timestamp() + now_f.timestamp()) / 2)
         data_dict[now] = data_dict_temp
 
         i += 1
-        if i == 10:
-            i = 0
+        if i%10 == 0:
             with open(filepath, "wb") as file:
                 pickle.dump(data_dict, file)
-        
-    
     with open(filepath, "wb") as file:
         pickle.dump(data_dict, file)
 
-    readable_output_dir = os.path.join(current_file_dir, 'readable_data_sde')
+    readable_output_dir = os.path.join(current_file_dir, 'readable_data_temperatureDependence')
     os.makedirs(readable_output_dir, exist_ok=True)
     json_filepath = f'{os.path.splitext(filepath)[0]}.json'
     with open(json_filepath, 'w') as f:

@@ -42,6 +42,8 @@ def get_plateau(current_array, count_array):
                If no plateau is found, returns (None, None).
     """
     # Calculate the threshold for identifying the plateau
+    count_array = np.array(count_array)
+    count_array = count_array.mean(axis=1)
     threshold = 0.97 * np.max(count_array)
 
     # Return the plateau region if indices are found
