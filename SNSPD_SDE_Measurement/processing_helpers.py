@@ -11,7 +11,7 @@ logging.basicConfig(
     level=logging.INFO,  # Set to INFO or WARNING for less verbosity
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler("script_log.log", mode="a"),
+        logging.FileHandler("processing_helpers.log", mode="a"),
         logging.StreamHandler()  # Logs to console
     ]
 )
@@ -42,18 +42,14 @@ def get_plateau(current_array, count_array):
                If no plateau is found, returns (None, None).
     """
     # Calculate the threshold for identifying the plateau
-    sorted_counts = np.sort(count_array)
-    max_average_counts = np.mean(sorted_counts[-4:-1])  # Mean of the top 3 values (ignoring the highest)
-    threshold = 0.95 * max_average_counts
-
-    # Identify indices where counts meet or exceed the threshold
-    plateau_indices = np.where(count_array >= threshold)[0]
+    threshold = 0.97 * np.max(count_array)
 
     # Return the plateau region if indices are found
-    if len(plateau_indices) > 0:
-        plateau_cur = current_array[plateau_indices[0]:plateau_indices[-1] + 1]
-        plateau_counts = count_array[plateau_indices[0]:plateau_indices[-1] + 1]
-        return plateau_cur, plateau_counts
+    plateau_cur = []
+    plateau_counts = []
+    for i in range(current_array.size):
+        if count_array[i] >= threshold:
+            plateau_cur.append(current_array[i])
+            plateau_counts.append(count_array[i])
 
-    # Return None if no plateau is found
-    return None, None
+    return np.array(plateau_cur), np.array(plateau_counts)

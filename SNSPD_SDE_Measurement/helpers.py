@@ -16,54 +16,16 @@ logging.basicConfig(
     level=logging.INFO,  # Set to INFO or WARNING for less verbosity
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler("script_log.log", mode="a"),
+        logging.FileHandler("helpers.log", mode="a"),
         logging.StreamHandler()  # Logs to console
     ]
 )
 logger = logging.getLogger(__name__)
          
-def get_ic(pickle_filepath, ic_threshold=1e-4):
-    """
-    Extracts the first 'Current' value from a DataFrame where the 'Voltage' exceeds a specified threshold.
-
-    Parameters:
-    -----------
-    pickle_filepath : str
-        The file path to the pickled DataFrame containing the data.
-    ic_threshold : float, optional, default=1e-4
-        The threshold value for the 'Voltage' column. Rows with 'Voltage' greater than this value
-        will be considered for extracting the 'Current' value.
-
-    Returns:
-    --------
-    ic : float or None
-        The first value in the 'Current' column where 'Voltage' exceeds the threshold.
-        Returns `None` if no rows meet the condition.
-
-    Notes:
-    ------
-    - The input DataFrame must contain columns named 'Voltage' and 'Current'.
-    - This function assumes the pickled file is a pandas DataFrame.
-
-    Example:
-    --------
-    Given a DataFrame with the following structure saved as 'data.pkl':
-
-        Voltage   Current
-        -------   -------
-        0.0001    0.01
-        0.0002    0.02
-        0.00005   0.005
-
-    Calling `get_ic('data.pkl', ic_threshold=0.00015)` would return `0.02`.
-
-    """
-    df = pd.read_pickle(pickle_filepath)
-    filtered_df = df[df['Voltage'] > ic_threshold]  # Filter rows where Voltage > threshold
-    if not filtered_df.empty:
-        ic = filtered_df['Current'].iloc[0]  # Get the first current value
-    else:
-        ic = None
+def get_ic(filepath, ic_threshold=1e-4):
+    with open(filepath, 'rb') as file:
+        data_dict = pickle.load(file)
+    ic = next((key for key, value in data_dict.items() if value > ic_threshold), None)
     return ic
 
 def get_uncertainty(rawdata):
@@ -222,15 +184,11 @@ def extract_nonlinearity_data(filepath, filtered=True):
 def get_param_name(rng, order):
     return f"b{-rng}{order}"
 
-
-# What do these two functions do?
-
 def nonlinear_power_corrections(params, rng, v):
     """
     Compute linearized power P given the parameters of the polynomial,
     power meter range setting 'rng', and the readings 'v'
     """
-    #  assumes params is an lmfit Parameters
     order = 2
     out = v
     name = get_param_name(rng, order)
@@ -247,7 +205,6 @@ def nonlinear_power_corrections_unc(params, covar, rng, v):
     their covariance matrix 'covar',
     power meter range setting 'rng', and the readings 'v'
     """
-    #  assumes params is an lmfit Parameters
     order = 2
     out = v
     name = get_param_name(rng, order)
@@ -255,7 +212,6 @@ def nonlinear_power_corrections_unc(params, covar, rng, v):
     while name in params:
         coeff = params_unc[list(params.keys()).index(name)]
         out += coeff*(v**order)
-        # logging.info(coeff*(v**order))
         order += 1
         name = get_param_name(rng, order)
     return out

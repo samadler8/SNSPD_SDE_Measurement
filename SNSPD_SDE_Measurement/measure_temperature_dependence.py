@@ -27,7 +27,7 @@ logging.basicConfig(
     level=logging.INFO,  # Set to INFO or WARNING for less verbosity
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler("script_log.log", mode="a"),
+        logging.FileHandler("measure_temperature_dependence.log", mode="a"),
         logging.StreamHandler()  # Logs to console
     ]
 )
@@ -43,68 +43,62 @@ instruments = {'srs': srs,
     'laser': laser,
     }
 
-bias_resistor=97e3
-trigger_voltage = 0.12 #V - not sure why it's so high
-counting_time = 1
-max_cur = 15e-6
-
-counter.basic_setup()
-counter.set_impedance(ohms=50, channel=1)
-counter.setup_timed_count(channel=1)
-counter.set_trigger(trigger_voltage=trigger_voltage, slope_positive=True, channel=1)
-
-srs.set_voltage(0)
-srs.set_output(output=False)
-
-laser.disable()
 
 # %% temperature dependence sweep
-def temperature_dependence_sweep(IV_pickle_filepath='', trigger_voltage=trigger_voltage, bias_resistor=bias_resistor, counting_time=0.5, N=1):
+def temperature_dependence_sweep(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pickle_filepath='', trigger_voltage=1.2, bias_resistor=100e3, counting_time=0.5, N=1):
     logger.info("STARTING: Temperature Dependence Sweep")
     ic = get_ic(IV_pickle_filepath)
 
     num_biases = 100
     Cur_Array = np.linspace(ic * 0.2, ic * 1.1, num_biases)
 
-    
     end_time = datetime.now() + timedelta(hours=3) 
 
-    data = []
-    temperaturedependence_filename = f'temperature_dependence_2micronLight'
-    temperaturedependence_filepath = os.path.join('data_temperatureDependence', temperaturedependence_filename)
+    data_dict = {}
+    output_dir = os.path.join(current_file_dir, 'data_temperatureDependence')
+    filename = f'temperature_dependence_2micronLight__{now_str}'
+    filepath = os.path.join(output_dir, filename)
     os.makedirs('data_temperatureDependence', exist_ok=True)
 
     i = 0
-    now = datetime.now()
-    while now < end_time:
+    now_f = datetime.now()
+    while now_f < end_time:
         # Counts
+        now_i = datetime.now()
         laser.enable()
         Count_Array = get_counts(Cur_Array, srs=srs, counter=counter, trigger_voltage=trigger_voltage, bias_resistor=bias_resistor, counting_time=counting_time, N=N)
 
         # Dark Counts
         laser.disable()
         Dark_Count_Array = get_counts(Cur_Array, srs=srs, counter=counter, trigger_voltage=trigger_voltage, bias_resistor=bias_resistor, counting_time=counting_time, N=N)
-
+        now_f = datetime.now()
 
         # save data
-        data_dict = {
+        data_dict_temp = {
             'Cur_Array': list(Cur_Array),
             'Count_Array': list(Count_Array),
             'Dark_Count_Array': list(Dark_Count_Array),
             }
-        
-        data.append((now, data_dict))
+        now = datetime.fromtimestamp((now_i.timestamp() + now_f.timestamp()) / 2)
+        data_dict[now] = data_dict_temp
 
         i += 1
         if i == 10:
             i = 0
-            with open(temperaturedependence_filepath, "wb") as file:
+            with open(filepath, "wb") as file:
                 pickle.dump(data_dict, file)
-        now = datetime.now()
+        
     
-    with open(temperaturedependence_filepath, "wb") as file:
+    with open(filepath, "wb") as file:
         pickle.dump(data_dict, file)
-    logger.info(f"temperature dependence data saved to: {temperaturedependence_filepath}")
+
+    readable_output_dir = os.path.join(current_file_dir, 'readable_data_sde')
+    os.makedirs(readable_output_dir, exist_ok=True)
+    json_filepath = f'{os.path.splitext(filepath)[0]}.json'
+    with open(json_filepath, 'w') as f:
+        json.dump(data_dict, f, indent=4, default=lambda x: x.tolist() if hasattr(x, 'tolist') else str(x))
+
+    logger.info(f"temperature dependence data saved to: {filepath}")
     logger.info("COMPLETED: Temperature Dependence Sweep")
 
     return temperaturedependence_filepath
@@ -113,10 +107,15 @@ def temperature_dependence_sweep(IV_pickle_filepath='', trigger_voltage=trigger_
 
 # %% Main code
 if __name__ == '__main__':
-
     now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
+
+    bias_resistor=97e3
+    counting_time = 1
+    max_cur = 15e-6
     
     IV_pickle_filepath = SNSPD_IV_Curve(now_str=now_str, max_cur=max_cur)
+
+    trigger_voltage = find_min_trigger_threshold(instruments, now_str=now_str)
     
-    temperaturedependence_filepath = temperature_dependence_sweep(IV_pickle_filepath='', )
+    temperaturedependence_filepath = temperature_dependence_sweep(IV_pickle_filepath=IV_pickle_filepath, trigger_voltage=trigger_voltage)
     

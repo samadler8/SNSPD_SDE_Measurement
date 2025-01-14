@@ -2,8 +2,8 @@ import os
 import pickle
 import time
 import logging
+import json
 
-import pandas as pd
 import numpy as np
 
 from pathlib import Path
@@ -14,7 +14,7 @@ logging.basicConfig(
     level=logging.INFO,  # Set to INFO or WARNING for less verbosity
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler("script_log.log", mode="a"),
+        logging.FileHandler("measure_helpers.log", mode="a"),
         logging.StreamHandler()  # Logs to console
     ]
 )
@@ -42,32 +42,33 @@ def SNSPD_IV_Curve(instruments, now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()
     Cur_Array = np.concatenate([Cur_Array, Cur_Array[::-1][1:], -Cur_Array[1:], -Cur_Array[::-1][1:]])
     Volt_Array = np.round(Cur_Array * bias_resistor, decimals=3)
 
-    # Initialize array for measured voltages
-    Volt_Meas = np.empty(Volt_Array.size, dtype=float)
+    total_num_biases = Cur_Array.size
 
+    data_dict = {}
     # Measure voltage for each set bias
-    for i, volt in enumerate(Volt_Array):
-        srs.set_voltage(volt)
+    for i in range(total_num_biases):
+        srs.set_voltage(Volt_Array[i])
         time.sleep(0.1)  # Wait for stabilization
-        Volt_Meas[i] = multi.read_voltage()
-        logger.info(f"Applied Voltage: {volt}, Measured Voltage: {Volt_Meas[i]}")
-        logger.info(f"{round(100*i/Volt_Meas.size, 2)}%")
+        Volt_Meas = multi.read_voltage()
+        logger.info(f"Applied Voltage: {Volt_Array[i]}, Measured Voltage: {Volt_Meas}")
+        data_dict[Cur_Array[i]] = Volt_Meas
+        logger.info(f"{round(100*i/total_num_biases, 2)}%")
     srs.set_voltage(0)
-    srs.set_output(output=False)
+    srs.set_output(output=False)    
 
-    # Combine data into a pandas DataFrame
-    IV_curve_data = {
-        "Current": Cur_Array,
-        "Voltage": Volt_Meas
-    }
-    df = pd.DataFrame(IV_curve_data)
-
-    # Save the DataFrame as a pickle file
     output_dir = os.path.join(current_file_dir, 'data_sde')
     os.makedirs(output_dir, exist_ok=True)
     filename = f"{name}_IV_curve_data__{now_str}.pkl"
     filepath = os.path.join(output_dir, filename)
-    df.to_pickle(filepath)
+    with open(filepath, "wb") as file:
+        pickle.dump(data_dict, file)
+
+    readable_output_dir = os.path.join(current_file_dir, 'readable_data_sde')
+    os.makedirs(readable_output_dir, exist_ok=True)
+    json_filepath = f'{os.path.splitext(filepath)[0]}.json'
+    with open(json_filepath, 'w') as f:
+        json.dump(data_dict, f, indent=4, default=lambda x: x.tolist() if hasattr(x, 'tolist') else str(x))
+
     logger.info(f"IV curve data saved to: {filepath}")
     logger.info("COMPLETED: SNSPD IV Curve")
     return filepath
@@ -89,17 +90,17 @@ def get_counts(Cur_Array, instruments, trigger_voltage=0.12, bias_resistor=100e3
     counter.setup_timed_count(channel=1)
     counter.set_trigger(trigger_voltage=trigger_voltage, slope_positive=True, channel=1)
 
+    Volt_Array = np.round(Cur_Array * bias_resistor, decimals=3)
     Count_Array = np.empty((len(Cur_Array), N), dtype=float)
 
     for i in range(len(Cur_Array)):
-        this_volt = round(Cur_Array[i] * bias_resistor, 3)
-        srs.set_voltage(this_volt)
+        srs.set_voltage(Volt_Array[i])
         time.sleep(0.1)
         temp_cps = np.empty(N, dtype=float)
         for j in np.arange(temp_cps.size):
             temp_cps[j] = counter.timed_count(counting_time=counting_time)/counting_time
         Count_Array[i] = temp_cps
-        logger.info(f"Voltage: {this_volt} V, Counts: {np.mean(Count_Array[i])}")
+        logger.info(f"Voltage: {Volt_Array[i]} V, Counts: {np.mean(temp_cps)}")
     
     srs.set_voltage(0)
     srs.set_output(output=False)
@@ -139,10 +140,7 @@ def find_min_trigger_threshold(
 
     counter.basic_setup()
     counter.set_impedance(ohms=ohms, channel=channel)
-    counter.setup_timed_count(channel=channel)
-
-    # Data storage for trigger voltage and counts
-    measurements = []
+    counter.setup_timed_count(channel=channel)    
 
     def measure_avg_cps(trigger_voltage):
         """Measure average counts per second (CPS) at a given trigger voltage."""
@@ -157,11 +155,12 @@ def find_min_trigger_threshold(
     high_voltage = max_trigger_voltage
     tolerance = 0.01
 
+    data_dict = {}
     while abs(high_voltage - low_voltage) > tolerance:
         mid_voltage = (low_voltage + high_voltage) / 2
         avg_cps = measure_avg_cps(mid_voltage)
         
-        measurements.append((mid_voltage, avg_cps))
+        data_dict[mid_voltage] = avg_cps
         logger.info(f"Voltage: {mid_voltage:.3f}, Avg CPS: {avg_cps:.3f}")
 
         if avg_cps == 0:
@@ -180,7 +179,13 @@ def find_min_trigger_threshold(
     filename = f'trigger_voltage_data__{now_str}.pkl'
     filepath = os.path.join(output_dir, filename)
     with open(filepath, "wb") as file:
-        pickle.dump(measurements, file)
+        pickle.dump(data_dict, file)
+
+    readable_output_dir = os.path.join(current_file_dir, 'readable_data_sde')
+    os.makedirs(readable_output_dir, exist_ok=True)
+    json_filepath = f'{os.path.splitext(filepath)[0]}.json'
+    with open(json_filepath, 'w') as f:
+        json.dump(data_dict, f, indent=4, default=lambda x: x.tolist() if hasattr(x, 'tolist') else str(x))
 
     logger.info(f"Trigger voltage data saved to: {filepath}")
     logger.info(f"Final trigger voltage: {final_trigger_voltage:.3f}")

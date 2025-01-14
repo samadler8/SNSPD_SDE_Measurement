@@ -12,7 +12,6 @@ import matplotlib.cm as cm
 import plotly.graph_objects as go
 
 from uncertainties import unumpy as unp
-from datetime import datetime
 
 from helpers import *
 
@@ -21,7 +20,7 @@ logging.basicConfig(
     level=logging.INFO,  # Set to INFO or WARNING for less verbosity
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler("script_log.log", mode="a"),
+        logging.FileHandler("plotting.log", mode="a"),
         logging.StreamHandler()  # Logs to console
     ]
 )
@@ -29,18 +28,15 @@ logger = logging.getLogger(__name__)
 
 ## Plotting Functions
 # IV Curve
-def plot_IV_curve(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pickle_filepath='', save_pdf=False):
-    df = pd.read_pickle(IV_pickle_filepath)
+def plot_IV_curve(IV_pickle_filepath='', save_pdf=False):
+    with open(IV_pickle_filepath, 'rb') as file:
+        IV_data_dict = pickle.load(file)
 
     ic = get_ic(IV_pickle_filepath)
 
     # Plot the IV curve
-    output_dir = os.path.join(current_file_dir, 'figs')
-    os.makedirs(output_dir, exist_ok=True)
-    figname = f'SNSPD_IV_Curve__{now_str}'
-    figpath = os.path.join(output_dir, figname)
     plt.figure(figsize=(8, 6))
-    plt.plot(df['Current'], df['Voltage'], label="IV Curve", color="blue", linewidth=2)
+    plt.plot(IV_data_dict.keys(), IV_data_dict.values(), label="IV Curve", color="blue", linewidth=2)
 
     # Add labels and title
     plt.xlabel("Current (A)", fontsize=14)
@@ -51,13 +47,21 @@ def plot_IV_curve(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pickle_f
 
     # Show the plot
     plt.tight_layout()
+
+    output_dir = os.path.join(current_file_dir, 'figs')
+    os.makedirs(output_dir, exist_ok=True)
+    _, data_filename = os.path.split(os.path.splitext(IV_pickle_filepath)[0])
+    figname = f'plot_{data_filename}'
+    figpath = os.path.join(output_dir, figname)
+
     plt.savefig(f'{figpath}.png')
     if save_pdf:
         plt.savefig(f'{figpath}.pdf')
+    plt.close()
     return
 
 # Polarization Sweeps
-def plot_polarization_sweep(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), pol_counts_filepath='',):
+def plot_polarization_sweep(pol_counts_filepath='',):
     with open(pol_counts_filepath, 'rb') as file:
         pol_counts = pickle.load(file)
     coords = np.array([item[0] for item in pol_counts])  # Array of (x, y, z)
@@ -86,11 +90,12 @@ def plot_polarization_sweep(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), p
         title="3D Heatmap of Photon Counts"
     )
 
-    # Save the plot as an image
-    os.makedirs('figs', exist_ok=True)
-    figpath = os.path.join("figs", f"polarization_sweep__{now_str}.png")
+    output_dir = os.path.join(current_file_dir, 'figs_sde')
+    os.makedirs(output_dir, exist_ok=True)
+    _, data_filename = os.path.split(os.path.splitext(pol_counts_filepath)[0])
+    figname = f'plot_{data_filename}'
+    figpath = os.path.join(output_dir, figname)
     fig.write_image(figpath)
-
     return
 
 # Counts vs Current
@@ -113,12 +118,6 @@ def plot_raw_counts_unc(data_filepath='', save_pdf=False):
 
     Avg_Counts = (Maxpol_Counts + Minpol_Counts) / 2
 
-    output_dir = os.path.join(current_file_dir, 'figs_sde')
-    os.makedirs(output_dir, exist_ok=True)
-    _, data_filename = os.path.split(os.path.splitext(data_filepath)[0])
-    figname = f'raw_plot_{data_filename}'
-    figpath = os.path.join(output_dir, figname)
-    plt.close('all')
     plt.figure(figsize = [20,10])
     plt.errorbar(Cur_Array_uA, unp.nominal_values(Maxpol_Counts), 
                  yerr=unp.std_devs(Maxpol_Counts), fmt='--*', color='cyan', 
@@ -139,25 +138,27 @@ def plot_raw_counts_unc(data_filepath='', save_pdf=False):
                  yerr=unp.std_devs(Avg_Counts - Dark_Counts), fmt='-*', color='green', 
                  label='Average Counts - Dark Counts')
 
-    plt.title(f'{figname}')
+    plt.title('Raw Counts per Second Plot')
     plt.xlabel('Bias current [uA]')
     plt.ylabel('Counts [per sec]')
     plt.legend(loc='upper left', bbox_to_anchor=(1.04, 1), fontsize=10)
     plt.tight_layout()
+
+    output_dir = os.path.join(current_file_dir, 'figs_sde')
+    os.makedirs(output_dir, exist_ok=True)
+    _, data_filename = os.path.split(os.path.splitext(data_filepath)[0])
+    figname = f'raw_plot_{data_filename}'
+    figpath = os.path.join(output_dir, figname)
+
     plt.savefig(f'{figpath}.png')
     if save_pdf:
         plt.savefig(f'{figpath}.pdf')
     plt.close('all')
-
     return
 
-def plot_temperature_dependence(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), data_filepath='', save_pdf=False):
+def plot_temperature_dependence(data_filepath='', save_pdf=False):
     df = pd.read_pickle(data_filepath)
 
-    output_dir = os.path.join(current_file_dir, 'pics_temperatureDependence')
-    os.makedirs(output_dir, exist_ok=True)
-    figname = f'plateau_width_temperature_dependence__{now_str}'
-    figpath = os.path.join(output_dir, figname)
     plt.figure(figsize=[20, 10])
     plt.plot(df['temperature'], df['plateau_widths'], '-*', color='k')
     plt.title('Plateau Width Temperature Dependence')
@@ -165,10 +166,18 @@ def plot_temperature_dependence(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()
     plt.ylabel('Plateau Width [uA]')
     plt.ylim(bottom=0)  # Set y-axis lower limit to 0
     plt.tight_layout()
+
+    output_dir = os.path.join(current_file_dir, 'pics_temperatureDependence')
+    os.makedirs(output_dir, exist_ok=True)
+    _, data_filename = os.path.split(os.path.splitext(data_filepath)[0])
+    figname = f'raw_plot_{data_filename}'
+    figpath = os.path.join(output_dir, figname)
+
     plt.savefig(f'{figpath}.png')
     if save_pdf:
         plt.savefig(f'{figpath}.pdf')
-    plt.close()
+    plt.close('all')
+    return
 
 def plot_raw_nonlinearity_data(nonlinearity_data_filepath, filtered=True, save_pdf=False):
     """
@@ -209,13 +218,14 @@ def plot_raw_nonlinearity_data(nonlinearity_data_filepath, filtered=True, save_p
     ax.legend(fontsize=12)
     
     # Save the plot
+    plt.tight_layout()
+
     output_dir = os.path.join(current_file_dir, 'figs_sde')
     os.makedirs(output_dir, exist_ok=True)
     _, data_filename = os.path.split(os.path.splitext(nonlinearity_data_filepath)[0])
     figname = f'raw_plot_filtered{int(filtered)}_{data_filename}'
     figpath = os.path.join(output_dir, figname)
 
-    plt.tight_layout()
     plt.savefig(f'{figpath}.png')
     if save_pdf:
         plt.savefig(f'{figpath}.pdf')
@@ -265,14 +275,14 @@ def plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculatio
     ax.grid(True, linestyle='--', alpha=0.6, which="both")
     ax.legend(fontsize=12)
 
+    plt.tight_layout()
     # Save the plot
     output_dir = os.path.join(current_file_dir, 'figs_sde')
     os.makedirs(output_dir, exist_ok=True)
     _, data_filename = os.path.split(os.path.splitext(nonlinearity_data_filepath)[0])
     figname = f'fitted_{data_filename}'
     figpath = os.path.join(output_dir, figname)
-    plt.tight_layout()
-    plt.show()
+    
     plt.savefig(f'{figpath}.png')
     if save_pdf:
         plt.savefig(f'{figpath}.pdf')
@@ -307,14 +317,15 @@ def plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_fil
     plt.title("v vs. Polynomial Fit Ratio")
     plt.legend()
     plt.grid()
+    plt.tight_layout()
+
     # Save the plot
     output_dir = os.path.join(current_file_dir, 'figs_sde')
     os.makedirs(output_dir, exist_ok=True)
     _, data_filename = os.path.split(os.path.splitext(nonlinearity_data_filepath)[0])
     figname = f'fit_ratio_{data_filename}'
     figpath = os.path.join(output_dir, figname)
-    plt.tight_layout()
-    plt.show()
+    
     plt.savefig(f'{figpath}.png')
     if save_pdf:
         plt.savefig(f'{figpath}.pdf')
@@ -335,10 +346,6 @@ def plot_switch(optical_switch_filepath, save_pdf=False):
     # Extract measurement data from the DataFrame
     power_mpm = np.array(switchdata['power_mpm'])
     power_cpm = np.array(switchdata['power_cpm'])
-
-    # combined = ''.join(power_cpm)
-    # numbers = [f'+{num}' for num in combined.replace('\n', '').split('+') if num]
-    # power_cpm = np.array([float(num) for num in numbers])
 
     # Reshape for consistency (if necessary)
     power_mpm = power_mpm.reshape(1, -1)
@@ -401,21 +408,19 @@ def plot_switch(optical_switch_filepath, save_pdf=False):
     ax.set_ylabel('Ratio (CPM/MPM)', fontsize=12)
     ax.grid(axis='y', linestyle='--', alpha=0.7)
     ax.legend()
+    plt.tight_layout()
 
     # Save the plot
-    now_str = datetime.now().strftime('%Y%m%d_%H%M%S')
     output_dir = os.path.join(current_file_dir, 'figs_sde')
     os.makedirs(output_dir, exist_ok=True)
     _, data_filename = os.path.split(os.path.splitext(optical_switch_filepath)[0])
     figname = f'plot_{data_filename}'
     figpath = os.path.join(output_dir, figname)
 
-    plt.tight_layout()
     plt.savefig(f'{figpath}.png')
     if save_pdf:
         plt.savefig(f'{figpath}.pdf')
     plt.close()
-
     return
 
 # Counts vs Current
@@ -449,12 +454,6 @@ def plot_processed_counts_unc(data_filepath='', sde_processed_filepath="", save_
         np.full(array_length, Counts_Expected_stddev)
     )
 
-    output_dir = os.path.join(current_file_dir, 'figs_sde')
-    os.makedirs(output_dir, exist_ok=True)
-    _, data_filename = os.path.split(os.path.splitext(data_filepath)[0])
-    figname = f'efficiency_plot_{data_filename}'
-    figpath = os.path.join(output_dir, figname)
-    plt.close('all')
     plt.figure(figsize = [20, 10])
     
     y_data = (Maxpol_Counts - Dark_Counts) / counts_expected_array
@@ -497,26 +496,30 @@ def plot_processed_counts_unc(data_filepath='', sde_processed_filepath="", save_
         color='green', 
         label='Average Efficiency'
     )
+    
 
-    plt.title(f'{figname}')
+    plt.title(f'System Detection Efficiency')
     plt.xlabel('Bias current [uA]')
     plt.ylabel('Efficiency')
     plt.legend(loc='upper left', bbox_to_anchor=(1.04, 1), fontsize=10)
     plt.tight_layout()
-    plt.show()
+
+    output_dir = os.path.join(current_file_dir, 'figs_sde')
+    os.makedirs(output_dir, exist_ok=True)
+    _, data_filename = os.path.split(os.path.splitext(data_filepath)[0])
+    figname = f'efficiency_plot_{data_filename}'
+    figpath = os.path.join(output_dir, figname)
+
     plt.savefig(f'{figpath}.png')
     if save_pdf:
         plt.savefig(f'{figpath}.pdf')
     plt.close('all')
-
     return
 
 
 
 # %% Main Code Block
 if __name__ == '__main__':
-    now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
-
     # optical_switch_filepath = os.path.join(current_file_dir, 'data_sde', 'optical_switch_calibration_data_cpm_splice2__20250109-180754.pkl')
     # plot_switch(optical_switch_filepath, cpm_splice=2)
 
@@ -527,15 +530,15 @@ if __name__ == '__main__':
     # plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_filepath, )
 
     # IV_pickle_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_IV_curve_data__20250110-122541.pkl')
-    # plot_IV_curve(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, save_pdf=False)
+    # plot_IV_curve(IV_pickle_filepath=IV_pickle_filepath, save_pdf=False)
 
     # data_filepath = os.path.join(current_file_dir, "data_sde", "SK3_counts_data_snspd_splice1__20250110-155421.pkl")
     # plot_raw_counts_unc(data_filepath=data_filepath)
 
-    # plot_polarization_sweep(now_str=now_str, pol_counts_filepath=pol_counts_filepath, save_pdf=False)
+    # plot_polarization_sweep(pol_counts_filepath=pol_counts_filepath, save_pdf=False)
 
     # data_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_data_dict__20241212-142132.pkl')
-    # plot_min_max_avg_counts_vs_current(now_str=now_str, data_filepath=data_filepath, save_pdf=False)
+    # plot_min_max_avg_counts_vs_current(data_filepath=data_filepath, save_pdf=False)
 
     data_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_counts_data_snspd_splice1_attval29__20250111-180558.pkl')
     sde_processed_filepath = os.path.join(current_file_dir, 'data_sde', 'final_results_nonlinear_correctionFalse__20250114-095804.pkl')
