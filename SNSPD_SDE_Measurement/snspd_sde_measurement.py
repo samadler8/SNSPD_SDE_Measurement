@@ -82,16 +82,6 @@ rng_dict = {'A': 'AUTO',
     'L' : -60,
     'Z' : 'HOLD'
 }
-rng_settings = [0, -10, -20, -30, -40, -50, -60]
-mpm_min_max_powers = {
-    0: [5e-05, 9.75e-04],
-    -10: [5e-06, 9.75e-05],
-    -20: [5e-07, 9.75e-06],
-    -30: [5e-08, 9.75e-07],
-    -40: [5e-09, 9.75e-08],
-    -50: [5e-10, 9.75e-09],
-    -60: [5e-11, 9.75e-10],
-}
 
 # setup constants
 wavelength = 1566.314  # nm
@@ -143,7 +133,41 @@ def snspd_sde_setup():
     srs.set_voltage(0)
     srs.set_output(output=False)
 
+def find_mpm_rng(rng):
+    while True:
+        mpm.set_range(rng)
+        time.sleep(0.3)
+        mpm.get_power()
+        powers = [mpm.get_power() for _ in range(N_init)]  # Collect power readings
+        check_range = [mpm.check_correct_rng(power=power, rng=rng) for power in powers]
+        sum_check_range = sum(check_range)
+        if sum_check_range == 0:
+            return rng
+        elif sum_check_range > 0:
+            rng -= 10
+        elif sum_check_range < 0:
+            rng += 10
 
+def meas_counts(position, N=3, counting_time=1):
+    pc.set_waveplate_positions(position)
+    time.sleep(0.3)  # Wait for the motion to complete
+    cps = []
+    for _ in range(N):
+        cps.append(counter.timed_count(counting_time=counting_time)/counting_time)
+    
+    while np.mean(cps) == 0: # if measured 0 counts, it might have latched, reset sres
+        logger.warning("Getting 0 counts. Resetting SRS and attenuators and hoping it will correct")
+        srs.set_output(output=False)
+        for att in att_list:
+            att.disable()
+        srs.set_output(output=True)
+        for att in att_list:
+            att.enable()
+        cps = []
+        for _ in range(N):
+            cps.append(counter.timed_count(counting_time=counting_time)/counting_time)
+
+    return cps
 
 # Algorithm S1.1 Missing Algorithm (optical switch calibration)
 def optical_switch_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), ):
@@ -168,14 +192,7 @@ def optical_switch_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now())
     # Initialize power meter
     sw.set_route(monitor_port)
     reset_attenuators()
-    for rng in rng_settings:
-        mpm.set_range(init_rng)
-        time.sleep(0.3)
-        mpm.get_power()
-        powers = [mpm.get_power() for _ in range(N_init)]  # Collect power readings
-        if all(mpm_min_max_powers[rng][1] > power > mpm_min_max_powers[rng][0] for power in powers):
-            break
-    init_rng = rng
+    init_rng = find_mpm_rng(0)
 
     mpm.set_range(init_rng)
     mpm.zero()
@@ -248,6 +265,7 @@ def nonlinearity_factor_raw_power_measurements(now_str="{:%Y%m%d-%H%M%S}".format
         att.set_att(0)
         att.enable()
 
+    rng_settings = [0, -10, -20, -30, -40, -50, -60]
     att2_settings = [0, tau]
     N = 25
 
@@ -257,57 +275,45 @@ def nonlinearity_factor_raw_power_measurements(now_str="{:%Y%m%d-%H%M%S}".format
         zero_pm()
         sw.set_route(monitor_port)
         reset_attenuators()
-        a = -rng - 2.5
-        while True:
-            a -= 1
-            att1.set_att(a)
+        middle_a = -rng - 2.5
+
+        high_min_a = middle_a + 20
+        low_min_a = middle_a - 20
+        while abs(high_min_a - low_min_a) > 0.1:
+            middle_min_a = (high_min_a + low_min_a) / 2
+            att1.set_att(middle_min_a)
             time.sleep(0.3)
             mpm.get_power()
-            for _ in range(N_init):
-                if mpm.get_power() > mpm_min_max_powers[rng][1]:
-                    break
+            powers = [mpm.get_power() for _ in range(N_init)]  # Collect power readings
+            check_range = [mpm.check_correct_rng(power=power, rng=rng) for power in powers]
+            sum_check_range = sum(check_range)
+            if sum_check_range > 0:
+                low_min_a = middle_min_a
             else:
-                continue  # Only executes if 'for' loop completes without breaking
-            break
-        while True:
-            a += 0.1
-            att1.set_att(a)
-            time.sleep(0.3)
-            mpm.get_power()
-            for _ in range(N_init):
-                if mpm.get_power() < mpm_min_max_powers[rng][1]:
-                    break
-            else:
-                continue  # Only executes if 'for' loop completes without breaking
-            break
-        a_min = a - 0.1
+                high_min_a = middle_min_a
+        a_min = round(middle_min_a - 0.1, 1)
 
         att2.set_att(tau)
-        while True:
-            a += 1
-            att1.set_att(a)
+        high_max_a = middle_a + 20
+        low_max_a = middle_a - 20
+        while abs(high_max_a - low_max_a) > 0.1:
+            middle_max_a = (high_max_a + low_max_a) / 2
+            att1.set_att(middle_max_a)
             time.sleep(0.3)
             mpm.get_power()
-            for _ in range(N_init):
-                if mpm.get_power() < mpm_min_max_powers[rng][0]:
-                    break
+            powers = [mpm.get_power() for _ in range(N_init)]  # Collect power readings
+            check_range = [mpm.check_correct_rng(power=power, rng=rng) for power in powers]
+            sum_check_range = sum(check_range)
+            if sum_check_range < 0:
+                low_max_a = middle_max_a
             else:
-                continue  # Only executes if 'for' loop completes without breaking
-            break
-        while True:
-            a -= 0.1
-            att1.set_att(a)
-            time.sleep(0.3)
-            mpm.get_power()
-            for _ in range(N_init):
-                if mpm.get_power() > mpm_min_max_powers[rng][0]:
-                    break
-            else:
-                continue  # Only executes if 'for' loop completes without breaking
-            break
-        a_max = a + 0.1
+                high_max_a = middle_max_a
+        a_max = round(middle_max_a - 0.1, 1)
 
-        att_min_max_settings[rng] = [a_min, a_max]
+        att_min_max_settings[rng] = {
+            'min': a_min, 
+            'max': a_max, 
+            }
 
     att_settings = {}
     total_data = 0
@@ -318,19 +324,19 @@ def nonlinearity_factor_raw_power_measurements(now_str="{:%Y%m%d-%H%M%S}".format
 
         if prev_range is None:  # First element (use next_range)
             att_settings[current_range] = np.concatenate([
-                np.arange(att_min_max_settings[current_range][0], att_min_max_settings[next_range][0], 1),
-                np.arange(att_min_max_settings[next_range][0], att_min_max_settings[current_range][1], 0.1),
+                np.arange(att_min_max_settings[current_range]['min'], att_min_max_settings[next_range]['min'], 1),
+                np.arange(att_min_max_settings[next_range]['min'], att_min_max_settings[current_range]['max'], 0.1),
             ])
         elif next_range is None:  # Last element (use prev_range)
             att_settings[current_range] = np.concatenate([
-                np.arange(att_min_max_settings[current_range][0], att_min_max_settings[prev_range][1], 0.1),
-                np.arange(att_min_max_settings[prev_range][1], att_min_max_settings[current_range][1], 1),
+                np.arange(att_min_max_settings[current_range]['min'], att_min_max_settings[prev_range]['max'], 0.1),
+                np.arange(att_min_max_settings[prev_range]['max'], att_min_max_settings[current_range]['max'], 1),
             ])
         else:  # Middle elements
             att_settings[current_range] = np.concatenate([
-                np.arange(att_min_max_settings[current_range][0], att_min_max_settings[prev_range][1], 0.1),
-                np.arange(att_min_max_settings[prev_range][1], att_min_max_settings[current_range][0], 1),
-                np.arange(att_min_max_settings[next_range][0], att_min_max_settings[current_range][1], 0.1),
+                np.arange(att_min_max_settings[current_range]['min'], att_min_max_settings[prev_range]['max'], 0.1),
+                np.arange(att_min_max_settings[prev_range]['max'], att_min_max_settings[current_range]['min'], 1),
+                np.arange(att_min_max_settings[next_range]['min'], att_min_max_settings[current_range]['max'], 0.1),
             ])
 
         total_data += len(att_settings[rng])
@@ -398,14 +404,7 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), at
 
     # Parameters
     N = 50
-    for rng in rng_settings:
-        mpm.set_range(rng)
-        time.sleep(0.3)
-        mpm.get_power()
-        powers = [mpm.get_power() for _ in range(N_init)]  # Collect power readings
-        if all(mpm_min_max_powers[rng][1] > power > mpm_min_max_powers[rng][0] for power in powers):
-            break
-    att_rng = rng
+    att_rng = find_mpm_rng(-attval)
 
     # Initialize an empty DataFrame to store results
     columns = ['Attenuator', 'Attenuation (dB)', 'Range', 'Power Measurement']
@@ -449,6 +448,11 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), at
 
         logging.info(f"{round(100 * i / len(att_list), 2)}% completed")
 
+    # Turn off attenuators
+    for att in att_list:
+        att.set_att(0)
+        att.disable()
+
     # Add initial power measurements row
     rows.append({
         'Attenuator': None,
@@ -459,11 +463,6 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), at
 
     # Add all rows to the DataFrame at once
     df = pd.concat([df, pd.DataFrame(rows)], ignore_index=True)
-
-    # Reset attenuators
-    for att in att_list:
-        att.set_att(0)
-        att.disable()
 
     # Save the calibration data to a file
     output_dir = os.path.join(current_file_dir, 'data_sde')
@@ -480,18 +479,6 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), at
     logger.info(f"attenuator_calibration saved to: {filepath}")
     logger.info("Completed: Algorithm S2. Attenuator Calibration")
     return filepath
-
-
-# At this point, the "detector" fiber MUST be spliced to the SNSPD
-# If you have not done that yet, do so now
-
-def meas_counts(position, N=3, counting_time=1):
-    pc.set_waveplate_positions(position)
-    time.sleep(0.3)  # Wait for the motion to complete
-    cps = []
-    for _ in range(N):
-        cps.append(counter.timed_count(counting_time=counting_time)/counting_time)
-    return cps
 
 # Algorithm S3.1. SDE Counts Measurement - Polarization Sweep
 def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pickle_filepath='', attval=30, name='', trigger_voltage=0.01, num_pols=13, counting_time=0.5, N=3):
@@ -518,7 +505,7 @@ def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pi
 
     srs.set_voltage(0)
     srs.set_output(output=True)
-    this_volt = round(ic*0.80 * bias_resistor, 3)
+    this_volt = round(ic*0.92 * bias_resistor, 3)
     srs.set_voltage(this_volt)
 
     num_repeats = 3
@@ -648,7 +635,7 @@ if __name__ == '__main__':
     now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
 
     tau = 2.5
-    attval = 29
+    attval = 32
 
     # snspd_sde_setup()
         
