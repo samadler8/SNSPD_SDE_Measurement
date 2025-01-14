@@ -18,7 +18,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 def compute_sha1_hash(filename):
-    if os.path.isfile(filename):
+    if filename is not None and os.path.isfile(filename):
         sha1 = hashlib.sha1()
         with open(filename, 'rb') as stream:
             for chunk in iter(lambda: stream.read(4096), b''):

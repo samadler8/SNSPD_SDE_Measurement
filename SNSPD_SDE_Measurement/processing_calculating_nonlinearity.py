@@ -1,18 +1,18 @@
 import os
 import logging
+import pickle
+import json
 
 import pickle
 import lmfit
 import math
 
 import numpy as np
-import pandas as pd
 
 from uncertainties import unumpy as unp
 from scipy.optimize import brute
-from uncertainties import ufloat, correlated_values
+from uncertainties import ufloat
 from pathlib import Path
-from datetime import datetime
 
 from helpers import *
 from processing_helpers import *
@@ -27,8 +27,6 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
-
-tau = 1.5
 
 def initialize_parameters(poly_order_list, rng_settings):
     """
@@ -171,6 +169,7 @@ if __name__ == '__main__':
         logger.info(f"nonlinear_calibration_data: {nonlinear_calibration_data}")
 
         output_dir = os.path.join(current_file_dir, 'data_sde')
+        
         os.makedirs(output_dir, exist_ok=True)
         _, data_filename = os.path.split(os.path.splitext(fpath)[0])
         filename = f'calculation_v1_{data_filename}.pkl'
@@ -178,3 +177,10 @@ if __name__ == '__main__':
         with open(filepath, 'wb') as f:
             pickle.dump(nonlinear_calibration_data, f)
         logger.info(f"Calibration calculation saved to {filepath}")
+
+        readable_output_dir = os.path.join(current_file_dir, 'readable_data_sde')
+        os.makedirs(readable_output_dir, exist_ok=True)
+        json_filepath = os.path.join(readable_output_dir, )
+        with open(json_filepath, 'w') as f:
+            json.dump(nonlinear_calibration_data, f, indent=4, default=lambda x: x.tolist() if hasattr(x, 'tolist') else str(x))
+        
