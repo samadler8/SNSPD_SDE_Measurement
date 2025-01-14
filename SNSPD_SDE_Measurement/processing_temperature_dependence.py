@@ -3,6 +3,7 @@ import re
 import pickle
 from pathlib import Path
 import logging
+import json
 
 import numpy as np
 import pandas as pd
@@ -15,7 +16,7 @@ logging.basicConfig(
     level=logging.INFO,  # Set to INFO or WARNING for less verbosity
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler("script_log.log", mode="a"),
+        logging.FileHandler("processing_temperature_dependence.log", mode="a"),
         logging.StreamHandler()  # Logs to console
     ]
 )
@@ -49,7 +50,11 @@ def interpolate_temperature(timestamp, temperature_dict):
 
     return prev_temp + (next_temp - prev_temp) * (elapsed_seconds / total_seconds)
 
-def process_temperature(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.now()), temperature_filepath='CTCLog 102424_15-09.txt'):
+
+if __name__ == "__main__":
+    temperature_filepath = os.path.join(current_file_dir, 'data_temperatureDependence', 'CTCLog 102424_15-09.txt')
+    data_filepath = os.path.join(current_file_dir, 'data_temperatureDependence', ',pkl')
+    
     temperature_dict = {}
     with open(temperature_filepath, 'r') as file:
         for line in file:
@@ -57,36 +62,28 @@ def process_temperature(now_str="{:%Y:%m:%d-%H:%M:%S}".format(datetime.now()), t
             time, temperature = parts[0].strip(), parts[-3].strip()
             temperature_dict[time] = float(temperature) if temperature != 'nan' else None
 
-    data_dict = {}
-    pattern = r'^lollipop_w130_counts_2micronLight__(\d{8}-\d{6})\.pbz2$'
-
-    for file_name in os.listdir('data'):
-        match = re.match(pattern, file_name)
-        if match:
-            timestamp = match.group(1)
-            data = pickle.load(os.path.join('data', file_name))
-            if data:
-                data_dict[timestamp] = data
-
-    temperatures, plateau_widths = [], []
+    with open(data_filepath, "wb") as file:
+        data_dict = pickle.load(file)
 
     for timestamp, data in data_dict.items():
-        interpolated_temp = interpolate_temperature(timestamp, temperature_dict)
-        if interpolated_temp is not None:
-            temperatures.append(interpolated_temp)
+        temperature = interpolate_temperature(timestamp, temperature_dict)
+        if temperature is not None:
             plateau_cur, _ = get_plateau(data)
             plateau_width = plateau_cur[-1] - plateau_cur[0]
-            plateau_widths.append(plateau_width)
-
-    df = pd.DataFrame(
-        {'temperatures': temperatures,
-        'plateau_widths': plateau_widths,
-        })
+            data_dict[temperature] = plateau_width
     
-    temperature_dependence_filename = f'temperature_dependence_data__{now_str}.pkl'
-    os.makedirs("data", exist_ok=True)
-    temperature_dependence_filepath = os.path.join("data", temperature_dependence_filename)
-    df.to_pickle(temperature_dependence_filepath)
-    logger.info(f"Processed temperature dependence saved to: {temperature_dependence_filepath}")
-    return
+    output_dir = os.path.join(current_file_dir, 'data_temperatureDependence')
+    os.makedirs(output_dir, exist_ok=True)
+    _, data_filename = os.path.split(os.path.splitext(data_filepath)[0])
+    filename = f'processed_{data_filename}.pkl'
+    filepath = os.path.join(output_dir, filename)
+    with open(filepath, 'wb') as f:
+        pickle.dump(data, f)
+    
+    readable_output_dir = os.path.join(current_file_dir, 'readable_data_temperatureDependence')
+    os.makedirs(readable_output_dir, exist_ok=True)
+    json_filepath = f'{os.path.splitext(filepath)[0]}.json'
+    with open(json_filepath, 'w') as f:
+        json.dump(data, f, indent=4, default=lambda x: x.tolist() if hasattr(x, 'tolist') else str(x))
+
 

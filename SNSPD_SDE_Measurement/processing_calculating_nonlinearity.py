@@ -22,13 +22,13 @@ logging.basicConfig(
     level=logging.INFO,  # Set to INFO or WARNING for less verbosity
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler("calculating_nonlinearity_log.log", mode="a"),
+        logging.FileHandler("processing_calculating_nonlinearity.log", mode="a"),
         logging.StreamHandler()  # Logs to console
     ]
 )
 logger = logging.getLogger(__name__)
 
-def initialize_parameters(poly_order_list, rng_settings):
+def initialize_parameters(poly_order_list, rng_settings, tau=2.5):
     """
     Initialize lmfit.Parameters for fitting polynomial coefficients.
 
@@ -87,7 +87,7 @@ def calculate_residuals(params, processed_nonlinearity_data):
     # Return residuals as a flattened array
     return np.hstack(residuals)
 
-def reduced_chi_squared(poly_order_list, processed_nonlinearity_data, rng_settings):
+def reduced_chi_squared(poly_order_list, processed_nonlinearity_data, rng_settings, tau=2.5):
     """
     Compute the reduced chi-squared for the polynomial fit.
 
@@ -100,13 +100,13 @@ def reduced_chi_squared(poly_order_list, processed_nonlinearity_data, rng_settin
         float: Reduced chi-squared value.
     """
     poly_order_list = np.array(poly_order_list, dtype=int)
-    params = initialize_parameters(poly_order_list, rng_settings)
+    params = initialize_parameters(poly_order_list, rng_settings, tau=tau)
     fit_result = lmfit.minimize(calculate_residuals, params, method='leastsq', args=(processed_nonlinearity_data,))
     return fit_result.redchi
 
-def find_poly_fit(processed_nonlinearity_data, rng_settings, poly_order_list):
+def find_poly_fit(processed_nonlinearity_data, rng_settings, poly_order_list, tau=2.5):
     # Polynomial orders should minimize reduced chi-square
-    params = initialize_parameters(poly_order_list, rng_settings)
+    params = initialize_parameters(poly_order_list, rng_settings, tau=tau)
     fit = lmfit.minimize(calculate_residuals, params, method='leastsq', args=(processed_nonlinearity_data,))
     logger.info(lmfit.fit_report(fit.params))
     return fit
@@ -116,7 +116,8 @@ def find_poly_fit(processed_nonlinearity_data, rng_settings, poly_order_list):
 
 if __name__ == '__main__':
     fnames = ['nonlinear_calibration_data_tau2.5__20250110-210258.pkl', 'nonlinear_calibration_data_tau3__20250110-210258.pkl', 'nonlinear_calibration_data_tau2__20250110-210258.pkl', 'nonlinear_calibration_data_tau1.5__20250110-210258.pkl']
-    for fname in fnames:
+    taus = [2.5, 3, 2, 1.5]
+    for fname, tau in zip(fnames, taus):
         fpath = os.path.join(current_file_dir, 'data_sde', fname)
         logger.info(f'Processing file: {fpath}')
 
@@ -126,12 +127,12 @@ if __name__ == '__main__':
 
         # Optimize polynomial orders
         poly_order_param_space = (slice(1, 6, 1),) * len(rng_settings)  # order range: 1 to 5 inclusive
-        optimized_orders = brute(reduced_chi_squared, poly_order_param_space, args=(processed_nonlinearity_data, rng_settings)) # Optimize polynomial orders for each range using a brute force approach.
+        optimized_orders = brute(reduced_chi_squared, poly_order_param_space, args=(processed_nonlinearity_data, rng_settings, tau)) # Optimize polynomial orders for each range using a brute force approach.
         poly_order_list = optimized_orders.astype(int).tolist()
         logger.info(f'Optimized polynomial orders: {poly_order_list}')
 
         # Fit polynomial and calculate range discontinuities
-        fit = find_poly_fit(processed_nonlinearity_data, rng_settings, poly_order_list)
+        fit = find_poly_fit(processed_nonlinearity_data, rng_settings, poly_order_list, tau=tau)
         logger.info(f'Fit reduced chi-squared: {fit.redchi}')
 
         rng_disc = {}

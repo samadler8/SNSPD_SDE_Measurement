@@ -30,7 +30,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-wavelength = 1566.314e-9 #m
 init_rng = 0
 
 class PMCorrectLinearUnc:
@@ -199,6 +198,7 @@ def compute_efficiency_unc(config):
     
     
     # Energy per photon
+    wavelength = config['wavelength']
     E = codata.h * codata.c / (wavelength)
     logging.info(f"E: {E}")
 
@@ -222,6 +222,8 @@ if __name__ == '__main__':
     self_filename = os.path.basename(__file__)
     self_sha1hash = compute_sha1_hash(__file__)
 
+    wavelength = 1566.314e-9 #m
+
     config = {}
 
     NIST_pm_calib_path = os.path.join(current_file_dir, 'calibration_power_meter', 'SWN HP81521B 2933G05261.xlsx')
@@ -232,6 +234,7 @@ if __name__ == '__main__':
     fpath = os.path.join(current_file_dir, 'data_sde', 'SK3_counts_data_snspd_splice1_attval29__20250111-180558.pkl')
     
     logger.info(f' Counts data file: {fpath}')
+    config['wavelength']
     logger.info(f' Wavelength: {wavelength*1e9} nm')
 
     if not os.path.exists(NIST_pm_calib_path):

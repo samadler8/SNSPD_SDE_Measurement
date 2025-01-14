@@ -2,8 +2,6 @@
 import os
 import time
 import pickle
-import scipy
-import math
 import logging
 import json
 
@@ -11,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from amcc.instruments.srs_sim928 import SIM928
 from amcc.instruments.ando_aq82011 import AndoAQ82011
@@ -31,12 +29,11 @@ logging.basicConfig(
     level=logging.INFO,  # Set to INFO or WARNING for less verbosity
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler("script_log.log", mode="a"),
+        logging.FileHandler("snspd_sde_measurement.log", mode="a"),
         logging.StreamHandler()  # Logs to console
     ]
 )
 logger = logging.getLogger(__name__)
-
 
 srs = SIM928('GPIB0::2::INSTR', 5)
 laser = AndoAQ82011('GPIB0::4::INSTR', 1)
