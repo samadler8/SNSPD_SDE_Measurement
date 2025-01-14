@@ -551,15 +551,11 @@ def SDE_Counts_Measurement(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), 
     logger.info("Starting: Algorithm S3.2. SDE Counts Measurement - True Counting")
     logger.warning("Ensure detector fiber it spliced to SNSPD")
     with open(pol_counts_filepath, 'rb') as file:
-        pol_counts = pickle.load(file)
-
-    for i in (np.arange(len(pol_counts)-1, -1, -1)):
-        if pol_counts[i][1]==None or pol_counts[i][1]==0:
-            pol_counts.pop(i)
+        pol_data_avg = pickle.load(file)
 
     # Find the tuple with the highest count
-    maxpol_settings = max(pol_counts, key=lambda item: item[1])[0]
-    minpol_settings = min(pol_counts, key=lambda item: item[1])[0]
+    maxpol_settings = max(pol_data_avg, key=pol_data_avg.get)
+    minpol_settings = min(pol_data_avg, key=pol_data_avg.get)
 
     # Perform measurements
     ic = get_ic(IV_pickle_filepath)
@@ -636,7 +632,7 @@ if __name__ == '__main__':
     trigger_voltage = find_min_trigger_threshold(instruments, now_str=now_str)
     # trigger_voltage = 0.127
 
-    pol_counts_filepath = sweep_polarizations(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, attval=attval, name=name, num_pols=num_pols, trigger_voltage=trigger_voltage, counting_time=0.5, N=3)
+    # pol_counts_filepath = sweep_polarizations(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, attval=attval, name=name, num_pols=num_pols, trigger_voltage=trigger_voltage, counting_time=0.5, N=3)
     # pol_counts_filepath = os.path.join(current_file_dir, "data_sde", "SK3_pol_data_snspd_splice1__20250110-125128.pkl")
 
     # nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(now_str=now_str, tau=2.5)
