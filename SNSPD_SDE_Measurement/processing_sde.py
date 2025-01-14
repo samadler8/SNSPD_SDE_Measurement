@@ -45,7 +45,7 @@ class PMCorrectLinearUnc:
         self.fname = fname
         self.fit_params = None
         self.covar = None
-        self.rng_disc = {}
+        self.rng_disc = None
         self.load()
 
     def load(self):
