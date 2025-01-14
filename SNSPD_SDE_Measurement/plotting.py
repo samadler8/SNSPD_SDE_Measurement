@@ -538,7 +538,7 @@ if __name__ == '__main__':
     # plot_min_max_avg_counts_vs_current(now_str=now_str, data_filepath=data_filepath, save_pdf=False)
 
     data_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_counts_data_snspd_splice1_attval29__20250111-180558.pkl')
-    sde_processed_filepath = os.path.join(current_file_dir, 'data_sde', 'final_results__20250112-204928.pkl')
+    sde_processed_filepath = os.path.join(current_file_dir, 'data_sde', 'final_results_nonlinear_correctionFalse__20250114-095804.pkl')
     plot_processed_counts_unc(data_filepath=data_filepath, sde_processed_filepath=sde_processed_filepath, save_pdf=False)
 
 

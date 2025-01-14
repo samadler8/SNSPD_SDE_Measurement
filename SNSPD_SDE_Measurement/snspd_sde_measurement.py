@@ -5,6 +5,7 @@ import pickle
 import scipy
 import math
 import logging
+import json
 
 import numpy as np
 import pandas as pd
@@ -218,19 +219,24 @@ def optical_switch_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now())
         att.disable()
 
     # Save data to a DataFrame
-    df = pd.DataFrame(
-        {
-            'power_mpm': power_mpm, 
-            'power_cpm': power_cpm,
-            }
-            )
+    data_dict = {
+        'power_mpm': power_mpm, 
+        'power_cpm': power_cpm,
+        }
 
     # Save the DataFrame as a pickle file
     output_dir = os.path.join(current_file_dir, "data_sde")
     os.makedirs(output_dir, exist_ok=True)
     filename = f"optical_switch_calibration_data_cpm_splice{cpm_splice}__{now_str}.pkl"
     filepath = os.path.join(output_dir, filename)
-    df.to_pickle(filepath)
+    with open(filepath, 'wb') as f:
+        pickle.dump(data_dict, f)
+    
+    readable_output_dir = os.path.join(current_file_dir, 'readable_data_sde')
+    os.makedirs(readable_output_dir, exist_ok=True)
+    json_filepath = f'{os.path.splitext(filepath)[0]}.json'
+    with open(json_filepath, 'w') as f:
+        json.dump(data_dict, f, indent=4, default=lambda x: x.tolist() if hasattr(x, 'tolist') else str(x))
 
     logger.info(f"Optical switch calibration data saved to: {filepath}")
     logger.info("Completed: Algorithm S1.1 Optical Switch Calibration")
@@ -352,12 +358,12 @@ def nonlinearity_factor_raw_power_measurements(now_str="{:%Y%m%d-%H%M%S}".format
             att1.set_att(a)
             for att2_val in att2_settings:
                 att2.set_att(att2_val)
-                powers_temp = []
+                powers = []
                 time.sleep(0.3)
                 mpm.get_power()
-                powers_temp = [mpm.get_power() for _ in range(N)]
+                powers = [mpm.get_power() for _ in range(N)]
                 mpm.get_power()
-                data_temp = (rng, a, att2_val, powers_temp)
+                data_temp = (rng, a, att2_val, powers)
                 data.append(data_temp)
                 logging.info(f"data_temp: {data_temp}")
                 i += 1
@@ -372,15 +378,21 @@ def nonlinearity_factor_raw_power_measurements(now_str="{:%Y%m%d-%H%M%S}".format
     columns = ['Range', 'Attenuator 1', 'Attenuator 2', 'Power']
     df = pd.DataFrame(data, columns=columns)
 
-    # Save the DataFrame as a pickle file
-    nonlinearity_factor_filename = f'nonlinear_calibration_data_tau{tau}__{now_str}.pkl'
     output_dir = os.path.join(current_file_dir, "data_sde")
     os.makedirs(output_dir, exist_ok=True)
-    nonlinearity_factor_filepath = os.path.join(output_dir, nonlinearity_factor_filename)
-    df.to_pickle(nonlinearity_factor_filepath)
-    logger.info(f"nonlinearity_factor saved to: {nonlinearity_factor_filepath}")
+    filename = f'nonlinear_calibration_data_tau{tau}__{now_str}.pkl'
+    filepath = os.path.join(output_dir, filename)
+    df.to_pickle(filepath)
+    
+    readable_output_dir = os.path.join(current_file_dir, 'readable_data_sde')
+    os.makedirs(readable_output_dir, exist_ok=True)
+    csv_filepath = f'{os.path.splitext(filepath)[0]}.csv'
+    df.to_csv(csv_filepath, index=False)
+
+
+    logger.info(f"nonlinearity_factor saved to: {filepath}")
     logger.info("Completed: Algorithm S1. Nonlinearity factor raw power measurements")
-    return nonlinearity_factor_filepath
+    return filepath
 
 # Algorithm S2. Attenuator Calibration
 def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), attval=30):
@@ -400,7 +412,7 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), at
 
     # Initialize an empty DataFrame to store results
     columns = ['Attenuator', 'Attenuation (dB)', 'Range', 'Power Measurement']
-    powers_df = pd.DataFrame(columns=columns)
+    df = pd.DataFrame(columns=columns)
 
     # Calibrate each attenuator in att_list
     init_powers = []
@@ -449,7 +461,7 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), at
     })
 
     # Add all rows to the DataFrame at once
-    powers_df = pd.concat([powers_df, pd.DataFrame(rows)], ignore_index=True)
+    df = pd.concat([df, pd.DataFrame(rows)], ignore_index=True)
 
     # Reset attenuators
     for att in att_list:
@@ -461,7 +473,13 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), at
     os.makedirs(output_dir, exist_ok=True)
     filename = f"attenuator_calibration_data_attval{attval}__{now_str}.pkl"
     filepath = os.path.join(output_dir, filename)
-    powers_df.to_pickle(filepath)
+    df.to_pickle(filepath)
+    
+    readable_output_dir = os.path.join(current_file_dir, 'readable_data_sde')
+    os.makedirs(readable_output_dir, exist_ok=True)
+    csv_filepath = f'{os.path.splitext(filepath)[0]}.csv'
+    df.to_csv(csv_filepath, index=False)
+
     logger.info(f"attenuator_calibration saved to: {filepath}")
     logger.info("Completed: Algorithm S2. Attenuator Calibration")
     return filepath
@@ -522,7 +540,7 @@ def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pi
                     pol_data[position].append(cps)
                     logging.info(f"{round(100*(n*num_repeats*positions.size**2 + i*positions.size**2 + j*positions.size + k)/(num_repeats*positions.size**3), 2)}% Complete")
 
-    pol_data_avg = {key: np.mean(value) for key, value in pol_data.items()}
+    data_dict = {key: np.mean(value) for key, value in pol_data.items()}
     srs.set_voltage(0)
     srs.set_output(output=False)
 
@@ -531,18 +549,26 @@ def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pi
         att.set_att(0)
         att.disable()
 
-    maxpol_settings = max(pol_data_avg, key=pol_data_avg.get)
-    minpol_settings = min(pol_data_avg, key=pol_data_avg.get)
-    logger.info(f"max pol settings: {maxpol_settings}, cps: {pol_data_avg[maxpol_settings]}")
-    logger.info(f"min pol settings: {minpol_settings}, cps: {pol_data_avg[minpol_settings]}")
-
+    maxpol_settings = max(data_dict, key=data_dict.get)
+    minpol_settings = min(data_dict, key=data_dict.get)
+    logger.info(f"max pol settings: {maxpol_settings}, cps: {data_dict[maxpol_settings]}")
+    logger.info(f"min pol settings: {minpol_settings}, cps: {data_dict[minpol_settings]}")
+    
     output_dir = os.path.join(current_file_dir, 'data_sde')
+    
     os.makedirs(output_dir, exist_ok=True)
     filename = f"{name}_pol_data_snspd_splice{snspd_splice}__{now_str}.pkl"
     filepath = os.path.join(output_dir, filename)
     with open(filepath, "wb") as file:
-        pickle.dump(pol_data_avg, file)
-    logger.info(f"pol_data_avg saved to: {filepath}")
+        pickle.dump(data_dict, file)
+
+    readable_output_dir = os.path.join(current_file_dir, 'readable_data_sde')
+    os.makedirs(readable_output_dir, exist_ok=True)
+    json_filepath = f'{os.path.splitext(filepath)[0]}.json'
+    with open(json_filepath, 'w') as f:
+        json.dump(data_dict, f, indent=4, default=lambda x: x.tolist() if hasattr(x, 'tolist') else str(x))
+    
+    logger.info(f"Polarization data saved to: {filepath}")
     logger.info("Completed: Algorithm S3.1. SDE Counts Measurement - Polarization Sweep")
     return filepath
 
@@ -551,11 +577,11 @@ def SDE_Counts_Measurement(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), 
     logger.info("Starting: Algorithm S3.2. SDE Counts Measurement - True Counting")
     logger.warning("Ensure detector fiber it spliced to SNSPD")
     with open(pol_counts_filepath, 'rb') as file:
-        pol_data_avg = pickle.load(file)
+        pol_data = pickle.load(file)
 
     # Find the tuple with the highest count
-    maxpol_settings = max(pol_data_avg, key=pol_data_avg.get)
-    minpol_settings = min(pol_data_avg, key=pol_data_avg.get)
+    maxpol_settings = max(pol_data, key=pol_data.get)
+    minpol_settings = min(pol_data, key=pol_data.get)
 
     # Perform measurements
     ic = get_ic(IV_pickle_filepath)
@@ -609,6 +635,13 @@ def SDE_Counts_Measurement(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), 
     filepath = os.path.join(output_dir, filename)
     with open(filepath, "wb") as file:
         pickle.dump(data_dict, file)
+
+    readable_output_dir = os.path.join(current_file_dir, 'readable_data_sde')
+    os.makedirs(readable_output_dir, exist_ok=True)
+    json_filepath = f'{os.path.splitext(filepath)[0]}.json'
+    with open(json_filepath, 'w') as f:
+        json.dump(data_dict, f, indent=4, default=lambda x: x.tolist() if hasattr(x, 'tolist') else str(x))
+    
     logger.info(f"data_dict saved to: {filepath}")
     logger.info("Completed: Algorithm S3.2. SDE Counts Measurement - True Counting")
     return filepath
@@ -635,7 +668,7 @@ if __name__ == '__main__':
     pol_counts_filepath = sweep_polarizations(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, attval=attval, name=name, num_pols=num_pols, trigger_voltage=trigger_voltage, counting_time=0.5, N=3)
     # pol_counts_filepath = os.path.join(current_file_dir, "data_sde", "SK3_pol_data_snspd_splice1__20250110-125128.pkl")
 
-    # nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(now_str=now_str, tau=2.5)
+    # nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(now_str=now_str, tau=tau)
 
     attvals = [29, 30, 28, 31, 27, 32, 26, 33, 25, 34, 24, 35, 23, 36, 22, 37, 21, 38]
     for attval in attvals:
