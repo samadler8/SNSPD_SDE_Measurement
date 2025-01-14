@@ -368,9 +368,9 @@ def nonlinearity_factor_raw_power_measurements(now_str="{:%Y%m%d-%H%M%S}".format
                 mpm.get_power()
                 data_temp = (rng, a, att2_val, powers)
                 data.append(data_temp)
-                logging.info(f"data_temp: {data_temp}")
+                logger.info(f"data_temp: {data_temp}")
                 i += 1
-                logging.info(f"{round(100*i/total_data, 2)}%")
+                logger.info(f"{round(100*i/total_data, 2)}%")
                 
     sw.set_route(monitor_port)
     for att in att_list:
@@ -446,7 +446,7 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), at
             'Power Measurement': temp_powers
         })
 
-        logging.info(f"{round(100 * i / len(att_list), 2)}% completed")
+        logger.info(f"{round(100 * i / len(att_list), 2)}% completed")
 
     # Turn off attenuators
     for att in att_list:
@@ -518,11 +518,11 @@ def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pi
                 for k, z in enumerate(positions):
                     position = (x, y, z)
                     cps = meas_counts(position, N=N, counting_time=counting_time)
-                    logging.info(f"Position: {position}, counts: {np.mean(cps)}")
+                    logger.info(f"Position: {position}, counts: {np.mean(cps)}")
                     if position not in pol_data:
                         pol_data[position] = []
                     pol_data[position].append(cps)
-                    logging.info(f"{round(100*(n*num_repeats*positions.size**2 + i*positions.size**2 + j*positions.size + k)/(num_repeats*positions.size**3), 2)}% Complete")
+                    logger.info(f"{round(100*(n*num_repeats*positions.size**2 + i*positions.size**2 + j*positions.size + k)/(num_repeats*positions.size**3), 2)}% Complete")
 
     data_dict = {key: np.mean(value) for key, value in pol_data.items()}
     srs.set_voltage(0)
@@ -576,9 +576,9 @@ def SDE_Counts_Measurement(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), 
     sw.set_route(monitor_port)
     for att in att_list:
         att.disable()
-    logging.info("Collecting dark counts")
+    logger.info("Collecting dark counts")
     Dark_Count_Array = get_counts(Cur_Array, instruments, trigger_voltage=trigger_voltage, bias_resistor=bias_resistor, counting_time=counting_time)
-    logging.info("Dark counts collected")
+    logger.info("Dark counts collected")
 
     # Max and min polarization measurements
     sw.set_route(detector_port)
@@ -588,15 +588,15 @@ def SDE_Counts_Measurement(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), 
     
     # Measure counts at max polarization
     pc.set_waveplate_positions(maxpol_settings)
-    logging.info("Collecting max polarization counts")
+    logger.info("Collecting max polarization counts")
     Maxpol_Count_Array = get_counts(Cur_Array, instruments, trigger_voltage=trigger_voltage, bias_resistor=bias_resistor, counting_time=counting_time)
-    logging.info("Max polarization counts collected")
+    logger.info("Max polarization counts collected")
 
     # Measure counts at min polarization
     pc.set_waveplate_positions(minpol_settings)
-    logging.info("Collecting min polarization counts")
+    logger.info("Collecting min polarization counts")
     Minpol_Count_Array = get_counts(Cur_Array, instruments, trigger_voltage=trigger_voltage, bias_resistor=bias_resistor, counting_time=counting_time)
-    logging.info("Min polarization counts collected")
+    logger.info("Min polarization counts collected")
 
     sw.set_route(monitor_port)
     for att in att_list:

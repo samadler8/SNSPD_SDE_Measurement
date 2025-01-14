@@ -18,7 +18,6 @@ from uncertainties import unumpy as unp
 from helpers import *
 from processing_helpers import *
 
-logger = logging.getLogger(__name__)
 current_file_dir = Path(__file__).parent
 logging.basicConfig(
     level=logging.INFO,  # Set to INFO or WARNING for less verbosity
@@ -56,7 +55,7 @@ class PMCorrectLinearUnc:
         try:
             # Load data from pickle file
             data = pd.read_pickle(self.fname)
-            logging.info(f"PMCorrectLinearUnc load data: {data}")
+            logger.info(f"PMCorrectLinearUnc load data: {data}")
             self.fit_params = data["fit_params"]
             self.covar = data["covar"]
             self.rng_disc = data["rng_disc"]
@@ -130,7 +129,7 @@ def calculate_att_correction_unc(att_cal_filepath, correction):
     '''
     Extracts powers with uncertainty from the attenuation calibration file.
     '''
-    logging.info(f"extract_raw_powers_unc")
+    logger.info(f"extract_raw_powers_unc")
 
     with open(att_cal_filepath, 'rb') as file:
         att_cal_data = pickle.load(file)
@@ -200,20 +199,20 @@ def compute_efficiency_unc(config):
     # Energy per photon
     wavelength = config['wavelength']
     E = codata.h * codata.c / (wavelength)
-    logging.info(f"E: {E}")
+    logger.info(f"E: {E}")
 
     # Calculate expected counts
     counts_expected = unp.nominal_values(power_0_unc_corrected) / E
-    logging.info(f"counts_expected without attenuation: {counts_expected}")
+    logger.info(f"counts_expected without attenuation: {counts_expected}")
     for power_att_unc_corrected in power_atts_unc_corrected:
         counts_expected *= unp.nominal_values(power_att_unc_corrected) / unp.nominal_values(power_0_unc_corrected)
-    logging.info(f"counts_expected post attenuation: {counts_expected}")
+    logger.info(f"counts_expected post attenuation: {counts_expected}")
 
     # Apply switch correction and calibration factor
-    logging.info(f"switch_correction: {switch_correction}")
+    logger.info(f"switch_correction: {switch_correction}")
     counts_expected = counts_expected / switch_correction
     counts_expected = counts_expected / ufloat(config['CF'], config['CF_err'])
-    logging.info(f"counts_expected post all corrections: {counts_expected}")
+    logger.info(f"counts_expected post all corrections: {counts_expected}")
 
     return bias, net/counts_expected, counts_expected
 

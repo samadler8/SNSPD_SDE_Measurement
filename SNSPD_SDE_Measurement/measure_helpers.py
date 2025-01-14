@@ -243,4 +243,4 @@ def find_min_trigger_threshold(
 # res_min = scipy.optimize.minimize(meas_counts, initial_guess, args=(instruments, N, counting_time), bounds=bounds)
 # res_max = scipy.optimize.minimize(neg_meas_counts, initial_guess, args=(instruments, N, counting_time), bounds=bounds)
 # pol_counts = [(res_min['x'], res_min['fun']), (res_max['x'], res_max['fun'])]
-# logging.info(pol_counts)
+# logger.info(pol_counts)
