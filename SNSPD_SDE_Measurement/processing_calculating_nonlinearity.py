@@ -40,6 +40,7 @@ def initialize_parameters(poly_order_list, rng_settings, tau=2.5):
         lmfit.Parameters: Initialized parameters for the fitting process.
     """
     params = lmfit.Parameters()
+    logger.info(f" Initalizing paremeter tau for an assumed attenuation value of tau: {tau}")
     params.add('tau', value=math.log10(tau))  # Add the initial parameter tau
 
     for i, rng in enumerate(rng_settings):
