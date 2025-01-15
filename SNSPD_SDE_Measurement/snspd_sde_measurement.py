@@ -557,8 +557,9 @@ def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pi
     _, data_filename = os.path.split(os.path.splitext(filepath)[0])
     json_filename = f'{data_filename}.json'
     json_filepath = os.path.join(readable_output_dir, json_filename)
+    data_dict_json = {str(k): v for k, v in data_dict.items()}
     with open(json_filepath, 'w') as f:
-        json.dump(data_dict, f, indent=4, default=lambda x: x.tolist() if hasattr(x, 'tolist') else str(x))
+        json.dump(data_dict_json, f, indent=4)
     
     logger.info(f"Polarization data saved to: {filepath}")
     logger.info("Completed: Algorithm S3.1. SDE Counts Measurement - Polarization Sweep")
@@ -645,7 +646,7 @@ if __name__ == '__main__':
     now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
 
     tau = 2.5
-    attval = 32
+    attval = 30
 
     # snspd_sde_setup()
         
@@ -664,7 +665,7 @@ if __name__ == '__main__':
 
     # nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(now_str=now_str, tau=tau)
 
-    attvals = [29, 30, 28, 31, 27, 32, 26, 33, 25, 34, 24, 35, 23, 36, 22, 37, 21, 38]
+    attvals = [29, 30, 28, 31, 27, 32, 26, 25]
     for attval in attvals:
         data_filepath = SDE_Counts_Measurement(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, pol_counts_filepath=pol_counts_filepath, attval=attval, name=name, trigger_voltage=trigger_voltage)
         attenuator_calibration_filepath = attenuator_calibration(now_str=now_str, attval=attval)

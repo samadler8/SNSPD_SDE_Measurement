@@ -12,14 +12,6 @@ from uncertainties import unumpy as unp
 from uncertainties import ufloat, correlated_values
 
 current_file_dir = Path(__file__).parent
-logging.basicConfig(
-    level=logging.INFO,  # Set to INFO or WARNING for less verbosity
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler("helpers.log", mode="a"),
-        logging.StreamHandler()  # Logs to console
-    ]
-)
 logger = logging.getLogger(__name__)
          
 def get_ic(filepath, threshold=1e-4):

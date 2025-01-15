@@ -3,9 +3,12 @@
 *.mat
 *.pickle
 *.zip
-*.png
 *.pyc
-*.log
+# *.png
+# *.pdf
+# *.log
+# *.json
+# *.csv
 
 
 
@@ -94,9 +97,5 @@ target/
 *.lyp
 *.oas
 *.ipynb
-
-
-*.png
-*.pdf
 
 ignore/

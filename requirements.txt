@@ -5,3 +5,5 @@ plotly
 scipy
 lmfit
 uncertainties
+openpyxl
+kaleido
