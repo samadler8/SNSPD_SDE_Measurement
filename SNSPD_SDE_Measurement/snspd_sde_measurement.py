@@ -266,12 +266,12 @@ def optical_switch_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now())
 # Algorithm S1. Nonlinearity factor raw power measurements
 def nonlinearity_factor_raw_power_measurements(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), taus=[3]):
     logger.info("Starting: Algorithm S1. Nonlinearity factor raw power measurements")
-    sw.set_route(monitor_port)
-    reset_attenuators()
+    # sw.set_route(monitor_port)
+    # reset_attenuators()
 
     rng_settings = [0, -10, -20, -30, -40, -50, -60]
-    att2_settings = [0] + [taus]
-    tau_min = min(att2_settings)
+    att2_settings = [0] + taus
+    tau_min = min(taus)
     N = 25
 
     # Algorithm to find appropriate attenuation settings for each monitor power meter range setting
@@ -386,9 +386,9 @@ def nonlinearity_factor_raw_power_measurements(now_str="{:%Y%m%d-%H%M%S}".format
                 mpm.get_power()
                 data_temp = (rng, a, att2_val, powers)
                 data.append(data_temp)
-                logger.info(f"data_temp: {data_temp}")
+                logger.info(f" data_temp: {data_temp}")
                 i += 1
-                logger.info(f"{round(100*i/total_data, 2)}%")
+                logger.info(f" {round(100*i/total_data, 2)}% complete")
                 
     sw.set_route(monitor_port)
     for att in att_list:
@@ -401,7 +401,7 @@ def nonlinearity_factor_raw_power_measurements(now_str="{:%Y%m%d-%H%M%S}".format
 
     output_dir = os.path.join(current_file_dir, "data_sde")
     os.makedirs(output_dir, exist_ok=True)
-    filename = f'nonlinear_calibration_data_tau{tau}__{now_str}.pkl'
+    filename = f'nonlinear_calibration_data__{now_str}.pkl'
     filepath = os.path.join(output_dir, filename)
     df.to_pickle(filepath)
     
@@ -673,7 +673,7 @@ def SDE_Counts_Measurement(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), 
 if __name__ == '__main__':
     now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
 
-    tau = 2.5
+    taus = [2.75, 2.25]
     attval = 30
 
     # snspd_sde_setup()
@@ -681,9 +681,6 @@ if __name__ == '__main__':
     # optical_switch_calibration_filepath = optical_switch_calibration(now_str=now_str, )
     
     nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(now_str=now_str, taus=taus)
-    # taus = [2.5, 3, 2, 1.5]
-    # for tau in taus:
-    #     nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(now_str=now_str, tau=tau)
 
     IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name)
     # IV_pickle_filepath = os.path.join(current_file_dir, "data_sde", "SK3_IV_curve_data__20250110-122541.pkl")
@@ -693,8 +690,6 @@ if __name__ == '__main__':
 
     pol_counts_filepath = sweep_polarizations(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, attval=attval, name=name, num_pols=num_pols, trigger_voltage=trigger_voltage, counting_time=0.5, N=3)
     # pol_counts_filepath = os.path.join(current_file_dir, "data_sde", "SK3_pol_data_snspd_splice1__20250110-125128.pkl")
-
-    # nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(now_str=now_str, tau=tau)
 
     # data_filepath = SDE_Counts_Measurement(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, pol_counts_filepath=pol_counts_filepath, attval=attval, name=name, trigger_voltage=trigger_voltage)
     # attenuator_calibration_filepath = attenuator_calibration(now_str=now_str, attval=attval)

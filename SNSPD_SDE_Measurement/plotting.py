@@ -183,7 +183,7 @@ def plot_temperature_dependence(data_filepath='', save_pdf=False):
     plt.close('all')
     return
 
-def plot_raw_nonlinearity_data(nonlinearity_data_filepath, filtered=True, save_pdf=False):
+def plot_raw_nonlinearity_data(nonlinearity_data_filepath, filtered=True, save_pdf=False, tau=None):
     """
     Plot nonlinearity data with log-scaled y-axis, different colors for each range,
     and different markers for 'v' and 'vt'.
@@ -192,7 +192,7 @@ def plot_raw_nonlinearity_data(nonlinearity_data_filepath, filtered=True, save_p
         nonlinearity_data_filepath (str): Path to the pickle file containing nonlinearity data.
     """
 
-    processed_data = extract_nonlinearity_data(nonlinearity_data_filepath, filtered=filtered)
+    processed_data = extract_nonlinearity_data(nonlinearity_data_filepath, filtered=filtered, tau=tau)
     # Define markers and a colormap
     markers = {'v': 'o', 'vt': '^'}  # Circles for 'v' and triangles for 'vt'
     colormap = cm.get_cmap('tab10')  # Use a qualitative colormap
@@ -236,9 +236,9 @@ def plot_raw_nonlinearity_data(nonlinearity_data_filepath, filtered=True, save_p
     plt.close()
 
 
-def plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculation_filepath, save_pdf=False):
+def plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculation_filepath, save_pdf=False, tau=None):
     # Load data
-    processed_data = extract_nonlinearity_data(nonlinearity_data_filepath)
+    processed_data = extract_nonlinearity_data(nonlinearity_data_filepath, tau=tau)
     data = pd.read_pickle(nonlinearity_calculation_filepath)
     fit_params = data.get("fit_params", {})
     rng_disc = data.get("rng_disc", {})
@@ -295,10 +295,10 @@ def plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculatio
 
 
 
-def plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_filepath, save_pdf=False):
+def plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_filepath, save_pdf=False, tau=None):
     plt.figure(figsize=(12, 6))
 
-    processed_data = extract_nonlinearity_data(nonlinearity_data_filepath)
+    processed_data = extract_nonlinearity_data(nonlinearity_data_filepath, tau=tau)
     ranges = processed_data.keys()
 
     data = pd.read_pickle(nonlinearity_calculation_filepath)
@@ -534,11 +534,12 @@ if __name__ == '__main__':
     # optical_switch_filepath = os.path.join(current_file_dir, 'data_sde', 'optical_switch_calibration_data_cpm_splice2__20250109-180754.pkl')
     # plot_switch(optical_switch_filepath, save_pdf=save_pdf)
 
+    tau = None
     # nonlinearity_data_filepath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data_tau2.5__20250110-210258.pkl')
-    # plot_raw_nonlinearity_data(nonlinearity_data_filepath, filtered=True, save_pdf=save_pdf)
+    # plot_raw_nonlinearity_data(nonlinearity_data_filepath, filtered=True, save_pdf=save_pdf, tau=tau)
     # nonlinearity_calculation_filepath = os.path.join(current_file_dir, 'data_sde', 'calculation_v1_nonlinear_calibration_data_tau2.5__20250110-210258.pkl')
-    # plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculation_filepath, save_pdf=save_pdf)
-    plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_filepath, save_pdf=save_pdf)
+    # plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculation_filepath, save_pdf=save_pdf, tau=tau)
+    # plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_filepath, save_pdf=save_pdf, tau=tau)
 
     # IV_pickle_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_IV_curve_data__20250114-175627.pkl')
     # plot_IV_curve(IV_pickle_filepath=IV_pickle_filepath, save_pdf=save_pdf)

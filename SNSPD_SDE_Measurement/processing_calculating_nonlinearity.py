@@ -121,7 +121,7 @@ if __name__ == '__main__':
         logger.info(f'Expected tau: {tau}')
 
         # Extract nonlinearity data and rng_settings
-        processed_nonlinearity_data = extract_nonlinearity_data(fpath)
+        processed_nonlinearity_data = extract_nonlinearity_data(fpath, tau=tau)
         rng_settings = list(processed_nonlinearity_data.keys())
 
         # Optimize polynomial orders
