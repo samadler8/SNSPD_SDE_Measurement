@@ -40,7 +40,6 @@ def initialize_parameters(poly_order_list, rng_settings, tau=2.5):
         lmfit.Parameters: Initialized parameters for the fitting process.
     """
     params = lmfit.Parameters()
-    logger.info(f" Initalizing paremeter tau for an assumed attenuation value of tau: {tau}")
     params.add('tau', value=math.log10(tau))  # Add the initial parameter tau
 
     for i, rng in enumerate(rng_settings):
@@ -113,14 +112,13 @@ def find_poly_fit(processed_nonlinearity_data, rng_settings, poly_order_list, ta
     return fit
 
 
-
-
 if __name__ == '__main__':
-    fnames = ['nonlinear_calibration_data_tau2.5__20250110-210258.pkl', 'nonlinear_calibration_data_tau3__20250110-210258.pkl', 'nonlinear_calibration_data_tau2__20250110-210258.pkl', 'nonlinear_calibration_data_tau1.5__20250110-210258.pkl']
-    taus = [2.5, 3, 2, 1.5]
+    fnames = ['nonlinear_calibration_data_tau3__20250110-210258.pkl', 'nonlinear_calibration_data_tau2__20250110-210258.pkl', 'nonlinear_calibration_data_tau1.5__20250110-210258.pkl']
+    taus = [3, 2, 1.5]
     for fname, tau in zip(fnames, taus):
         fpath = os.path.join(current_file_dir, 'data_sde', fname)
         logger.info(f'Processing file: {fpath}')
+        logger.info(f'Expected tau: {tau}')
 
         # Extract nonlinearity data and rng_settings
         processed_nonlinearity_data = extract_nonlinearity_data(fpath)
@@ -180,11 +178,11 @@ if __name__ == '__main__':
             pickle.dump(nonlinear_calibration_data, f)
         logger.info(f"Calibration calculation saved to {filepath}")
 
-        readable_output_dir = os.path.join(current_file_dir, 'readable_data_sde')
-        os.makedirs(readable_output_dir, exist_ok=True)
-        _, data_filename = os.path.split(os.path.splitext(filepath)[0])
-        json_filename = f'{data_filename}.json'
-        json_filepath = os.path.join(readable_output_dir, json_filename)
-        with open(json_filepath, 'w') as f:
-            json.dump(nonlinear_calibration_data, f, indent=4, default=lambda x: x.tolist() if hasattr(x, 'tolist') else str(x))
+        # readable_output_dir = os.path.join(current_file_dir, 'readable_data_sde')
+        # os.makedirs(readable_output_dir, exist_ok=True)
+        # _, data_filename = os.path.split(os.path.splitext(filepath)[0])
+        # json_filename = f'{data_filename}.json'
+        # json_filepath = os.path.join(readable_output_dir, json_filename)
+        # with open(json_filepath, 'w') as f:
+        #     json.dump(nonlinear_calibration_data, f, indent=4, default=lambda x: x.tolist() if hasattr(x, 'tolist') else str(x))
         
