@@ -86,8 +86,8 @@ def temperature_dependence_sweep(
 
     # Initialize critical variables
     ic = get_ic(IV_pickle_filepath)
-    Cur_Array = np.linspace(ic * 0.2, ic * 1.1, 10)
-    end_time = datetime.now() + timedelta(minutes=5)
+    Cur_Array = np.linspace(ic * 0.2, ic * 1.1, 3)
+    end_time = datetime.now() + timedelta(miniutes=5)
 
     # Prepare directories for saving data
     output_dir = os.path.join(current_file_dir, 'data_td')
@@ -102,109 +102,72 @@ def temperature_dependence_sweep(
     json_filepath = os.path.join(readable_output_dir, json_filename)
 
     # Initialize data structures
-    batch_data = {}
-    backup_filepath =f'{os.path.splitext(filepath)[0]}_tmp.pkl'
+    data_dict = {}
 
     iteration = 0
+    batch_size = 2
     now = datetime.now()
 
-    try:
-        while now < end_time:
-            # Enable light source and measure counts
-            if laser_type == 'thor':
-                laser.enable()
-            elif laser_type == 'ando':
-                sw.set_route(detector_port)
-                for att in att_list:
-                    att.enable()
-                    att.set_att(attval)
+    while now < end_time:
+        # Enable light source and measure counts
+        if laser_type == 'thor':
+            laser.enable()
+        elif laser_type == 'ando':
+            sw.set_route(detector_port)
+            for att in att_list:
+                att.enable()
+                att.set_att(attval)
 
-            logger.info("Getting light counts")
-            Count_Array = get_counts(
-                Cur_Array, instruments, 
-                trigger_voltage=trigger_voltage,
-                bias_resistor=bias_resistor, 
-                counting_time=counting_time, N=N
-            )
-            now = datetime.now()
+        logger.info("Getting light counts")
+        Count_Array = get_counts(
+            Cur_Array, instruments, 
+            trigger_voltage=trigger_voltage,
+            bias_resistor=bias_resistor, 
+            counting_time=counting_time, N=N
+        )
+        now = datetime.now()
 
-            # Disable light source and measure dark counts
-            if laser_type == 'thor':
-                laser.disable()
-            elif laser_type == 'ando':
-                sw.set_route(monitor_port)
-                for att in att_list:
-                    att.set_att(0)
-                    att.disable()
+        # Disable light source and measure dark counts
+        if laser_type == 'thor':
+            laser.disable()
+        elif laser_type == 'ando':
+            sw.set_route(monitor_port)
+            for att in att_list:
+                att.set_att(0)
+                att.disable()
 
-            logger.info("Getting dark counts")
-            Dark_Count_Array = get_counts(
-                Cur_Array, instruments, 
-                trigger_voltage=trigger_voltage,
-                bias_resistor=bias_resistor, 
-                counting_time=counting_time, N=N
-            )
+        logger.info("Getting dark counts")
+        Dark_Count_Array = get_counts(
+            Cur_Array, instruments, 
+            trigger_voltage=trigger_voltage,
+            bias_resistor=bias_resistor, 
+            counting_time=counting_time, N=N
+        )
+        
+        data_dict_temp = {
+            'Cur_Array': Cur_Array.tolist(),
+            'Count_Array': Count_Array.tolist(),
+            'Dark_Count_Array': Dark_Count_Array.tolist(),
+        }
+        data_dict[now.isoformat()] = data_dict_temp
 
-            # Save iteration data
+        iteration += 1
+        if iteration % batch_size == 0: # sometimes save and print latest data
+            logger.info(data_dict[-batch_size:])
+            with open(filepath, "wb") as file:
+                pickle.dump(data_dict, file)
             
-            batch_data[now.isoformat()] = {
-                'Cur_Array': Cur_Array.tolist(),
-                'Count_Array': Count_Array.tolist(),
-                'Dark_Count_Array': Dark_Count_Array.tolist(),
-            }
+    # Final save after loop ends
+    logger.info("Saving final data")
+    with open(filepath, "wb") as file:
+        pickle.dump(data_dict, file)
 
-            iteration += 1
-
-            # Save batch to file periodically
-            if iteration % batch_data.size == 0:
-                logger.info("Saving batch data")
-                with open(backup_filepath, "ab") as file:
-                    pickle.dump(batch_data, file)
-                batch_data.clear()  # Clear batch to free memory
-
-            # Update time
-            now = datetime.now()
-
-        # Final save for remaining batch data
-        if batch_data:
-            logger.info("Saving remaining batch data")
-            with open(backup_filepath, "ab") as file:
-                pickle.dump(batch_data, file)
-
-            # Update time
-            now = datetime.now()
-
-        os.rename(backup_filepath, filepath)
-
-        # Convert final data to JSON for readability
-        with open(filepath, "rb") as file:
-            full_data = {}
-            while True:
-                try:
-                    full_data.update(pickle.load(file))
-                except EOFError:
-                    break
-
-        with open(json_filepath, 'w') as f:
-            json.dump(full_data, f, indent=4, 
-                      default=lambda x: x.isoformat() if isinstance(x, datetime) else x)
-
-        logger.info(f"Temperature dependence data saved to: {filepath}")
-        logger.info("COMPLETED: Temperature Dependence Sweep")
-
-        return filepath
-
-    except Exception as e:
-        logger.error("Error during temperature dependence sweep", exc_info=True)
-
-        # Save remaining data in case of failure
-        if batch_data:
-            logger.info("Saving remaining batch data due to error")
-            with open(backup_filepath, "ab") as file:
-                pickle.dump(batch_data, file)
-
-        raise e
-
+    # Convert data to JSON for readability
+    logger.info("Saving final data to a readable format")
+    with open(json_filepath, 'w') as f:
+        json.dump(data_dict, f, indent=4, 
+                    default=lambda x: x.isoformat() if isinstance(x, datetime) else x)
+    return filepath
 
 
 # %% Main code
@@ -214,7 +177,7 @@ if __name__ == '__main__':
     bias_resistor=97e3
     counting_time = 1
     max_cur = 15e-6
-    name = 'saeed2um'
+    name = 'SK3'
     
     # IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name)
     IV_pickle_filepath = os.path.join(current_file_dir, "data_sde", "SK3_IV_curve_data__20250114-175627.pkl")
@@ -224,6 +187,3 @@ if __name__ == '__main__':
     
     temperatureDependence_filepath = temperature_dependence_sweep(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, trigger_voltage=trigger_voltage)
     
-    with open(temperatureDependence_filepath, 'rb') as file:
-        temperature_data = pickle.load(file)
-    print(temperature_data)
