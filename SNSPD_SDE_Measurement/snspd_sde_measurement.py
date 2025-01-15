@@ -557,8 +557,9 @@ def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pi
     _, data_filename = os.path.split(os.path.splitext(filepath)[0])
     json_filename = f'{data_filename}.json'
     json_filepath = os.path.join(readable_output_dir, json_filename)
+    data_dict_json = {str(k): v for k, v in data_dict.items()}
     with open(json_filepath, 'w') as f:
-        json.dump(data_dict, f, indent=4, default=lambda x: x.tolist() if hasattr(x, 'tolist') else str(x))
+        json.dump(data_dict_json, f, indent=4)
     
     logger.info(f"Polarization data saved to: {filepath}")
     logger.info("Completed: Algorithm S3.1. SDE Counts Measurement - Polarization Sweep")
