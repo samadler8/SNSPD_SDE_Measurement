@@ -87,7 +87,7 @@ def temperature_dependence_sweep(
     # Initialize critical variables
     ic = get_ic(IV_pickle_filepath)
     Cur_Array = np.linspace(ic * 0.2, ic * 1.1, 100)
-    end_time = datetime.now() + timedelta(hours=3)
+    end_time = datetime.now() + timedelta(minutes=10)
 
     # Prepare directories for saving data
     output_dir = os.path.join(current_file_dir, 'data_td')
@@ -155,7 +155,7 @@ def temperature_dependence_sweep(
             data_dict[now.isoformat()] = data_dict_temp
 
             i += 1
-            if i % 10 == 0:
+            if i % 2 == 0:
                 logger.info("Saving intermediate data")
                 with open(backup_filepath, "wb") as file:
                     pickle.dump(data_dict, file)
