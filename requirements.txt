@@ -6,3 +6,4 @@ scipy
 lmfit
 uncertainties
 openpyxl
+kaleido

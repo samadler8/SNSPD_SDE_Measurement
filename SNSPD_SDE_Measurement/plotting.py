@@ -61,11 +61,12 @@ def plot_IV_curve(IV_pickle_filepath='', save_pdf=False):
     return
 
 # Polarization Sweeps
-def plot_polarization_sweep(pol_counts_filepath='',):
+def plot_polarization_sweep(pol_counts_filepath='', save_pdf=False):
     with open(pol_counts_filepath, 'rb') as file:
         pol_counts = pickle.load(file)
-    coords = np.array([item[0] for item in pol_counts])  # Array of (x, y, z)
-    counts = np.array([item[1] for item in pol_counts])  # Array of photon counts
+
+    coords = np.array(list(pol_counts.keys()))  # Array of (x, y, z)
+    counts = np.array(list(pol_counts.values()))  # Array of photon counts
     X, Y, Z = coords[:, 0], coords[:, 1], coords[:, 2]
 
     # Create the 3D volumetric plot
@@ -95,7 +96,10 @@ def plot_polarization_sweep(pol_counts_filepath='',):
     _, data_filename = os.path.split(os.path.splitext(pol_counts_filepath)[0])
     figname = f'plot_{data_filename}'
     figpath = os.path.join(output_dir, figname)
-    fig.write_image(figpath)
+    # These final lines take forever
+    # fig.write_image(f'{figpath}.png')
+    # if save_pdf:
+    #     fig.write_image(f'{figpath}.pdf')
     return
 
 # Counts vs Current
@@ -520,29 +524,37 @@ def plot_processed_counts_unc(data_filepath='', sde_processed_filepath="", save_
 
 # %% Main Code Block
 if __name__ == '__main__':
+    save_pdf = True
     # optical_switch_filepath = os.path.join(current_file_dir, 'data_sde', 'optical_switch_calibration_data_cpm_splice2__20250109-180754.pkl')
-    # plot_switch(optical_switch_filepath, cpm_splice=2)
+    # plot_switch(optical_switch_filepath, save_pdf=save_pdf)
 
     # nonlinearity_data_filepath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data_tau2.5__20250110-210258.pkl')
-    # plot_raw_nonlinearity_data(nonlinearity_data_filepath, filtered=False)
+    # plot_raw_nonlinearity_data(nonlinearity_data_filepath, filtered=True, save_pdf=save_pdf)
     # nonlinearity_calculation_filepath = os.path.join(current_file_dir, 'data_sde', 'calculation_0_nonlinear_calibration_data_tau2__20250110-210258.pkl')
-    # plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculation_filepath)
-    # plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_filepath, )
+    # plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculation_filepath, save_pdf=save_pdf)
+    # plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_filepath, save_pdf=save_pdf)
 
-    IV_pickle_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_IV_curve_data__20250114-173319.pkl')
-    plot_IV_curve(IV_pickle_filepath=IV_pickle_filepath, save_pdf=False)
+    # IV_pickle_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_IV_curve_data__20250114-175627.pkl')
+    # plot_IV_curve(IV_pickle_filepath=IV_pickle_filepath, save_pdf=save_pdf)
+    
+    pol_counts_filepath = os.path.join(current_file_dir, "data_sde", "SK3_pol_data_snspd_splice1__20250114-092050.pkl")
+    plot_polarization_sweep(pol_counts_filepath=pol_counts_filepath, save_pdf=save_pdf)
 
-    # data_filepath = os.path.join(current_file_dir, "data_sde", "SK3_counts_data_snspd_splice1__20250110-155421.pkl")
-    # plot_raw_counts_unc(data_filepath=data_filepath)
+    # # data_filepath = os.path.join(current_file_dir, "data_sde", "SK3_counts_data_snspd_splice1__20250110-155421.pkl")
+    # data_dir = os.path.join(current_file_dir, 'data_sde')
+    # data_filenames = [f for f in os.listdir(data_dir) if f.startswith('SK3_counts_data_snspd_splice1_attval')]
+    # sde_processed_filenames = [f for f in os.listdir(data_dir) if f.startswith('final_results_nonlinear_correctionTrue_SK3_counts_data_snspd_splice1_attva')]
+    # for data_filename in data_filenames:
+    #     sde_processed_filename = next((sde_processed_filename for sde_processed_filename in sde_processed_filenames if sde_processed_filename[-40:] == data_filename[-40:]), None)
+        
+    #     data_filepath = os.path.join(data_dir, data_filename)
+    #     sde_processed_filepath = os.path.join(data_dir, sde_processed_filename)
 
-    # plot_polarization_sweep(pol_counts_filepath=pol_counts_filepath, save_pdf=False)
+    #     plot_raw_counts_unc(data_filepath=data_filepath, save_pdf=save_pdf)
 
-    # data_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_data_dict__20241212-142132.pkl')
-    # plot_min_max_avg_counts_vs_current(data_filepath=data_filepath, save_pdf=False)
-
-    # data_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_counts_data_snspd_splice1_attval29__20250111-180558.pkl')
-    # sde_processed_filepath = os.path.join(current_file_dir, 'data_sde', 'final_results_nonlinear_correctionFalse__20250114-095804.pkl')
-    # plot_processed_counts_unc(data_filepath=data_filepath, sde_processed_filepath=sde_processed_filepath, save_pdf=False)
+    #     # data_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_counts_data_snspd_splice1_attval29__20250111-180558.pkl')
+    #     # sde_processed_filepath = os.path.join(current_file_dir, 'data_sde', 'final_results_nonlinear_correctionFalse__20250114-095804.pkl')
+    #     plot_processed_counts_unc(data_filepath=data_filepath, sde_processed_filepath=sde_processed_filepath, save_pdf=save_pdf)
 
 
 

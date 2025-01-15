@@ -3,9 +3,12 @@
 *.mat
 *.pickle
 *.zip
-*.png
 *.pyc
-*.log
+# *.png
+# *.pdf
+# *.log
+# *.json
+# *.csv
 
 
 
