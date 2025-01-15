@@ -70,7 +70,7 @@ if laser_type == 'ando':
     instruments['monitor_port'] = monitor_port
     instruments['detector_port'] = detector_port
     
-    attval = 30
+    attval = 29
 instruments['laser'] = laser
 
 
