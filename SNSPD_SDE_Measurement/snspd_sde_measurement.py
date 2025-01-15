@@ -90,9 +90,9 @@ init_rng = 0 #dBm
 
 counting_time = 0.5 #s
 num_pols = 13
-N_init = 5
+N_init = 3
 
-name = 'SK3'
+name = 'Saeed2um'
 max_cur = 15e-6 # A
 
 cpm_splice = 2
@@ -135,18 +135,22 @@ def snspd_sde_setup():
 
 def find_mpm_rng(rng):
     while True:
+        logger.info(f"rng: {rng}")
         mpm.set_range(rng)
         time.sleep(0.3)
         mpm.get_power()
         powers = [mpm.get_power() for _ in range(N_init)]  # Collect power readings
+        logger.info(f"powers: {powers}")
         check_range = [mpm.check_correct_rng(power=power, rng=rng) for power in powers]
+        logger.info(f"check_range: {check_range}")
         sum_check_range = sum(check_range)
+        logger.info(f"sum_check_range: {sum_check_range}")
         if sum_check_range == 0:
             return rng
         elif sum_check_range > 0:
-            rng -= 10
-        elif sum_check_range < 0:
             rng += 10
+        elif sum_check_range < 0:
+            rng -= 10
 
 def meas_counts(position, N=3, counting_time=1):
     pc.set_waveplate_positions(position)
@@ -260,17 +264,18 @@ def optical_switch_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now())
     return filepath
 
 # Algorithm S1. Nonlinearity factor raw power measurements
-def nonlinearity_factor_raw_power_measurements(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), tau=3):
+def nonlinearity_factor_raw_power_measurements(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), taus=[3]):
     logger.info("Starting: Algorithm S1. Nonlinearity factor raw power measurements")
     sw.set_route(monitor_port)
-    for att in att_list:
-        att.set_att(0)
-        att.enable()
+    reset_attenuators()
 
     rng_settings = [0, -10, -20, -30, -40, -50, -60]
-    att2_settings = [0, tau]
+    att2_settings = [0] + [taus]
+    tau_min = min(att2_settings)
     N = 25
 
+    # Algorithm to find appropriate attenuation settings for each monitor power meter range setting
+    tolerance = 0.1
     att_min_max_settings = {}
     for rng in rng_settings:
         mpm.set_range(rng)
@@ -279,10 +284,31 @@ def nonlinearity_factor_raw_power_measurements(now_str="{:%Y%m%d-%H%M%S}".format
         reset_attenuators()
         middle_a = -rng - 2.5
 
-        high_min_a = middle_a + 20
-        low_min_a = middle_a - 20
-        while abs(high_min_a - low_min_a) > 0.1:
-            middle_min_a = (high_min_a + low_min_a) / 2
+        high_max_a = min((middle_a + 20), 60)
+        low_max_a = max((middle_a - 20), 0)
+        while abs(high_max_a - low_max_a) > tolerance:
+            middle_max_a = round(((high_max_a + low_max_a) / 2), 3)
+            logger.info(f"middle_min_a: {middle_max_a}")
+            att1.set_att(middle_max_a)
+            time.sleep(0.3)
+            mpm.get_power()
+            powers = [mpm.get_power() for _ in range(N_init)]  # Collect power readings
+            logger.info(f"powers: {powers}")
+            check_range = [mpm.check_correct_rng(power=power, rng=rng) for power in powers]
+            logger.info(f"check_range: {check_range}")
+            sum_check_range = sum(check_range)
+            logger.info(f"sum_check_range: {sum_check_range}")
+            if sum_check_range < 0:
+                high_max_a = middle_max_a
+            else:
+                low_max_a = middle_max_a
+        a_max = round(middle_max_a + 0.1, 1)
+
+        att2.set_att(tau_min)
+        high_min_a = min((middle_a + 20), 60)
+        low_min_a = max((middle_a - 20), 0)
+        while abs(high_min_a - low_min_a) > tolerance:
+            middle_min_a = round(((high_min_a + low_min_a) / 2), 3)
             att1.set_att(middle_min_a)
             time.sleep(0.3)
             mpm.get_power()
@@ -295,30 +321,16 @@ def nonlinearity_factor_raw_power_measurements(now_str="{:%Y%m%d-%H%M%S}".format
                 high_min_a = middle_min_a
         a_min = round(middle_min_a - 0.1, 1)
 
-        att2.set_att(tau)
-        high_max_a = middle_a + 20
-        low_max_a = middle_a - 20
-        while abs(high_max_a - low_max_a) > 0.1:
-            middle_max_a = (high_max_a + low_max_a) / 2
-            att1.set_att(middle_max_a)
-            time.sleep(0.3)
-            mpm.get_power()
-            powers = [mpm.get_power() for _ in range(N_init)]  # Collect power readings
-            check_range = [mpm.check_correct_rng(power=power, rng=rng) for power in powers]
-            sum_check_range = sum(check_range)
-            if sum_check_range < 0:
-                low_max_a = middle_max_a
-            else:
-                high_max_a = middle_max_a
-        a_max = round(middle_max_a - 0.1, 1)
-
         att_min_max_settings[rng] = {
             'min': a_min, 
             'max': a_max, 
             }
+        logger.info(f"att_min_max_settings: {att_min_max_settings}")
+
+    logger.info(f"rng_settings: {rng_settings}")
+    logger.info(f"att_min_max_settings: {att_min_max_settings}")
 
     att_settings = {}
-    total_data = 0
     for i in range(len(rng_settings)):
         current_range = rng_settings[i]
         prev_range = rng_settings[i - 1] if i > 0 else None
@@ -337,22 +349,26 @@ def nonlinearity_factor_raw_power_measurements(now_str="{:%Y%m%d-%H%M%S}".format
         else:  # Middle elements
             att_settings[current_range] = np.concatenate([
                 np.arange(att_min_max_settings[current_range]['min'], att_min_max_settings[prev_range]['max'], 0.1),
-                np.arange(att_min_max_settings[prev_range]['max'], att_min_max_settings[current_range]['min'], 1),
+                np.arange(att_min_max_settings[prev_range]['max'], att_min_max_settings[next_range]['min'], 1),
                 np.arange(att_min_max_settings[next_range]['min'], att_min_max_settings[current_range]['max'], 0.1),
             ])
 
-        total_data += len(att_settings[rng])
+    total_data = 0
+    for value in att_settings.values():
+        total_data += len(value)
 
     att_settings = {
         rng: [round(val, 1) for val in values]
         for rng, values in att_settings.items()
     }
+    logger.info(f"att_settings: {att_settings}")
 
     total_data *= len(att2_settings)
 
-    data = []
+    
 
-    # Iterate through the ranges and settings
+    # Now we actually start taking data
+    data = []
     i = 0
     for rng in rng_settings:
         mpm.set_range(rng)
@@ -389,13 +405,13 @@ def nonlinearity_factor_raw_power_measurements(now_str="{:%Y%m%d-%H%M%S}".format
     filepath = os.path.join(output_dir, filename)
     df.to_pickle(filepath)
     
+    # # This is untested
     readable_output_dir = os.path.join(current_file_dir, 'readable_data_sde')
     os.makedirs(readable_output_dir, exist_ok=True)
     _, data_filename = os.path.split(os.path.splitext(filepath)[0])
     csv_filename = f'{data_filename}.csv'
     csv_filepath = os.path.join(readable_output_dir, csv_filename)
     df.to_csv(csv_filepath, index=False)
-
 
     logger.info(f"nonlinearity_factor saved to: {filepath}")
     logger.info("Completed: Algorithm S1. Nonlinearity factor raw power measurements")
@@ -408,7 +424,15 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), at
 
     # Parameters
     N = 50
-    att_rng = find_mpm_rng(-attval)
+    sw.set_route(monitor_port)
+    reset_attenuators()
+    att1.set_att(attval)
+    att_rng = find_mpm_rng(round(-attval, -1))
+    logger.info(f"att_rng: {att_rng}")
+    reset_attenuators()
+    init_rng = find_mpm_rng(round(0, -1))
+    logger.info(f"init_rng: {init_rng}")
+
 
     # Initialize an empty DataFrame to store results
     columns = ['Attenuator', 'Attenuation (dB)', 'Range', 'Power Measurement']
@@ -443,13 +467,15 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), at
         mpm.get_power()
         
         # Collect the row to add later
-        rows.append({
+        data_temp = {
             'Attenuator': i,
             'Attenuation (dB)': attval,
             'Range': att_rng,
             'Power Measurement': temp_powers
-        })
+        }
+        rows.append(data_temp)
 
+        logger.info(data_temp)
         logger.info(f"{round(100 * i / len(att_list), 2)}% completed")
 
     # Turn off attenuators
@@ -458,12 +484,14 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), at
         att.disable()
 
     # Add initial power measurements row
-    rows.append({
+    data_0 = {
         'Attenuator': None,
         'Attenuation (dB)': 0,
         'Range': init_rng,
         'Power Measurement': init_powers
-    })
+    }
+    rows.append(data_0)
+    logger.info(data_0)
 
     # Add all rows to the DataFrame at once
     df = pd.concat([df, pd.DataFrame(rows)], ignore_index=True)
@@ -652,7 +680,10 @@ if __name__ == '__main__':
         
     # optical_switch_calibration_filepath = optical_switch_calibration(now_str=now_str, )
     
-    # nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(now_str=now_str, tau=tau)
+    nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(now_str=now_str, taus=taus)
+    # taus = [2.5, 3, 2, 1.5]
+    # for tau in taus:
+    #     nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(now_str=now_str, tau=tau)
 
     IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name)
     # IV_pickle_filepath = os.path.join(current_file_dir, "data_sde", "SK3_IV_curve_data__20250110-122541.pkl")
@@ -665,11 +696,12 @@ if __name__ == '__main__':
 
     # nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(now_str=now_str, tau=tau)
 
+    # data_filepath = SDE_Counts_Measurement(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, pol_counts_filepath=pol_counts_filepath, attval=attval, name=name, trigger_voltage=trigger_voltage)
+    # attenuator_calibration_filepath = attenuator_calibration(now_str=now_str, attval=attval)
     attvals = [29, 30, 28, 31, 27, 32, 26, 25]
     for attval in attvals:
         data_filepath = SDE_Counts_Measurement(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, pol_counts_filepath=pol_counts_filepath, attval=attval, name=name, trigger_voltage=trigger_voltage)
         attenuator_calibration_filepath = attenuator_calibration(now_str=now_str, attval=attval)
+        
 
-    # taus = [2, 3, 1.5]
-    # for tau in taus:
-    #     nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(now_str=now_str, tau=tau)
+    
