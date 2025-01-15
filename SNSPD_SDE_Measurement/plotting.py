@@ -516,8 +516,8 @@ def plot_processed_counts_unc(data_filepath='', sde_processed_filepath="", save_
 
     output_dir = os.path.join(current_file_dir, 'figs_sde')
     os.makedirs(output_dir, exist_ok=True)
-    _, data_filename = os.path.split(os.path.splitext(data_filepath)[0])
-    figname = f'efficiency_plot_{data_filename}'
+    _, sde_processed_filename = os.path.split(os.path.splitext(sde_processed_filepath)[0])
+    figname = f'efficiency_plot_{sde_processed_filename}'
     figpath = os.path.join(output_dir, figname)
 
     plt.savefig(f'{figpath}.png')
@@ -530,15 +530,15 @@ def plot_processed_counts_unc(data_filepath='', sde_processed_filepath="", save_
 
 # %% Main Code Block
 if __name__ == '__main__':
-    save_pdf = True
+    save_pdf = False
     # optical_switch_filepath = os.path.join(current_file_dir, 'data_sde', 'optical_switch_calibration_data_cpm_splice2__20250109-180754.pkl')
     # plot_switch(optical_switch_filepath, save_pdf=save_pdf)
 
-    nonlinearity_data_filepath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data_tau2.5__20250110-210258.pkl')
+    # nonlinearity_data_filepath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data_tau2.5__20250110-210258.pkl')
     # plot_raw_nonlinearity_data(nonlinearity_data_filepath, filtered=True, save_pdf=save_pdf)
-    nonlinearity_calculation_filepath = os.path.join(current_file_dir, 'data_sde', 'calculation_v1_nonlinear_calibration_data_tau2.5__20250110-210258.pkl')
-    plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculation_filepath, save_pdf=save_pdf)
-    plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_filepath, save_pdf=save_pdf)
+    # nonlinearity_calculation_filepath = os.path.join(current_file_dir, 'data_sde', 'calculation_v1_nonlinear_calibration_data_tau2.5__20250110-210258.pkl')
+    # plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculation_filepath, save_pdf=save_pdf)
+    # plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_filepath, save_pdf=save_pdf)
 
     # IV_pickle_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_IV_curve_data__20250114-175627.pkl')
     # plot_IV_curve(IV_pickle_filepath=IV_pickle_filepath, save_pdf=save_pdf)
@@ -546,21 +546,23 @@ if __name__ == '__main__':
     # pol_counts_filepath = os.path.join(current_file_dir, "data_sde", "SK3_pol_data_snspd_splice1__20250114-092050.pkl")
     # plot_polarization_sweep(pol_counts_filepath=pol_counts_filepath, save_pdf=save_pdf)
 
-    # # data_filepath = os.path.join(current_file_dir, "data_sde", "SK3_counts_data_snspd_splice1__20250110-155421.pkl")
-    # data_dir = os.path.join(current_file_dir, 'data_sde')
-    # data_filenames = [f for f in os.listdir(data_dir) if f.startswith('SK3_counts_data_snspd_splice1_attval')]
-    # sde_processed_filenames = [f for f in os.listdir(data_dir) if f.startswith('final_results_nonlinear_correctionTrue_SK3_counts_data_snspd_splice1_attva')]
-    # for data_filename in data_filenames:
-    #     sde_processed_filename = next((sde_processed_filename for sde_processed_filename in sde_processed_filenames if sde_processed_filename[-40:] == data_filename[-40:]), None)
-        
-    #     data_filepath = os.path.join(data_dir, data_filename)
-    #     sde_processed_filepath = os.path.join(data_dir, sde_processed_filename)
+    # data_filepath = os.path.join(current_file_dir, "data_sde", "SK3_counts_data_snspd_splice1__20250110-155421.pkl")
+    # sde_processed_filepath = os.path.join(current_file_dir, 'data_sde', 'final_results_nonlinear_correctionFalse__20250114-095804.pkl')
+    data_dir = os.path.join(current_file_dir, 'data_sde')
+    data_filenames = [f for f in os.listdir(data_dir) if f.startswith('SK3_counts_data_snspd_splice1_attval')]
+    sde_processed_filenames = [f for f in os.listdir(data_dir) if f.startswith('final_results')]
+    for data_filename in data_filenames:
+        data_filepath = os.path.join(data_dir, data_filename)
+        plot_raw_counts_unc(data_filepath=data_filepath, save_pdf=save_pdf)
 
-    #     plot_raw_counts_unc(data_filepath=data_filepath, save_pdf=save_pdf)
-
-    #     # data_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_counts_data_snspd_splice1_attval29__20250111-180558.pkl')
-    #     # sde_processed_filepath = os.path.join(current_file_dir, 'data_sde', 'final_results_nonlinear_correctionFalse__20250114-095804.pkl')
-    #     plot_processed_counts_unc(data_filepath=data_filepath, sde_processed_filepath=sde_processed_filepath, save_pdf=save_pdf)
+        sde_processed_filename_arr = [
+            sde_processed_filename
+            for sde_processed_filename in sde_processed_filenames
+            if len(sde_processed_filename) >= 40 and len(data_filename) >= 40 and sde_processed_filename[-40:] == data_filename[-40:]
+        ]
+        for sde_processed_filename in sde_processed_filename_arr:
+            sde_processed_filepath = os.path.join(data_dir, sde_processed_filename)
+            plot_processed_counts_unc(data_filepath=data_filepath, sde_processed_filepath=sde_processed_filepath, save_pdf=save_pdf)
 
 
 
