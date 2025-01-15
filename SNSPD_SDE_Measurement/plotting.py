@@ -36,7 +36,7 @@ def plot_IV_curve(IV_pickle_filepath='', save_pdf=False):
 
     # Plot the IV curve
     plt.figure(figsize=(8, 6))
-    plt.plot(IV_data_dict.keys(), IV_data_dict.values(), label="IV Curve", color="blue", linewidth=2)
+    plt.plot(IV_data_dict['Cur_Array'], IV_data_dict['Volt_Meas_Array'], label="IV Curve", color="blue", linewidth=2)
 
     # Add labels and title
     plt.xlabel("Current (A)", fontsize=14)
@@ -529,8 +529,8 @@ if __name__ == '__main__':
     # plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculation_filepath)
     # plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_filepath, )
 
-    # IV_pickle_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_IV_curve_data__20250110-122541.pkl')
-    # plot_IV_curve(IV_pickle_filepath=IV_pickle_filepath, save_pdf=False)
+    IV_pickle_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_IV_curve_data__20250114-173319.pkl')
+    plot_IV_curve(IV_pickle_filepath=IV_pickle_filepath, save_pdf=False)
 
     # data_filepath = os.path.join(current_file_dir, "data_sde", "SK3_counts_data_snspd_splice1__20250110-155421.pkl")
     # plot_raw_counts_unc(data_filepath=data_filepath)
@@ -540,9 +540,9 @@ if __name__ == '__main__':
     # data_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_data_dict__20241212-142132.pkl')
     # plot_min_max_avg_counts_vs_current(data_filepath=data_filepath, save_pdf=False)
 
-    data_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_counts_data_snspd_splice1_attval29__20250111-180558.pkl')
-    sde_processed_filepath = os.path.join(current_file_dir, 'data_sde', 'final_results_nonlinear_correctionFalse__20250114-095804.pkl')
-    plot_processed_counts_unc(data_filepath=data_filepath, sde_processed_filepath=sde_processed_filepath, save_pdf=False)
+    # data_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_counts_data_snspd_splice1_attval29__20250111-180558.pkl')
+    # sde_processed_filepath = os.path.join(current_file_dir, 'data_sde', 'final_results_nonlinear_correctionFalse__20250114-095804.pkl')
+    # plot_processed_counts_unc(data_filepath=data_filepath, sde_processed_filepath=sde_processed_filepath, save_pdf=False)
 
 
 

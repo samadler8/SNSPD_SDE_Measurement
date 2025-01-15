@@ -22,10 +22,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
          
-def get_ic(filepath, ic_threshold=1e-4):
+def get_ic(filepath, threshold=1e-4):
     with open(filepath, 'rb') as file:
         data_dict = pickle.load(file)
-    ic = next((key for key, value in data_dict.items() if value > ic_threshold), None)
+    index = np.argmax(data_dict['Volt_Meas_Array'] > threshold)
+    if data_dict['Volt_Meas_Array'][index] > threshold:
+        ic = data_dict['Cur_Array'][index]
+    logger.info(f" Critical current found: {ic}")
     return ic
 
 def get_uncertainty(rawdata):

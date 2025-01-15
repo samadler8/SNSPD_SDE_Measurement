@@ -41,20 +41,26 @@ def SNSPD_IV_Curve(instruments, now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()
     Cur_Array = np.linspace(0, max_cur, num_biases)
     Cur_Array = np.concatenate([Cur_Array, Cur_Array[::-1][1:], -Cur_Array[1:], -Cur_Array[::-1][1:]])
     Volt_Array = np.round(Cur_Array * bias_resistor, decimals=3)
+    Volt_Meas_Array = np.empty(Cur_Array.shape, dtype=float)
 
     total_num_biases = Cur_Array.size
 
-    data_dict = {}
     # Measure voltage for each set bias
     for i in range(total_num_biases):
-        srs.set_voltage(Volt_Array[i])
+        set_volt = Volt_Array[i]
+        srs.set_voltage(set_volt)
         time.sleep(0.1)  # Wait for stabilization
         Volt_Meas = multi.read_voltage()
-        logger.info(f"Applied Voltage: {Volt_Array[i]}, Measured Voltage: {Volt_Meas}")
-        data_dict[Cur_Array[i]] = Volt_Meas
+        logger.info(f"Applied Current: {Cur_Array[i]}, Voltage: {set_volt}; Measured Voltage: {Volt_Meas}")
+        Volt_Meas_Array[i] = Volt_Meas
         logger.info(f"{round(100*i/total_num_biases, 2)}%")
     srs.set_voltage(0)
     srs.set_output(output=False)    
+
+    data_dict = {
+        'Cur_Array': Cur_Array,
+        'Volt_Meas_Array': Volt_Meas_Array, 
+    }
 
     output_dir = os.path.join(current_file_dir, 'data_sde')
     os.makedirs(output_dir, exist_ok=True)

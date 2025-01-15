@@ -181,7 +181,9 @@ if __name__ == '__main__':
 
         readable_output_dir = os.path.join(current_file_dir, 'readable_data_sde')
         os.makedirs(readable_output_dir, exist_ok=True)
-        json_filepath = os.path.join(readable_output_dir, )
+        _, data_filename = os.path.split(os.path.splitext(filepath)[0])
+        json_filename = f'{data_filename}.json'
+        json_filepath = os.path.join(readable_output_dir, json_filename)
         with open(json_filepath, 'w') as f:
             json.dump(nonlinear_calibration_data, f, indent=4, default=lambda x: x.tolist() if hasattr(x, 'tolist') else str(x))
         

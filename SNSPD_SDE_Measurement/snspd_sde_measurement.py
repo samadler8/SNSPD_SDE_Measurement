@@ -248,7 +248,9 @@ def optical_switch_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now())
     
     readable_output_dir = os.path.join(current_file_dir, 'readable_data_sde')
     os.makedirs(readable_output_dir, exist_ok=True)
-    json_filepath = f'{os.path.splitext(filepath)[0]}.json'
+    _, data_filename = os.path.split(os.path.splitext(filepath)[0])
+    json_filename = f'{data_filename}.json'
+    json_filepath = os.path.join(readable_output_dir, json_filename)
     with open(json_filepath, 'w') as f:
         json.dump(data_dict, f, indent=4, default=lambda x: x.tolist() if hasattr(x, 'tolist') else str(x))
 
@@ -389,7 +391,9 @@ def nonlinearity_factor_raw_power_measurements(now_str="{:%Y%m%d-%H%M%S}".format
     
     readable_output_dir = os.path.join(current_file_dir, 'readable_data_sde')
     os.makedirs(readable_output_dir, exist_ok=True)
-    csv_filepath = f'{os.path.splitext(filepath)[0]}.csv'
+    _, data_filename = os.path.split(os.path.splitext(filepath)[0])
+    csv_filename = f'{data_filename}.csv'
+    csv_filepath = os.path.join(readable_output_dir, csv_filename)
     df.to_csv(csv_filepath, index=False)
 
 
@@ -473,7 +477,9 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), at
     
     readable_output_dir = os.path.join(current_file_dir, 'readable_data_sde')
     os.makedirs(readable_output_dir, exist_ok=True)
-    csv_filepath = f'{os.path.splitext(filepath)[0]}.csv'
+    _, data_filename = os.path.split(os.path.splitext(filepath)[0])
+    csv_filename = f'{data_filename}.csv'
+    csv_filepath = os.path.join(readable_output_dir, csv_filename)
     df.to_csv(csv_filepath, index=False)
 
     logger.info(f"attenuator_calibration saved to: {filepath}")
@@ -548,7 +554,9 @@ def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pi
 
     readable_output_dir = os.path.join(current_file_dir, 'readable_data_sde')
     os.makedirs(readable_output_dir, exist_ok=True)
-    json_filepath = f'{os.path.splitext(filepath)[0]}.json'
+    _, data_filename = os.path.split(os.path.splitext(filepath)[0])
+    json_filename = f'{data_filename}.json'
+    json_filepath = os.path.join(readable_output_dir, json_filename)
     with open(json_filepath, 'w') as f:
         json.dump(data_dict, f, indent=4, default=lambda x: x.tolist() if hasattr(x, 'tolist') else str(x))
     
@@ -622,7 +630,9 @@ def SDE_Counts_Measurement(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), 
 
     readable_output_dir = os.path.join(current_file_dir, 'readable_data_sde')
     os.makedirs(readable_output_dir, exist_ok=True)
-    json_filepath = f'{os.path.splitext(filepath)[0]}.json'
+    _, data_filename = os.path.split(os.path.splitext(filepath)[0])
+    json_filename = f'{data_filename}.json'
+    json_filepath = os.path.join(readable_output_dir, json_filename)
     with open(json_filepath, 'w') as f:
         json.dump(data_dict, f, indent=4, default=lambda x: x.tolist() if hasattr(x, 'tolist') else str(x))
     
