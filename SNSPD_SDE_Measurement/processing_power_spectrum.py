@@ -13,7 +13,7 @@ logging.basicConfig(
     level=logging.INFO,  # Set to INFO or WARNING for less verbosity
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler("measure_power_spectrum.log", mode="a"),
+        logging.FileHandler("processing_power_spectrum.log", mode="a"),
         logging.StreamHandler()  # Logs to console
     ]
 )
