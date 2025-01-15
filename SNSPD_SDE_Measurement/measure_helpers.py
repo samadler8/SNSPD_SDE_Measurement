@@ -10,14 +10,6 @@ from pathlib import Path
 from datetime import datetime
 
 current_file_dir = Path(__file__).parent
-logging.basicConfig(
-    level=logging.INFO,  # Set to INFO or WARNING for less verbosity
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler("measure_helpers.log", mode="a"),
-        logging.StreamHandler()  # Logs to console
-    ]
-)
 logger = logging.getLogger(__name__)
 
 # SNSPD IV Curve
