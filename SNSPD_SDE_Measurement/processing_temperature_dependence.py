@@ -66,7 +66,7 @@ if __name__ == "__main__":
     temperature_filepath = os.path.join(current_file_dir, 'data_td', 'CTCLog 011425_18-13.txt')
     time_counts_data_filepath = os.path.join(current_file_dir, 'data_td', 'temperature_dependence_wavelength1566nm__20250114-181334.pkl')
 
-    with open(time_counts_data_filepath, "wb") as file:
+    with open(time_counts_data_filepath, "rb") as file:
         time_counts_data_dict = pickle.load(file)
 
     temperatures = get_temperature_at_time(time_counts_data_dict.keys(), temperature_filepath)
