@@ -63,8 +63,8 @@ def get_temperature_at_time(timestamps, temperature_filepath):
 
 
 if __name__ == "__main__":
-    temperature_filepath = os.path.join(current_file_dir, 'data_temperatureDependence', 'CTCLog 102424_15-09.txt')
-    time_counts_data_filepath = os.path.join(current_file_dir, 'data_temperatureDependence', ',pkl')
+    temperature_filepath = os.path.join(current_file_dir, 'data_td', 'CTCLog 011425_18-13.txt')
+    time_counts_data_filepath = os.path.join(current_file_dir, 'data_td', 'temperature_dependence_wavelength1566nm__20250114-181334.pkl')
 
     with open(time_counts_data_filepath, "wb") as file:
         time_counts_data_dict = pickle.load(file)
@@ -81,7 +81,7 @@ if __name__ == "__main__":
             plateau_width = plateau_cur[-1] - plateau_cur[0]
             data_dict[temperature] = plateau_width
     
-    output_dir = os.path.join(current_file_dir, 'data_temperatureDependence')
+    output_dir = os.path.join(current_file_dir, 'data_td')
     os.makedirs(output_dir, exist_ok=True)
     _, data_filename = os.path.split(os.path.splitext(time_counts_data_filepath)[0])
     filename = f'processed_{data_filename}.pkl'
@@ -89,7 +89,7 @@ if __name__ == "__main__":
     with open(filepath, 'wb') as f:
         pickle.dump(data, f)
     
-    readable_output_dir = os.path.join(current_file_dir, 'readable_data_temperatureDependence')
+    readable_output_dir = os.path.join(current_file_dir, 'readable_data_td')
     os.makedirs(readable_output_dir, exist_ok=True)
     _, data_filename = os.path.split(os.path.splitext(filepath)[0])
     json_filename = f'{data_filename}.json'

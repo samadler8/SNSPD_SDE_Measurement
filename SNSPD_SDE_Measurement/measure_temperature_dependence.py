@@ -112,9 +112,9 @@ def temperature_dependence_sweep(
     end_time = datetime.now() + timedelta(hours=3) 
 
     data_dict = {}
-    output_dir = os.path.join(current_file_dir, 'data_temperatureDependence')
-    os.makedirs('data_temperatureDependence', exist_ok=True)
-    filename = f'temperature_dependence_wavelength{round(wavelength)}nm__{now_str}'
+    output_dir = os.path.join(current_file_dir, 'data_ts')
+    os.makedirs(output_dir, exist_ok=True)
+    filename = f'temperature_dependence_wavelength{round(wavelength)}nm__{now_str}.pkl'
     filepath = os.path.join(output_dir, filename)
     
     i = 0
@@ -160,7 +160,7 @@ def temperature_dependence_sweep(
     with open(filepath, "wb") as file:
         pickle.dump(data_dict, file)
 
-    readable_output_dir = os.path.join(current_file_dir, 'readable_data_temperatureDependence')
+    readable_output_dir = os.path.join(current_file_dir, 'readable_data_td')
     os.makedirs(readable_output_dir, exist_ok=True)
     _, data_filename = os.path.split(os.path.splitext(filepath)[0])
     json_filename = f'{data_filename}.json'
