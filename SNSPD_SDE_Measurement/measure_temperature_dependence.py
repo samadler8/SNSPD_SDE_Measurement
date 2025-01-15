@@ -86,8 +86,8 @@ def temperature_dependence_sweep(
 
     # Initialize critical variables
     ic = get_ic(IV_pickle_filepath)
-    Cur_Array = np.linspace(ic * 0.2, ic * 1.1, 100)
-    end_time = datetime.now() + timedelta(hours=5)
+    Cur_Array = np.linspace(ic * 0.2, ic * 1.1, 10)
+    end_time = datetime.now() + timedelta(minutes=5)
 
     # Prepare directories for saving data
     output_dir = os.path.join(current_file_dir, 'data_td')
@@ -102,10 +102,10 @@ def temperature_dependence_sweep(
     json_filepath = os.path.join(readable_output_dir, json_filename)
 
     # Initialize data structures
-    data_dict = {}
+    batch_data = {}
     backup_filepath =f'{os.path.splitext(filepath)[0]}_tmp.pkl'
 
-    i = 0
+    iteration = 0
     now = datetime.now()
 
     try:
@@ -147,35 +147,47 @@ def temperature_dependence_sweep(
 
             # Save iteration data
             
-            data_dict_temp = {
+            batch_data[now.isoformat()] = {
                 'Cur_Array': Cur_Array.tolist(),
                 'Count_Array': Count_Array.tolist(),
                 'Dark_Count_Array': Dark_Count_Array.tolist(),
             }
-            data_dict[now.isoformat()] = data_dict_temp
 
-            i += 10
-            if i % 2 == 0:
-                logger.info("Saving intermediate data")
-                with open(backup_filepath, "wb") as file:
-                    pickle.dump(data_dict, file)
+            iteration += 1
+
+            # Save batch to file periodically
+            if iteration % batch_data.size == 0:
+                logger.info("Saving batch data")
+                with open(backup_filepath, "ab") as file:
+                    pickle.dump(batch_data, file)
+                batch_data.clear()  # Clear batch to free memory
 
             # Update time
             now = datetime.now()
 
-        # Final save after loop ends
-        logger.info("Saving final data")
-        with open(filepath, "wb") as file:
-            pickle.dump(data_dict, file)
+        # Final save for remaining batch data
+        if batch_data:
+            logger.info("Saving remaining batch data")
+            with open(backup_filepath, "ab") as file:
+                pickle.dump(batch_data, file)
 
-        # Convert data to JSON for readability
+            # Update time
+            now = datetime.now()
+
+        os.rename(backup_filepath, filepath)
+
+        # Convert final data to JSON for readability
+        with open(filepath, "rb") as file:
+            full_data = {}
+            while True:
+                try:
+                    full_data.update(pickle.load(file))
+                except EOFError:
+                    break
+
         with open(json_filepath, 'w') as f:
-            json.dump(data_dict, f, indent=4, 
+            json.dump(full_data, f, indent=4, 
                       default=lambda x: x.isoformat() if isinstance(x, datetime) else x)
-
-        # Clean up backup file
-        if os.path.exists(backup_filepath):
-            os.remove(backup_filepath)
 
         logger.info(f"Temperature dependence data saved to: {filepath}")
         logger.info("COMPLETED: Temperature Dependence Sweep")
@@ -185,11 +197,11 @@ def temperature_dependence_sweep(
     except Exception as e:
         logger.error("Error during temperature dependence sweep", exc_info=True)
 
-        # Save whatever data is available in case of failure
-        if data_dict:
-            logger.info("Saving partial data due to error")
-            with open(backup_filepath, "wb") as file:
-                pickle.dump(data_dict, file)
+        # Save remaining data in case of failure
+        if batch_data:
+            logger.info("Saving remaining batch data due to error")
+            with open(backup_filepath, "ab") as file:
+                pickle.dump(batch_data, file)
 
         raise e
 
@@ -212,3 +224,6 @@ if __name__ == '__main__':
     
     temperatureDependence_filepath = temperature_dependence_sweep(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, trigger_voltage=trigger_voltage)
     
+    with open(temperatureDependence_filepath, 'rb') as file:
+        temperature_data = pickle.load(file)
+    print(temperature_data)
