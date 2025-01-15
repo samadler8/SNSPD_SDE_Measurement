@@ -141,11 +141,11 @@ def find_mpm_rng(rng):
         mpm.get_power()
         powers = [mpm.get_power() for _ in range(N_init)]  # Collect power readings
         logger.info(f"powers: {powers}")
-        check_range = [mpm.check_correct_rng(power=power, rng=rng) for power in powers]
+        check_range = [mpm.check_ideal_rng(power=power, rng=rng) for power in powers]
         logger.info(f"check_range: {check_range}")
         sum_check_range = sum(check_range)
         logger.info(f"sum_check_range: {sum_check_range}")
-        if sum_check_range == 0:
+        if all(el == 0 for el in check_range):
             return rng
         elif sum_check_range > 0:
             rng += 10
@@ -405,7 +405,7 @@ def nonlinearity_factor_raw_power_measurements(now_str="{:%Y%m%d-%H%M%S}".format
     filepath = os.path.join(output_dir, filename)
     df.to_pickle(filepath)
     
-    # # This is untested
+    # This is untested
     readable_output_dir = os.path.join(current_file_dir, 'readable_data_sde')
     os.makedirs(readable_output_dir, exist_ok=True)
     _, data_filename = os.path.split(os.path.splitext(filepath)[0])
