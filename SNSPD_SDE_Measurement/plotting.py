@@ -308,13 +308,19 @@ def plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_fil
 
 
     for rng in ranges:
-        v_data = unp.nominal_values(processed_data[rng]['v'])
+        v_data_unc = processed_data[rng]['v']
+        v_data = unp.nominal_values(v_data_unc)
 
         v_data_fit = nonlinear_power_corrections(fit_params, rng, v_data)
-        fit_ratio = v_data / v_data_fit
+        v_data_fit_unc = nonlinear_power_corrections_unc(fit_params, covar, rng, v_data_unc)
+
+        fit_ratio = v_data / unp.nominal_values(v_data_fit_unc)
+        logger.info(f"fit_ratio: {fit_ratio}")
 
         v_data_dBm = 10 * np.log10(v_data / 1e-3)
         plt.plot(v_data_dBm, fit_ratio, 'o-', label=f'Fit Ratio Range {rng}')
+
+        
 
     plt.xlabel("v (Input Power, dBmW)")
     plt.ylabel("Fit / v")
@@ -528,17 +534,17 @@ if __name__ == '__main__':
     # optical_switch_filepath = os.path.join(current_file_dir, 'data_sde', 'optical_switch_calibration_data_cpm_splice2__20250109-180754.pkl')
     # plot_switch(optical_switch_filepath, save_pdf=save_pdf)
 
-    # nonlinearity_data_filepath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data_tau2.5__20250110-210258.pkl')
+    nonlinearity_data_filepath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data_tau2.5__20250110-210258.pkl')
     # plot_raw_nonlinearity_data(nonlinearity_data_filepath, filtered=True, save_pdf=save_pdf)
-    # nonlinearity_calculation_filepath = os.path.join(current_file_dir, 'data_sde', 'calculation_0_nonlinear_calibration_data_tau2__20250110-210258.pkl')
-    # plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculation_filepath, save_pdf=save_pdf)
-    # plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_filepath, save_pdf=save_pdf)
+    nonlinearity_calculation_filepath = os.path.join(current_file_dir, 'data_sde', 'calculation_v1_nonlinear_calibration_data_tau2.5__20250110-210258.pkl')
+    plot_fitted_nonlinearity(nonlinearity_data_filepath, nonlinearity_calculation_filepath, save_pdf=save_pdf)
+    plot_v_vs_fit_ratio(nonlinearity_data_filepath, nonlinearity_calculation_filepath, save_pdf=save_pdf)
 
     # IV_pickle_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_IV_curve_data__20250114-175627.pkl')
     # plot_IV_curve(IV_pickle_filepath=IV_pickle_filepath, save_pdf=save_pdf)
     
-    pol_counts_filepath = os.path.join(current_file_dir, "data_sde", "SK3_pol_data_snspd_splice1__20250114-092050.pkl")
-    plot_polarization_sweep(pol_counts_filepath=pol_counts_filepath, save_pdf=save_pdf)
+    # pol_counts_filepath = os.path.join(current_file_dir, "data_sde", "SK3_pol_data_snspd_splice1__20250114-092050.pkl")
+    # plot_polarization_sweep(pol_counts_filepath=pol_counts_filepath, save_pdf=save_pdf)
 
     # # data_filepath = os.path.join(current_file_dir, "data_sde", "SK3_counts_data_snspd_splice1__20250110-155421.pkl")
     # data_dir = os.path.join(current_file_dir, 'data_sde')
