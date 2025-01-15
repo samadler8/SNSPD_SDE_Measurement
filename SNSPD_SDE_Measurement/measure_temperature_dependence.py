@@ -87,7 +87,7 @@ def temperature_dependence_sweep(
     # Initialize critical variables
     ic = get_ic(IV_pickle_filepath)
     Cur_Array = np.linspace(ic * 0.2, ic * 1.1, 100)
-    end_time = datetime.now() + timedelta(minutes=10)
+    end_time = datetime.now() + timedelta(hours=5)
 
     # Prepare directories for saving data
     output_dir = os.path.join(current_file_dir, 'data_td')
@@ -103,7 +103,7 @@ def temperature_dependence_sweep(
 
     # Initialize data structures
     data_dict = {}
-    backup_filepath = os.path.join(os.path.splitext(filepath)[0], '_tmp.pkl')
+    backup_filepath =f'{os.path.splitext(filepath)[0]}_tmp.pkl'
 
     i = 0
     now = datetime.now()
@@ -154,7 +154,7 @@ def temperature_dependence_sweep(
             }
             data_dict[now.isoformat()] = data_dict_temp
 
-            i += 1
+            i += 10
             if i % 2 == 0:
                 logger.info("Saving intermediate data")
                 with open(backup_filepath, "wb") as file:
@@ -202,7 +202,7 @@ if __name__ == '__main__':
     bias_resistor=97e3
     counting_time = 1
     max_cur = 15e-6
-    name = 'SK3'
+    name = 'saeed2um'
     
     # IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name)
     IV_pickle_filepath = os.path.join(current_file_dir, "data_sde", "SK3_IV_curve_data__20250114-175627.pkl")
