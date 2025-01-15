@@ -98,8 +98,4 @@ target/
 *.oas
 *.ipynb
 
-
-*.png
-*.pdf
-
 ignore/
