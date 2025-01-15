@@ -171,7 +171,7 @@ def plot_temperature_dependence(data_filepath='', save_pdf=False):
     plt.ylim(bottom=0)  # Set y-axis lower limit to 0
     plt.tight_layout()
 
-    output_dir = os.path.join(current_file_dir, 'pics_temperatureDependence')
+    output_dir = os.path.join(current_file_dir, 'figs_td')
     os.makedirs(output_dir, exist_ok=True)
     _, data_filename = os.path.split(os.path.splitext(data_filepath)[0])
     figname = f'raw_plot_{data_filename}'
