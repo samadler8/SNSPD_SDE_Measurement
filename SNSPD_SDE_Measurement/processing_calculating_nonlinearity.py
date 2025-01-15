@@ -162,7 +162,7 @@ if __name__ == '__main__':
 
         # Save calibration data to a pickle file
         nonlinear_calibration_data = {
-            "fit_params": fit.params,
+            "fit_params": fit.params.valuesdict(),
             "covar": fit.covar,
             "rng_disc": rng_disc,
         }

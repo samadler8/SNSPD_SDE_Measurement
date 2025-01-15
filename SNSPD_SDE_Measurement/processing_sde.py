@@ -226,8 +226,8 @@ if __name__ == '__main__':
     config = {}
 
     NIST_pm_calib_path = os.path.join(current_file_dir, 'calibration_power_meter', 'SWN HP81521B 2933G05261.xlsx')
-    # nonlinear_calculation_path = os.path.join(current_file_dir, 'data_sde', 'calculation_0_nonlinear_calibration_data_tau2__20250110-210258.pkl')
-    nonlinear_calculation_path = None
+    nonlinear_calculation_path = os.path.join(current_file_dir, 'data_sde', 'calculation_v1_nonlinear_calibration_data_tau3__20250110-210258.pkl')
+    # nonlinear_calculation_path = None
     switch_path = os.path.join(current_file_dir, 'data_sde', 'optical_switch_calibration_data_cpm_splice2__20250109-180754.pkl')
     attcal_path = os.path.join(current_file_dir, 'data_sde', 'attenuator_calibration_data_attval29__20250111-180558.pkl')
     fpath = os.path.join(current_file_dir, 'data_sde', 'SK3_counts_data_snspd_splice1_attval29__20250111-180558.pkl')

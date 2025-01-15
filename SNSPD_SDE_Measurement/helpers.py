@@ -210,3 +210,21 @@ def nonlinear_power_corrections_unc(params, covar, rng, v):
         order += 1
         name = get_param_name(rng, order)
     return out
+
+def nonlinear_power_corrections_unc_plotting(params, covar, rng, v):
+    """
+    Compute linearized power P with uncertainties and covariances
+    given the parameters of the polynomial 'params',
+    their covariance matrix 'covar',
+    power meter range setting 'rng', and the readings 'v'
+    """
+    order = 2
+    out = v
+    name = get_param_name(rng, order)
+    params_unc = correlated_values([params[name] for name in params.keys()], covar, )
+    while name in params:
+        coeff = params_unc[list(params.keys()).index(name)]
+        out += coeff*(v**order)
+        order += 1
+        name = get_param_name(rng, order)
+    return out
