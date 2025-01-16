@@ -233,9 +233,9 @@ if __name__ == '__main__':
     # fpath = os.path.join(current_file_dir, 'data_sde', '.pkl')
 
     data_dir = os.path.join(current_file_dir, 'data_sde')
-    fnames = [f for f in os.listdir(data_dir) if f.startswith('saeed2um_counts_data_snspd_splice1_attval')]
+    fnames = [f for f in os.listdir(data_dir) if f.startswith('SK3_counts_data_snspd_splice1_attval')]
     attcal_names = [f for f in os.listdir(data_dir) if f.startswith('attenuator_calibration_data')]
-    nonlinear_calc_filenames = [None, 'calculation_v1_nonlinear_calibration_data_tau2.5__20250110-210258.pkl', 'calculation_0_nonlinear_calibration_data_tau2__20250110-210258.pkl']
+    nonlinear_calc_filenames = [None, 'calculation_nonlinear_calibration_data_tau1.5__20250110-210258.pkl', 'calculation_nonlinear_calibration_data_tau2__20250110-210258.pkl', 'calculation_nonlinear_calibration_data_tau2.5__20250110-210258.pkl', 'calculation_nonlinear_calibration_data_tau3__20250110-210258.pkl']
     for nonlinear_calc_filename in nonlinear_calc_filenames:
         if nonlinear_calc_filename is None:
             nonlinear_calculation_path = None
@@ -243,7 +243,7 @@ if __name__ == '__main__':
             nonlinear_calculation_path = os.path.join(data_dir, nonlinear_calc_filename)
 
         for fname in fnames:
-            attcal_name = next((attcal for attcal in attcal_names if attcal[-25:] == fname[-25:]), None)
+            attcal_name = next((attcal for attcal in attcal_names if attcal[-26:] == fname[-26:]), None)
 
             fpath = os.path.join(data_dir, fname)
             attcal_path = os.path.join(data_dir, attcal_name)

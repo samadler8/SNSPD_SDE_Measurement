@@ -96,6 +96,7 @@ def plot_polarization_sweep(pol_counts_filepath='', save_pdf=False):
     _, data_filename = os.path.split(os.path.splitext(pol_counts_filepath)[0])
     figname = f'plot_{data_filename}'
     figpath = os.path.join(output_dir, figname)
+    fig.show()
     # These final lines take forever
     # fig.write_image(f'{figpath}.png')
     # if save_pdf:
@@ -550,7 +551,7 @@ if __name__ == '__main__':
     # data_filepath = os.path.join(current_file_dir, "data_sde", "SK3_counts_data_snspd_splice1__20250110-155421.pkl")
     # sde_processed_filepath = os.path.join(current_file_dir, 'data_sde', 'final_results_nonlinear_correctionFalse__20250114-095804.pkl')
     data_dir = os.path.join(current_file_dir, 'data_sde')
-    data_filenames = [f for f in os.listdir(data_dir) if f.startswith('saeed2um_counts_data_snspd_splice1_attval')]
+    data_filenames = [f for f in os.listdir(data_dir) if f.startswith('SK3_counts_data_snspd_splice1_attval')]
     sde_processed_filenames = [f for f in os.listdir(data_dir) if f.startswith('final_results')]
     for data_filename in data_filenames:
         data_filepath = os.path.join(data_dir, data_filename)
@@ -559,7 +560,7 @@ if __name__ == '__main__':
         sde_processed_filename_arr = [
             sde_processed_filename
             for sde_processed_filename in sde_processed_filenames
-            if len(sde_processed_filename) >= 40 and len(data_filename) >= 40 and sde_processed_filename[-40:] == data_filename[-40:]
+            if data_filename in sde_processed_filename
         ]
         for sde_processed_filename in sde_processed_filename_arr:
             sde_processed_filepath = os.path.join(data_dir, sde_processed_filename)
