@@ -95,7 +95,7 @@ N_init = 3
 max_cur = 15e-6 # A
 
 cpm_splice = 2
-snspd_splice = 1
+snspd_splice = '1connectors'
 
 def zero_pm():
     sw.set_route(detector_port)
@@ -677,10 +677,10 @@ def SDE_Counts_Measurement(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), 
 # %%
 if __name__ == '__main__':
     now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
-    name = 'saeed2um'
+    name = 'SK3'
 
-    taus = [2.75, 2.25]
-    attval_init = 30
+    # taus = [2.75, 2.25]
+    attval_init = 28
 
     # snspd_sde_setup()
         
@@ -688,20 +688,20 @@ if __name__ == '__main__':
     
     # nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(now_str=now_str, taus=taus)
 
-    # IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name)
-    IV_pickle_filepath = os.path.join(current_file_dir, "data_sde", "saeed2um_IV_curve_data__20250115-194327.pkl")
+    IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name)
+    # IV_pickle_filepath = os.path.join(current_file_dir, "data_sde", "SK3_IV_curve_data__20250116-130128.pkl")
 
-    # trigger_voltage = find_min_trigger_threshold(instruments, now_str=now_str)
-    trigger_voltage = 0.151
+    trigger_voltage = find_min_trigger_threshold(instruments, now_str=now_str)
+    # trigger_voltage = 0.151
 
-    # pol_counts_filepath = sweep_polarizations(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, attval=attval_init, name=name, num_pols=num_pols, trigger_voltage=trigger_voltage, counting_time=0.5, N=3)
-    pol_counts_filepath = os.path.join(current_file_dir, "data_sde", "saeed2um_pol_data_snspd_splice1__20250115-213240.pkl")
+    pol_counts_filepath = sweep_polarizations(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, attval=attval_init, name=name, num_pols=num_pols, trigger_voltage=trigger_voltage, counting_time=0.5, N=3)
+    # pol_counts_filepath = os.path.join(current_file_dir, "data_sde", "saeed2um_pol_data_snspd_splice1__20250115-213240.pkl")
 
     # data_filepath = SDE_Counts_Measurement(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, pol_counts_filepath=pol_counts_filepath, attval=attval_init, name=name, trigger_voltage=trigger_voltage)
     # attenuator_calibration_filepath = attenuator_calibration(now_str=now_str, attval=attattval_initval)
     attvals = [attval_init + math.ceil(i) * (-1) ** (2*i) for i in np.arange(0, 6, 0.5)]
     for attval in attvals:
-        attval = round(attval)
+        attval = int(round(attval))
         data_filepath = SDE_Counts_Measurement(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, pol_counts_filepath=pol_counts_filepath, attval=attval, name=name, trigger_voltage=trigger_voltage)
         attenuator_calibration_filepath = attenuator_calibration(now_str=now_str, attval=attval)
         

@@ -151,7 +151,7 @@ def find_min_trigger_threshold(
     # Binary search for trigger voltage
     low_voltage = 0
     high_voltage = max_trigger_voltage
-    tolerance = 0.01
+    tolerance = 0.005
 
     data_dict = {}
     while abs(high_voltage - low_voltage) > tolerance:
