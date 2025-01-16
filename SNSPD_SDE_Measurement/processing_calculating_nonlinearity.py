@@ -113,8 +113,8 @@ def find_poly_fit(processed_nonlinearity_data, rng_settings, poly_order_list, ta
 
 
 if __name__ == '__main__':
-    fnames = ['nonlinear_calibration_data_tau3__20250110-210258.pkl', 'nonlinear_calibration_data_tau2__20250110-210258.pkl', 'nonlinear_calibration_data_tau1.5__20250110-210258.pkl']
-    taus = [3, 2, 1.5]
+    fnames = ['nonlinear_calibration_data_tau2__20250114-225648.pkl', 'nonlinear_calibration_data_tau2.5__20250114-225648.pkl', 'nonlinear_calibration_data_tau3__20250114-225648.pkl']
+    taus = [2, 2.5, 3]
     for fname, tau in zip(fnames, taus):
         fpath = os.path.join(current_file_dir, 'data_sde', fname)
         logger.info(f'Processing file: {fpath}')
