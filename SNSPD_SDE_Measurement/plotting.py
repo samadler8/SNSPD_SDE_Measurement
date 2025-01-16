@@ -534,7 +534,7 @@ if __name__ == '__main__':
     # optical_switch_filepath = os.path.join(current_file_dir, 'data_sde', 'optical_switch_calibration_data_cpm_splice2__20250109-180754.pkl')
     # plot_switch(optical_switch_filepath, save_pdf=save_pdf)
 
-    tau = None
+    # tau = None
     # nonlinearity_data_filepath = os.path.join(current_file_dir, 'data_sde', 'nonlinear_calibration_data_tau2.5__20250110-210258.pkl')
     # plot_raw_nonlinearity_data(nonlinearity_data_filepath, filtered=True, save_pdf=save_pdf, tau=tau)
     # nonlinearity_calculation_filepath = os.path.join(current_file_dir, 'data_sde', 'calculation_v1_nonlinear_calibration_data_tau2.5__20250110-210258.pkl')
@@ -550,7 +550,7 @@ if __name__ == '__main__':
     # data_filepath = os.path.join(current_file_dir, "data_sde", "SK3_counts_data_snspd_splice1__20250110-155421.pkl")
     # sde_processed_filepath = os.path.join(current_file_dir, 'data_sde', 'final_results_nonlinear_correctionFalse__20250114-095804.pkl')
     data_dir = os.path.join(current_file_dir, 'data_sde')
-    data_filenames = [f for f in os.listdir(data_dir) if f.startswith('SK3_counts_data_snspd_splice1_attval')]
+    data_filenames = [f for f in os.listdir(data_dir) if f.startswith('saeed2um_counts_data_snspd_splice1_attval')]
     sde_processed_filenames = [f for f in os.listdir(data_dir) if f.startswith('final_results')]
     for data_filename in data_filenames:
         data_filepath = os.path.join(data_dir, data_filename)

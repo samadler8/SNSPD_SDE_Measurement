@@ -226,90 +226,96 @@ if __name__ == '__main__':
     config = {}
 
     NIST_pm_calib_path = os.path.join(current_file_dir, 'calibration_power_meter', 'SWN HP81521B 2933G05261.xlsx')
-    nonlinear_calculation_path = os.path.join(current_file_dir, 'data_sde', 'calculation_v1_nonlinear_calibration_data_tau3__20250110-210258.pkl')
+    # nonlinear_calculation_path = os.path.join(current_file_dir, 'data_sde', 'calculation_v1_nonlinear_calibration_data_tau2.5__20250110-210258.pkl')
     # nonlinear_calculation_path = None
     switch_path = os.path.join(current_file_dir, 'data_sde', 'optical_switch_calibration_data_cpm_splice2__20250109-180754.pkl')
-    attcal_path = os.path.join(current_file_dir, 'data_sde', 'attenuator_calibration_data_attval29__20250111-180558.pkl')
-    fpath = os.path.join(current_file_dir, 'data_sde', 'SK3_counts_data_snspd_splice1_attval29__20250111-180558.pkl')
+    # attcal_path = os.path.join(current_file_dir, 'data_sde', '.pkl')
+    # fpath = os.path.join(current_file_dir, 'data_sde', '.pkl')
 
     data_dir = os.path.join(current_file_dir, 'data_sde')
-    fnames = [f for f in os.listdir(data_dir) if f.startswith('SK3_counts_data_snspd_splice1')]
+    fnames = [f for f in os.listdir(data_dir) if f.startswith('saeed2um_counts_data_snspd_splice1_attval')]
     attcal_names = [f for f in os.listdir(data_dir) if f.startswith('attenuator_calibration_data')]
-
-    for fname in fnames:
-        attcal_name = next((attcal for attcal in attcal_names if attcal[-25:] == fname[-25:]), None)
-
-        fpath = os.path.join(data_dir, fname)
-        attcal_path = os.path.join(data_dir, attcal_name)
-    
-        logger.info(f' Counts data file: {fpath}')
-        config['wavelength'] = wavelength
-        logger.info(f' Wavelength: {wavelength*1e9} nm')
-
-        if not os.path.exists(NIST_pm_calib_path):
-            logger.warning(f' No NIST calibrated power meter file found')
-            config['CF'] = 1.0
-            config['CF_er'] = 0.0
+    nonlinear_calc_filenames = [None, 'calculation_v1_nonlinear_calibration_data_tau2.5__20250110-210258.pkl', 'calculation_0_nonlinear_calibration_data_tau2__20250110-210258.pkl']
+    for nonlinear_calc_filename in nonlinear_calc_filenames:
+        if nonlinear_calc_filename is None:
+            nonlinear_calculation_path = None
         else:
-            logger.info(f' NIST_pm_calib_path: {NIST_pm_calib_path}')
+            nonlinear_calculation_path = os.path.join(data_dir, nonlinear_calc_filename)
 
-            calib_df = pd.read_excel(NIST_pm_calib_path, sheet_name='Data')
-            wl = calib_df['Wav (nm)'].values
-            cf_list = calib_df['Cal. Factor'].values
-            cf_err_list = calib_df['St. Dev'].values
-            cf_err = max(cf_err_list*cf_list)
-            cf_interp = interp1d(wl, cf_list, kind='cubic')
+        for fname in fnames:
+            attcal_name = next((attcal for attcal in attcal_names if attcal[-25:] == fname[-25:]), None)
+
+            fpath = os.path.join(data_dir, fname)
+            attcal_path = os.path.join(data_dir, attcal_name)
+        
+            logger.info(f' Counts data file: {fpath}')
+            config['wavelength'] = wavelength
+            logger.info(f' Wavelength: {wavelength*1e9} nm')
+
+            if not os.path.exists(NIST_pm_calib_path):
+                logger.warning(f' No NIST calibrated power meter file found')
+                config['CF'] = 1.0
+                config['CF_er'] = 0.0
+            else:
+                logger.info(f' NIST_pm_calib_path: {NIST_pm_calib_path}')
+
+                calib_df = pd.read_excel(NIST_pm_calib_path, sheet_name='Data')
+                wl = calib_df['Wav (nm)'].values
+                cf_list = calib_df['Cal. Factor'].values
+                cf_err_list = calib_df['St. Dev'].values
+                cf_err = max(cf_err_list*cf_list)
+                cf_interp = interp1d(wl, cf_list, kind='cubic')
+                
+                config['CF'] = cf_interp(wavelength*1e9)  # NIST power-meter calibration factor
+                config['CF_err'] = cf_err  # Standard error
+            if not os.path.exists(switch_path):
+                logger.error(f' No switch file found')
+                sys.exit(1)
+            else:
+                logger.info(f' Switching ratio file: {switch_path}')
+            if nonlinear_calculation_path is None or not os.path.exists(nonlinear_calculation_path):
+                logger.warning(f' No nonlinearity analysis file found')
+            else:
+                logger.info(f' Nonlinearity analysis file: {nonlinear_calculation_path}')
             
-            config['CF'] = cf_interp(wavelength*1e9)  # NIST power-meter calibration factor
-            config['CF_err'] = cf_err  # Standard error
-        if not os.path.exists(switch_path):
-            logger.error(f' No switch file found')
-            sys.exit(1)
-        else:
-            logger.info(f' Switching ratio file: {switch_path}')
-        if nonlinear_calculation_path is None or not os.path.exists(nonlinear_calculation_path):
-            logger.warning(f' No nonlinearity analysis file found')
-        else:
-            logger.info(f' Nonlinearity analysis file: {nonlinear_calculation_path}')
-        
-        config['filename'] = fpath
-        config['file_sha1hash'] = compute_sha1_hash(fpath)
-        config['script_filename'] = self_filename
-        config['script_sha1hash'] = self_sha1hash
-        config['nonlinear_calculation_path'] = nonlinear_calculation_path
-        config['nonlinear_calculation_path_sha1hash'] = compute_sha1_hash(nonlinear_calculation_path)
-        config['attcal_file'] = attcal_path
-        config['attcal_file_sha1hash'] = compute_sha1_hash(attcal_path)
-        config['switch_file'] = switch_path
-        config['switch_file_sha1hash'] = compute_sha1_hash(switch_path)
+            config['filename'] = fpath
+            config['file_sha1hash'] = compute_sha1_hash(fpath)
+            config['script_filename'] = self_filename
+            config['script_sha1hash'] = self_sha1hash
+            config['nonlinear_calculation_path'] = nonlinear_calculation_path
+            config['nonlinear_calculation_path_sha1hash'] = compute_sha1_hash(nonlinear_calculation_path)
+            config['attcal_file'] = attcal_path
+            config['attcal_file_sha1hash'] = compute_sha1_hash(attcal_path)
+            config['switch_file'] = switch_path
+            config['switch_file_sha1hash'] = compute_sha1_hash(switch_path)
 
-        bias, eff, counts_expected = compute_efficiency_unc(config)
+            bias, eff, counts_expected = compute_efficiency_unc(config)
 
-        data = {
-            "Bias": bias,  # Normal data
-            "Efficiency_nominal": unp.nominal_values(eff),  # Extract nominal values
-            "Efficiency_stddev": unp.std_devs(eff),         # Extract uncertainties
-            "Counts_Expected_nominal": unp.nominal_values(counts_expected),
-            "Counts_Expected_stddev": unp.std_devs(counts_expected),
-        }
+            data = {
+                "Bias": bias,  # Normal data
+                "Efficiency_nominal": unp.nominal_values(eff),  # Extract nominal values
+                "Efficiency_stddev": unp.std_devs(eff),         # Extract uncertainties
+                "Counts_Expected_nominal": unp.nominal_values(counts_expected),
+                "Counts_Expected_stddev": unp.std_devs(counts_expected),
+            }
 
 
-        output_dir = os.path.join(current_file_dir, 'data_sde')
-        os.makedirs(output_dir, exist_ok=True)
-        _, data_filename = os.path.split(os.path.splitext(fpath)[0])
-        if nonlinear_calculation_path is None:
-            nonlinear_calc_filename = ''
-        else:
-            _, nonlinear_calc_filename = os.path.split(os.path.splitext(nonlinear_calculation_path)[0])
-        filename = f'final_results_{nonlinear_calc_filename}_{data_filename}.pkl'
-        filepath = os.path.join(output_dir, filename)
-        with open(filepath, 'wb') as f:
-            pickle.dump(data, f)
-        
-        readable_output_dir = os.path.join(current_file_dir, 'readable_data_sde')
-        os.makedirs(readable_output_dir, exist_ok=True)
-        _, data_filename = os.path.split(os.path.splitext(filepath)[0])
-        json_filename = f'{data_filename}.json'
-        json_filepath = os.path.join(readable_output_dir, json_filename)
-        with open(json_filepath, 'w') as f:
-            json.dump(data, f, indent=4, default=lambda x: x.tolist() if hasattr(x, 'tolist') else str(x))
+            output_dir = os.path.join(current_file_dir, 'data_sde')
+            os.makedirs(output_dir, exist_ok=True)
+            _, data_filename = os.path.split(os.path.splitext(fpath)[0])
+            if nonlinear_calculation_path is None:
+                nonlinear_calc_filename = ''
+            else:
+                _, nonlinear_calc_filename = os.path.split(os.path.splitext(nonlinear_calculation_path)[0])
+            filename = f'final_results_{nonlinear_calc_filename}_{data_filename}.pkl'
+            filepath = os.path.join(output_dir, filename)
+            with open(filepath, 'wb') as f:
+                pickle.dump(data, f)
+            
+            readable_output_dir = os.path.join(current_file_dir, 'readable_data_sde')
+            os.makedirs(readable_output_dir, exist_ok=True)
+            _, data_filename = os.path.split(os.path.splitext(filepath)[0])
+            json_filename = f'{data_filename}.json'
+            json_filepath = os.path.join(readable_output_dir, json_filename)
+            with open(json_filepath, 'w') as f:
+                json.dump(data, f, indent=4, default=lambda x: x.tolist() if hasattr(x, 'tolist') else str(x))

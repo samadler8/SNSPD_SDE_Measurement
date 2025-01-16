@@ -92,7 +92,6 @@ counting_time = 0.5 #s
 num_pols = 7
 N_init = 3
 
-name = 'Saeed2um'
 max_cur = 15e-6 # A
 
 cpm_splice = 2
@@ -151,6 +150,12 @@ def find_mpm_rng(rng):
             rng += 10
         elif sum_check_range < 0:
             rng -= 10
+        if rng < -60:
+            logger.error("Range setting is being set below -60")
+            break
+        if rng > 30:
+            logger.error("Range setting is being set above 30")
+            break
 
 def meas_counts(position, N=3, counting_time=1):
     pc.set_waveplate_positions(position)
@@ -428,10 +433,10 @@ def attenuator_calibration(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), at
     reset_attenuators()
     att1.set_att(attval)
     att_rng = find_mpm_rng(round(-attval, -1))
-    logger.info(f"att_rng: {att_rng}")
+    logger.info(f" att_rng: {att_rng}")
     reset_attenuators()
     init_rng = find_mpm_rng(round(0, -1))
-    logger.info(f"init_rng: {init_rng}")
+    logger.info(f" init_rng: {init_rng}")
 
 
     # Initialize an empty DataFrame to store results
@@ -672,6 +677,7 @@ def SDE_Counts_Measurement(now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), 
 # %%
 if __name__ == '__main__':
     now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
+    name = 'saeed2um'
 
     taus = [2.75, 2.25]
     attval_init = 30
@@ -683,18 +689,19 @@ if __name__ == '__main__':
     # nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(now_str=now_str, taus=taus)
 
     # IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name)
-    IV_pickle_filepath = os.path.join(current_file_dir, "data_sde", "Saeed2um_IV_curve_data__20250115-194327.pkl")
+    IV_pickle_filepath = os.path.join(current_file_dir, "data_sde", "saeed2um_IV_curve_data__20250115-194327.pkl")
 
     # trigger_voltage = find_min_trigger_threshold(instruments, now_str=now_str)
     trigger_voltage = 0.151
 
     # pol_counts_filepath = sweep_polarizations(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, attval=attval_init, name=name, num_pols=num_pols, trigger_voltage=trigger_voltage, counting_time=0.5, N=3)
-    pol_counts_filepath = os.path.join(current_file_dir, "data_sde", ".pkl")
+    pol_counts_filepath = os.path.join(current_file_dir, "data_sde", "saeed2um_pol_data_snspd_splice1__20250115-213240.pkl")
 
     # data_filepath = SDE_Counts_Measurement(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, pol_counts_filepath=pol_counts_filepath, attval=attval_init, name=name, trigger_voltage=trigger_voltage)
     # attenuator_calibration_filepath = attenuator_calibration(now_str=now_str, attval=attattval_initval)
     attvals = [attval_init + math.ceil(i) * (-1) ** (2*i) for i in np.arange(0, 6, 0.5)]
     for attval in attvals:
+        attval = round(attval)
         data_filepath = SDE_Counts_Measurement(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, pol_counts_filepath=pol_counts_filepath, attval=attval, name=name, trigger_voltage=trigger_voltage)
         attenuator_calibration_filepath = attenuator_calibration(now_str=now_str, attval=attval)
         
