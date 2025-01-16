@@ -172,7 +172,7 @@ if __name__ == '__main__':
         
         os.makedirs(output_dir, exist_ok=True)
         _, data_filename = os.path.split(os.path.splitext(fpath)[0])
-        filename = f'calculation_v1_{data_filename}.pkl'
+        filename = f'calculation_{data_filename}.pkl'
         filepath = os.path.join(output_dir, filename)
         with open(filepath, 'wb') as f:
             pickle.dump(nonlinear_calibration_data, f)
