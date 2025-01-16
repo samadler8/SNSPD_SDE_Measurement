@@ -4,11 +4,11 @@
 *.pickle
 *.zip
 *.pyc
-*.png
-*.pdf
-*.log
-*.json
-*.csv
+# *.png
+# *.pdf
+# *.log
+# *.json
+# *.csv
 
 
 

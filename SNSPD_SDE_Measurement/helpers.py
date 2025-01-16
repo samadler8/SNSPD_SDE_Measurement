@@ -95,7 +95,7 @@ def get_uncertainty(rawdata):
     return unp.uarray(avg, unc)
 
 
-def extract_nonlinearity_data(filepath, filtered=True):
+def extract_nonlinearity_data(filepath, filtered=True, tau=None):
     """
     Extract nonlinearity data from a file and organize it by rng_settings and attenuation settings.
 
@@ -107,25 +107,24 @@ def extract_nonlinearity_data(filepath, filtered=True):
     """
     # Load the dataframe from the pickle file
     df = pd.read_pickle(filepath)
-    
-    rng_settings = [0, -10, -20, -30, -40, -50, -60]
-    mpm_min_max_powers = { # Raw data from saved files
-        0: [5e-05, 9.75e-04],
-        -10: [5e-06, 9.75e-05],
-        -20: [5e-07, 9.75e-06],
-        -30: [5e-08, 9.75e-07],
-        -40: [5e-09, 9.75e-08],
-        -50: [5e-10, 9.75e-09],
-        -60: [5e-11, 9.75e-10],
-    }
+
+    if tau is not None:
+        taus = [0, tau]
+    else:
+        taus = df['Attenuator 2'].unique()
+    taus.sort()
+    taus = taus[:2]
+    logger.info(f" taus: {taus}")
+
+    df = df[df['Attenuator 2'].isin(taus)].copy()
 
     if filtered:
         df = df[df['Attenuator 1'] <= 60].copy()
         rng_settings = df['Range'].unique()
         for rng in rng_settings:
             # Define power thresholds for the current range
-            max_power_threshold = mpm_min_max_powers[rng][1]
-            min_power_threshold = mpm_min_max_powers[rng][0]
+            max_power_threshold = 9.75*10**(-4 + rng/10)
+            min_power_threshold = 5*10**(-5 + rng/10)
             
             # Filter out invalid power values within the 'Power' column directly in the original DataFrame
             df.loc[df['Range'] == rng, 'Power'] = df.loc[df['Range'] == rng, 'Power'].apply(
@@ -135,16 +134,14 @@ def extract_nonlinearity_data(filepath, filtered=True):
     # Remove rows where 'Power' lists are empty
     df = df[df['Power'].apply(len) > 0]
 
-    taus = df['Attenuator 2'].unique()
-    taus.sort()
+    
 
+    # Now that filtering is done, we can get to the meat of the code
     rng_settings = df['Range'].unique()
     data_dict = {}
     for rng in rng_settings:
-        
         filtered_df = df[(df['Range'] == rng)].copy()
         
-
         # Filter data for the two attenuation steps
         filtered_df_tau0 = filtered_df[filtered_df['Attenuator 2'] == taus[0]]
         filtered_df_tau1 = filtered_df[filtered_df['Attenuator 2'] == taus[1]]

@@ -70,109 +70,104 @@ if laser_type == 'ando':
     instruments['monitor_port'] = monitor_port
     instruments['detector_port'] = detector_port
     
-    attval = 29
+    attval = 27
 instruments['laser'] = laser
 
 
-# Initialize and turn on everything
-def temperature_dependence_setup():
-    # if laser_type == 'thor':
-    
-    if laser_type == 'ando':
-        # laser.std_init()
-        # laser.set_lambda(wavelength)
-        # laser.enable()
-
-        for att in att_list:
-            att.set_att(0)
-            att.disable()
-        
-    counter.basic_setup()
-    counter.set_impedance(ohms=50, channel=1)
-    counter.setup_timed_count(channel=1)
-
-    srs.set_voltage(0)
-    srs.set_output(output=False)
-
-
-# temperature dependence sweep
 def temperature_dependence_sweep(
-    now_str: str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), 
-    IV_pickle_filepath: str = '', 
-    trigger_voltage: float = 1.2, 
-    bias_resistor: float = 100e3, 
-    counting_time: float = 0.5, 
+    now_str: str = "{:%Y%m%d-%H%M%S}".format(datetime.now()),
+    IV_pickle_filepath: str = '',
+    trigger_voltage: float = 1.2,
+    bias_resistor: float = 100e3,
+    counting_time: float = 0.5,
     N: int = 1
 ) -> str:
     logger.info("STARTING: Temperature Dependence Sweep")
+
+    # Initialize critical variables
     ic = get_ic(IV_pickle_filepath)
+    Cur_Array = np.linspace(ic * 0.2, ic * 1.1, 3)
+    end_time = datetime.now() + timedelta(minutes=5)
 
-    Cur_Array = np.linspace(ic * 0.2, ic * 1.1, 100)
+    # Prepare directories for saving data
+    output_dir = os.path.join(current_file_dir, 'data_td')
+    readable_output_dir = os.path.join(current_file_dir, 'readable_data_td')
+    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(readable_output_dir, exist_ok=True)
 
-    end_time = datetime.now() + timedelta(hours=3) 
-
-    data_dict = {}
-    output_dir = os.path.join(current_file_dir, 'data_temperatureDependence')
-    os.makedirs('data_temperatureDependence', exist_ok=True)
-    filename = f'temperature_dependence_wavelength{round(wavelength)}nm__{now_str}'
+    # Generate filenames with unique identifiers
+    filename = f'temperature_dependence_wavelength{round(wavelength)}nm__{now_str}.pkl'
     filepath = os.path.join(output_dir, filename)
-    
-    i = 0
+    json_filename = f'temperature_dependence_wavelength{round(wavelength)}nm__{now_str}.json'
+    json_filepath = os.path.join(readable_output_dir, json_filename)
+
+    # Initialize data structures
+    data_dict = {}
+
+    iteration = 0
+    batch_size = 2
     now = datetime.now()
+
     while now < end_time:
-        # Counts
-        
+        # Enable light source and measure counts
         if laser_type == 'thor':
             laser.enable()
-        if laser_type == 'ando':
+        elif laser_type == 'ando':
             sw.set_route(detector_port)
             for att in att_list:
                 att.enable()
                 att.set_att(attval)
-        logger.info(f" Getting light counts")
-        Count_Array = get_counts(Cur_Array, instruments, trigger_voltage=trigger_voltage, bias_resistor=bias_resistor, counting_time=counting_time, N=N)
+
+        logger.info("Getting light counts")
+        Count_Array = get_counts(
+            Cur_Array, instruments, 
+            trigger_voltage=trigger_voltage,
+            bias_resistor=bias_resistor, 
+            counting_time=counting_time, N=N
+        )
         now = datetime.now()
 
-        # Dark Counts
+        # Disable light source and measure dark counts
         if laser_type == 'thor':
             laser.disable()
-        if laser_type == 'ando':
+        elif laser_type == 'ando':
             sw.set_route(monitor_port)
             for att in att_list:
                 att.set_att(0)
                 att.disable()
-        logger.info(f" Getting dark counts")
-        Dark_Count_Array = get_counts(Cur_Array, instruments, trigger_voltage=trigger_voltage, bias_resistor=bias_resistor, counting_time=counting_time, N=N)
-        
-        # save data
-        logger.info(f" Saving data")
-        data_dict_temp = {
-            'Cur_Array': np.array(Cur_Array),
-            'Count_Array': np.array(Count_Array),
-            'Dark_Count_Array': np.array(Dark_Count_Array),
-            }
-        data_dict[now] = data_dict_temp
 
-        i += 1
-        if i%10 == 0:
+        logger.info("Getting dark counts")
+        Dark_Count_Array = get_counts(
+            Cur_Array, instruments, 
+            trigger_voltage=trigger_voltage,
+            bias_resistor=bias_resistor, 
+            counting_time=counting_time, N=N
+        )
+        
+        data_dict_temp = {
+            'Cur_Array': Cur_Array.tolist(),
+            'Count_Array': Count_Array.tolist(),
+            'Dark_Count_Array': Dark_Count_Array.tolist(),
+        }
+        data_dict[now.isoformat()] = data_dict_temp
+
+        iteration += 1
+        if iteration % batch_size == 0: # sometimes save and print latest data
+            logger.info(dict(list(data_dict.items())[-batch_size:]))
             with open(filepath, "wb") as file:
                 pickle.dump(data_dict, file)
+            
+    # Final save after loop ends
+    logger.info("Saving final data")
     with open(filepath, "wb") as file:
         pickle.dump(data_dict, file)
 
-    readable_output_dir = os.path.join(current_file_dir, 'readable_data_temperatureDependence')
-    os.makedirs(readable_output_dir, exist_ok=True)
-    _, data_filename = os.path.split(os.path.splitext(filepath)[0])
-    json_filename = f'{data_filename}.json'
-    json_filepath = os.path.join(readable_output_dir, json_filename)
+    # Convert data to JSON for readability
+    logger.info("Saving final data to a readable format")
     with open(json_filepath, 'w') as f:
-        json.dump(data_dict, f, indent=4, default=lambda x: x.isoformat() if isinstance(x, datetime) else x.tolist() if hasattr(x, 'tolist') else str(x))
-
-    logger.info(f"temperature dependence data saved to: {filepath}")
-    logger.info("COMPLETED: Temperature Dependence Sweep")
-
+        json.dump(data_dict, f, indent=4, 
+                    default=lambda x: x.isoformat() if isinstance(x, datetime) else x)
     return filepath
-
 
 
 # %% Main code
