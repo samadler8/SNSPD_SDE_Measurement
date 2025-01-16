@@ -680,20 +680,20 @@ if __name__ == '__main__':
         
     # optical_switch_calibration_filepath = optical_switch_calibration(now_str=now_str, )
     
-    nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(now_str=now_str, taus=taus)
+    # nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(now_str=now_str, taus=taus)
 
-    IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name)
-    # IV_pickle_filepath = os.path.join(current_file_dir, "data_sde", "SK3_IV_curve_data__20250110-122541.pkl")
+    # IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name)
+    IV_pickle_filepath = os.path.join(current_file_dir, "data_sde", "Saeed2um_IV_curve_data__20250115-194327.pkl")
 
-    trigger_voltage = find_min_trigger_threshold(instruments, now_str=now_str)
-    # trigger_voltage = 0.127
+    # trigger_voltage = find_min_trigger_threshold(instruments, now_str=now_str)
+    trigger_voltage = 0.151
 
     pol_counts_filepath = sweep_polarizations(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, attval=attval, name=name, num_pols=num_pols, trigger_voltage=trigger_voltage, counting_time=0.5, N=3)
-    # pol_counts_filepath = os.path.join(current_file_dir, "data_sde", "SK3_pol_data_snspd_splice1__20250110-125128.pkl")
+    # pol_counts_filepath = os.path.join(current_file_dir, "data_sde", "SK3_pol_data_snspd_splice1__20250114-092050.pkl")
 
     # data_filepath = SDE_Counts_Measurement(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, pol_counts_filepath=pol_counts_filepath, attval=attval, name=name, trigger_voltage=trigger_voltage)
     # attenuator_calibration_filepath = attenuator_calibration(now_str=now_str, attval=attval)
-    attvals = [29, 30, 28, 31, 27, 32, 26, 25]
+    attvals = [27, 28, 26, 29, 25, 30, 31]
     for attval in attvals:
         data_filepath = SDE_Counts_Measurement(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, pol_counts_filepath=pol_counts_filepath, attval=attval, name=name, trigger_voltage=trigger_voltage)
         attenuator_calibration_filepath = attenuator_calibration(now_str=now_str, attval=attval)
