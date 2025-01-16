@@ -89,7 +89,7 @@ bias_resistor = 97e3 #Ohms
 init_rng = 0 #dBm
 
 counting_time = 0.5 #s
-num_pols = 13
+num_pols = 7
 N_init = 3
 
 name = 'Saeed2um'
@@ -542,8 +542,8 @@ def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pi
     this_volt = round(ic*0.92 * bias_resistor, 3)
     srs.set_voltage(this_volt)
 
-    num_repeats = 3
-    positions = np.linspace(-50.0, 50.0, num_pols) # Max range is -99 to 100 but I want to limit these edge cases
+    num_repeats = 2
+    positions = np.linspace(-60.0, 60.0, num_pols) # Max range is -99 to 100 but I want to limit these edge cases
     positions = np.round(positions, 2)
     pol_data = {}
     for n in range(num_repeats):
@@ -556,7 +556,7 @@ def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pi
                     if position not in pol_data:
                         pol_data[position] = []
                     pol_data[position].append(cps)
-                    logger.info(f"{round(100*(n*num_repeats*positions.size**2 + i*positions.size**2 + j*positions.size + k)/(num_repeats*positions.size**3), 2)}% Complete")
+                    logger.info(f"{round(100*(n*positions.size**3 + i*positions.size**2 + j*positions.size + k)/(num_repeats*positions.size**3), 2)}% Complete")
 
     data_dict = {key: np.mean(value) for key, value in pol_data.items()}
     srs.set_voltage(0)
@@ -674,7 +674,7 @@ if __name__ == '__main__':
     now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
 
     taus = [2.75, 2.25]
-    attval = 30
+    attval_init = 30
 
     # snspd_sde_setup()
         
@@ -688,12 +688,12 @@ if __name__ == '__main__':
     # trigger_voltage = find_min_trigger_threshold(instruments, now_str=now_str)
     trigger_voltage = 0.151
 
-    pol_counts_filepath = sweep_polarizations(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, attval=attval, name=name, num_pols=num_pols, trigger_voltage=trigger_voltage, counting_time=0.5, N=3)
-    # pol_counts_filepath = os.path.join(current_file_dir, "data_sde", "SK3_pol_data_snspd_splice1__20250114-092050.pkl")
+    # pol_counts_filepath = sweep_polarizations(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, attval=attval_init, name=name, num_pols=num_pols, trigger_voltage=trigger_voltage, counting_time=0.5, N=3)
+    pol_counts_filepath = os.path.join(current_file_dir, "data_sde", ".pkl")
 
-    # data_filepath = SDE_Counts_Measurement(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, pol_counts_filepath=pol_counts_filepath, attval=attval, name=name, trigger_voltage=trigger_voltage)
-    # attenuator_calibration_filepath = attenuator_calibration(now_str=now_str, attval=attval)
-    attvals = [27, 28, 26, 29, 25, 30, 31]
+    # data_filepath = SDE_Counts_Measurement(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, pol_counts_filepath=pol_counts_filepath, attval=attval_init, name=name, trigger_voltage=trigger_voltage)
+    # attenuator_calibration_filepath = attenuator_calibration(now_str=now_str, attval=attattval_initval)
+    attvals = [attval_init + math.ceil(i) * (-1) ** (2*i) for i in np.arange(0, 6, 0.5)]
     for attval in attvals:
         data_filepath = SDE_Counts_Measurement(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, pol_counts_filepath=pol_counts_filepath, attval=attval, name=name, trigger_voltage=trigger_voltage)
         attenuator_calibration_filepath = attenuator_calibration(now_str=now_str, attval=attval)
