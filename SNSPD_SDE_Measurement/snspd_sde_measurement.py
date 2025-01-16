@@ -89,7 +89,7 @@ bias_resistor = 97e3 #Ohms
 init_rng = 0 #dBm
 
 counting_time = 0.5 #s
-num_pols = 7
+num_pols = 13
 N_init = 3
 
 max_cur = 15e-6 # A
@@ -547,7 +547,7 @@ def sweep_polarizations(now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pi
     this_volt = round(ic*0.92 * bias_resistor, 3)
     srs.set_voltage(this_volt)
 
-    num_repeats = 2
+    num_repeats = 3
     positions = np.linspace(-60.0, 60.0, num_pols) # Max range is -99 to 100 but I want to limit these edge cases
     positions = np.round(positions, 2)
     pol_data = {}
