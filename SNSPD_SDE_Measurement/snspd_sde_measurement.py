@@ -679,13 +679,11 @@ if __name__ == '__main__':
     now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
     name = 'SK3'
 
-    # taus = [2.75, 2.25]
-    attval_init = 28
-
     # snspd_sde_setup()
         
     # optical_switch_calibration_filepath = optical_switch_calibration(now_str=now_str, )
-    
+
+    # taus = [2.75, 2.25]
     # nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(now_str=now_str, taus=taus)
 
     IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name)
@@ -693,6 +691,10 @@ if __name__ == '__main__':
 
     trigger_voltage = find_min_trigger_threshold(instruments, now_str=now_str)
     # trigger_voltage = 0.151
+
+    
+
+    attval_init = 28
 
     pol_counts_filepath = sweep_polarizations(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, attval=attval_init, name=name, num_pols=num_pols, trigger_voltage=trigger_voltage, counting_time=0.5, N=3)
     # pol_counts_filepath = os.path.join(current_file_dir, "data_sde", "saeed2um_pol_data_snspd_splice1__20250115-213240.pkl")
