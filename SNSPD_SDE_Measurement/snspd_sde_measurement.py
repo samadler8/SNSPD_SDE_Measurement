@@ -686,8 +686,8 @@ if __name__ == '__main__':
     # taus = [2.75, 2.25]
     # nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(now_str=now_str, taus=taus)
 
-    IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name)
-    # IV_pickle_filepath = os.path.join(current_file_dir, "data_sde", "SK3_IV_curve_data__20250116-130128.pkl")
+    # IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name)
+    IV_pickle_filepath = os.path.join(current_file_dir, "data_sde", "SK3_IV_curve_data__20250116-130752.pkl")
 
     trigger_voltage = find_min_trigger_threshold(instruments, now_str=now_str)
     # trigger_voltage = 0.151
