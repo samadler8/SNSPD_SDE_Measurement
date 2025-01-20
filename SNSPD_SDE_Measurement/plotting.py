@@ -564,7 +564,7 @@ if __name__ == '__main__':
     # data_filepath = os.path.join(current_file_dir, "data_sde", "SK3_counts_data_snspd_splice1__20250110-155421.pkl")
     # sde_processed_filepath = os.path.join(current_file_dir, 'data_sde', 'final_results_nonlinear_correctionFalse__20250114-095804.pkl')
     data_dir = os.path.join(current_file_dir, 'data_sde')
-    data_filenames = [f for f in os.listdir(data_dir) if f.startswith('SK3_counts_data_snspd_splice1connectors_attval')]
+    data_filenames = [f for f in os.listdir(data_dir) if f.startswith('SK3_counts_data_snspd_splice1_attval')]
     sde_processed_filenames = [f for f in os.listdir(data_dir) if f.startswith('final_results')]
     for data_filename in data_filenames:
         data_filepath = os.path.join(data_dir, data_filename)
