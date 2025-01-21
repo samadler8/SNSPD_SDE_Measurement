@@ -83,7 +83,7 @@ def open_dat_file(filepath):
 
 def power_to_photons(power_dict):
     
-    photon_dict = {key: value/(codata.h * codata.c / (key*1e-9)) for key, value in power_dict.items()}
+    photon_dict = {wavelength: power/(codata.h * codata.c / (wavelength*1e-9)) for wavelength, power in power_dict.items()}
     
     return photon_dict
 
@@ -219,6 +219,7 @@ total_photons_1965_unnormalized = sum(transmission_1965.values())
 total_photons_2080_unnormalized = sum(transmission_2080.values())
 
 logger.info(f" total_photons_1550_unnormalized: {total_photons_1550_unnormalized}")
+logger.info(f" total_photons_1550_unnormalized between 1400 nm and 1700 nm: {sum(photons for wavelength, photons in transmission_1550.items() if 1400 <= wavelength <= 1700)}")
 logger.info(f" total_photons_1610_unnormalized: {total_photons_1610_unnormalized}")
 logger.info(f" total_photons_1693_unnormalized: {total_photons_1693_unnormalized}")
 logger.info(f" total_photons_1775_unnormalized: {total_photons_1775_unnormalized}")
@@ -240,6 +241,46 @@ def plot_spectrum(transmission_dict, name=''):
     plt.savefig(figpath)
     return
 
+def plot_spectrums(transmission_dicts, name=''):
+    plt.figure(figsize=(8, 5))
+    for transmission_dict in transmission_dicts:
+        plt.plot(transmission_dict.keys(), transmission_dict.values(), marker='o')  # Line plot with markers
+    plt.title(name)
+    plt.xlabel("Wavelength")
+    plt.ylabel("Unnormalized photons transmitted")
+    plt.grid(True)  # Optional, to add a grid
+    figname = f"plot_spectrum_{name}.png"
+    figdir = os.path.join(current_file_dir, "figs_ps")
+    os.makedirs(figdir, exist_ok=True)
+    figpath = os.path.join(figdir, figname)
+    plt.savefig(figpath)
+    return
+
+def plot_transmission(transmission_dict, name=''):
+    # Calculate log-transmission for keys > 1200
+    filtered_keys = [key for key, value in transmission_dict.items() if value > 0]
+    log_transmission = [-10 * math.log10(value) for key, value in transmission_dict.items() if value > 0]
+
+    # Create the figure
+    plt.figure(figsize=(8, 5))
+
+    # Plot original data
+    plt.plot(list(transmission_dict.keys()), list(transmission_dict.values()), marker='o', label="Original Transmission")
+
+    # Plot log-transmission data for filtered keys
+    plt.plot(filtered_keys, log_transmission, marker='o', label="Log Transmission (keys > 1200)")
+
+    plt.title(name)
+    plt.xlabel("Wavelength")
+    plt.ylabel("Unnormalized photons transmitted")
+    plt.grid(True)  # Optional, to add a grid
+    figname = f"plot_transmission_{name}.png"
+    figdir = os.path.join(current_file_dir, "figs_ps")
+    os.makedirs(figdir, exist_ok=True)
+    figpath = os.path.join(figdir, figname)
+    plt.savefig(figpath)
+    return
+
 plot_spectrum(transmission_1550, name='1550')
 plot_spectrum(transmission_1610, name='1610')
 plot_spectrum(transmission_1693, name='1693')
@@ -247,6 +288,28 @@ plot_spectrum(transmission_1775, name='1775')
 plot_spectrum(transmission_1865, name='1865')
 plot_spectrum(transmission_1965, name='1965')
 plot_spectrum(transmission_2080, name='2080')
+plot_spectrum(signal_background, name='raw_signal')
+
+plot_spectrum(siliconeFilter_normalized, name='siliconeFilter_normalized')
+plot_spectrum(multi2dB_normalized, name='multi2dB_normalized')
+plot_spectrum(multi30dB_normalized, name='multi30dB_normalized')
+plot_spectrum(multi40dB_normalized, name='multi40dB_normalized')
+plot_spectrum(multi50dB_normalized, name='multi50dB_normalized')
+plot_transmission(multi2dB_transmission, name='multi2dB_transmission')
+plot_transmission(multi30dB_transmission, name='multi30dB_transmission')
+plot_transmission(multi40dB_transmission, name='multi40dB_transmission')
+plot_transmission(multi50dB_transmission, name='multi50dB_transmission')
+plot_transmission(siliconeFilter_transmission, name='siliconeFilter_transmission')
+plot_spectrum(filter1550shortpass_normalized, name='filter1550shortpass_normalized')
+plot_spectrum(filter1610_normalized, name='filter1610_normalized')
+plot_spectrum(filter1693_normalized, name='filter1693_normalized')
+plot_spectrum(filter1775_normalized, name='filter1775_normalized')
+plot_spectrum(filter1865_normalized, name='filter1865_normalized')
+plot_spectrum(filter1965_normalized, name='filter1965_normalized')
+plot_spectrum(filter2080_normalized, name='filter2080_normalized')
+plot_spectrum(signalfreespace_normalized, name='signalfreespace_normalized')
+plot_spectrums([filter1550shortpass_normalized, filter1610_normalized, filter1693_normalized, filter1775_normalized, filter1865_normalized, filter1965_normalized, filter2080_normalized, signalfreespace_normalized], name="filters")
+
 
 def plot_efficiency(data_filepath, transmission_dict, name='', photons_1550_nunormalized=1, counts_1550=1, eff_1550=1):
     photons_1550_normalized = counts_1550/eff_1550
@@ -278,7 +341,7 @@ photons_1550_nunormalized = sum(transmission_1550.values())
 counts_1550 = 150000
 eff_1550 = 0.15
 plot_efficiency(data_1550_path, transmission_1550, name='1550', photons_1550_nunormalized=photons_1550_nunormalized, counts_1550=counts_1550, eff_1550=eff_1550)
-plot_efficiency(data_1610_path, transmission_1693, name='1610', photons_1550_nunormalized=photons_1550_nunormalized, counts_1550=counts_1550, eff_1550=eff_1550)
+plot_efficiency(data_1610_path, transmission_1610, name='1610', photons_1550_nunormalized=photons_1550_nunormalized, counts_1550=counts_1550, eff_1550=eff_1550)
 plot_efficiency(data_1693_path, transmission_1693, name='1693', photons_1550_nunormalized=photons_1550_nunormalized, counts_1550=counts_1550, eff_1550=eff_1550)
 plot_efficiency(data_1775_path, transmission_1775, name='1775', photons_1550_nunormalized=photons_1550_nunormalized, counts_1550=counts_1550, eff_1550=eff_1550)
 plot_efficiency(data_1865_path, transmission_1865, name='1865', photons_1550_nunormalized=photons_1550_nunormalized, counts_1550=counts_1550, eff_1550=eff_1550)
