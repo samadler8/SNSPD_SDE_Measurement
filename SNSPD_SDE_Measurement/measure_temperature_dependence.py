@@ -70,7 +70,7 @@ if laser_type == 'ando':
     instruments['monitor_port'] = monitor_port
     instruments['detector_port'] = detector_port
     
-    attval = 27
+    attval = 29
 instruments['laser'] = laser
 
 
@@ -80,14 +80,14 @@ def temperature_dependence_sweep(
     trigger_voltage: float = 1.2,
     bias_resistor: float = 100e3,
     counting_time: float = 0.5,
-    N: int = 1
+    N: int = 3
 ) -> str:
     logger.info("STARTING: Temperature Dependence Sweep")
 
     # Initialize critical variables
     ic = get_ic(IV_pickle_filepath)
-    Cur_Array = np.linspace(ic * 0.2, ic * 1.1, 3)
-    end_time = datetime.now() + timedelta(minutes=5)
+    Cur_Array = np.linspace(ic * 0.2, ic * 1.1, 69)
+    end_time = datetime.now() + timedelta(hours=3)
 
     # Prepare directories for saving data
     output_dir = os.path.join(current_file_dir, 'data_td')
@@ -105,7 +105,7 @@ def temperature_dependence_sweep(
     data_dict = {}
 
     iteration = 0
-    batch_size = 2
+    batch_size = 20
     now = datetime.now()
 
     while now < end_time:
@@ -156,6 +156,7 @@ def temperature_dependence_sweep(
             logger.info(dict(list(data_dict.items())[-batch_size:]))
             with open(filepath, "wb") as file:
                 pickle.dump(data_dict, file)
+        time.sleep(60)
             
     # Final save after loop ends
     logger.info("Saving final data")
@@ -172,18 +173,20 @@ def temperature_dependence_sweep(
 
 # %% Main code
 if __name__ == '__main__':
-    now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
-
     bias_resistor=97e3
-    counting_time = 1
+    counting_time = 0.5
     max_cur = 15e-6
+
+    now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
     name = 'SK3'
     
-    # IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name)
-    IV_pickle_filepath = os.path.join(current_file_dir, "data_sde", "SK3_IV_curve_data__20250114-175627.pkl")
+    IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name)
+    # IV_pickle_filepath = os.path.join(current_file_dir, "data_sde", "SK3_IV_curve_data__20250114-175627.pkl")
 
-    # trigger_voltage = find_min_trigger_threshold(instruments, now_str=now_str)
-    trigger_voltage = 0.131
+
+    time.sleep(30*60)
+    trigger_voltage = find_min_trigger_threshold(instruments, now_str=now_str)
+    # trigger_voltage = 0.131
     
     temperatureDependence_filepath = temperature_dependence_sweep(now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, trigger_voltage=trigger_voltage)
     
