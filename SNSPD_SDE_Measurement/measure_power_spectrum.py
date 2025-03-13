@@ -216,11 +216,11 @@ if __name__ == '__main__':
     now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
     name = 'saaed2um'
 
-    wavelengths = [635, 1100, 1150, 1250, 1350, 1450, 1566.314, 1525.661, 1620.5, 1650, 1700, 2000]
+    wavelengths = [635, 1100, 1150, 1200, 1250, 1300, 1350, 1400, 1450, 1500, 1525.661, 1550, 1566.314, 1600, 1620.5, 1650, 1700, 2000]
 
     
-    # taus = [2.75, 2.25]
-    # nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(instruments, now_str=now_str, taus=taus)
+    taus = [2.75, 2.25]
+    nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(instruments, now_str=now_str, taus=taus)
 
     # IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name)
     IV_pickle_filepath = os.path.join(current_file_dir, "data_sde", "saaed2um_IV_curve_data__20250307-182549.pkl")

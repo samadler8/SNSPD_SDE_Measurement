@@ -41,6 +41,8 @@ def get_uncertainty(rawdata):
     """
 
     if isinstance(rawdata, np.ndarray) and rawdata.ndim == 2:
+        rawdata = rawdata.astype(float)
+
         # Calculate standard deviation and mean for each row
         std = rawdata.std(axis=1, ddof=1)
         avg = rawdata.mean(axis=1)

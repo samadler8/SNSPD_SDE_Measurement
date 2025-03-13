@@ -3,6 +3,7 @@ import os
 import logging
 import pickle
 import json
+import re
 
 import numpy as np
 import pandas as pd
@@ -134,7 +135,7 @@ def calculate_att_correction_unc(att_cal_filepath, correction):
     with open(att_cal_filepath, 'rb') as file:
         att_cal_data = pickle.load(file)
 
-    atts = [0, 1, 2]
+    atts = [0, 1] # make this flexible
 
     filtered0_att_cal_data = att_cal_data[att_cal_data['Attenuation (dB)'] == 0]
     power_0 = np.array(filtered0_att_cal_data['Power Measurement'].iloc[0])
@@ -221,21 +222,23 @@ if __name__ == '__main__':
     self_filename = os.path.basename(__file__)
     self_sha1hash = compute_sha1_hash(__file__)
 
-    wavelength = 1566.314e-9 #m
+    # wavelength = 1566.314e-9 #m
 
     config = {}
 
     NIST_pm_calib_path = os.path.join(current_file_dir, 'calibration_power_meter', 'SWN HP81521B 2933G05261.xlsx')
     # nonlinear_calculation_path = os.path.join(current_file_dir, 'data_sde', 'calculation_v1_nonlinear_calibration_data_tau2.5__20250110-210258.pkl')
     # nonlinear_calculation_path = None
-    switch_path = os.path.join(current_file_dir, 'data_sde', 'optical_switch_calibration_data_cpm_splice2__20250109-180754.pkl')
+    switch_path = os.path.join(current_file_dir, 'data_sde', 'optical_switch_calibration_data_cpm_splice__20250307-195020.pkl')
     # attcal_path = os.path.join(current_file_dir, 'data_sde', '.pkl')
     # fpath = os.path.join(current_file_dir, 'data_sde', '.pkl')
 
     data_dir = os.path.join(current_file_dir, 'data_sde')
-    fnames = [f for f in os.listdir(data_dir) if f.startswith('SK3_counts_data_snspd_splice1_attval')]
+    fnames = [f for f in os.listdir(data_dir) if f.startswith('saaed2um_InGaAs_')]
+    fnames = [f for f in fnames if "counts" in f]
     attcal_names = [f for f in os.listdir(data_dir) if f.startswith('attenuator_calibration_data')]
-    nonlinear_calc_filenames = [None, 'calculation_nonlinear_calibration_data_tau1.5__20250110-210258.pkl', 'calculation_nonlinear_calibration_data_tau2__20250110-210258.pkl', 'calculation_nonlinear_calibration_data_tau2.5__20250110-210258.pkl', 'calculation_nonlinear_calibration_data_tau3__20250110-210258.pkl']
+    # nonlinear_calc_filenames = [None, 'calculation_nonlinear_calibration_data_tau1.5__20250110-210258.pkl', 'calculation_nonlinear_calibration_data_tau2__20250110-210258.pkl', 'calculation_nonlinear_calibration_data_tau2.5__20250110-210258.pkl', 'calculation_nonlinear_calibration_data_tau3__20250110-210258.pkl']
+    nonlinear_calc_filenames = [None]
     for nonlinear_calc_filename in nonlinear_calc_filenames:
         if nonlinear_calc_filename is None:
             nonlinear_calculation_path = None
@@ -243,7 +246,10 @@ if __name__ == '__main__':
             nonlinear_calculation_path = os.path.join(data_dir, nonlinear_calc_filename)
 
         for fname in fnames:
-            attcal_name = next((attcal for attcal in attcal_names if attcal[-26:] == fname[-26:]), None)
+            match = re.search(r'(\d+\.?\d*)_counts', fname)
+            num_str = match.group(1)
+            wavelength = (float(num_str) if '.' in num_str else int(num_str))*1e-9
+            attcal_name = next((attcal for attcal in attcal_names if attcal[-27:] == fname[-27:]), None)
 
             fpath = os.path.join(data_dir, fname)
             attcal_path = os.path.join(data_dir, attcal_name)
@@ -255,19 +261,24 @@ if __name__ == '__main__':
             if not os.path.exists(NIST_pm_calib_path):
                 logger.warning(f' No NIST calibrated power meter file found')
                 config['CF'] = 1.0
-                config['CF_er'] = 0.0
+                config['CF_err'] = 0.0
             else:
                 logger.info(f' NIST_pm_calib_path: {NIST_pm_calib_path}')
 
                 calib_df = pd.read_excel(NIST_pm_calib_path, sheet_name='Data')
                 wl = calib_df['Wav (nm)'].values
-                cf_list = calib_df['Cal. Factor'].values
-                cf_err_list = calib_df['St. Dev'].values
-                cf_err = max(cf_err_list*cf_list)
-                cf_interp = interp1d(wl, cf_list, kind='cubic')
-                
-                config['CF'] = cf_interp(wavelength*1e9)  # NIST power-meter calibration factor
-                config['CF_err'] = cf_err  # Standard error
+
+                if wavelength < min(wl) or wavelength > max(wl):
+                    config['CF'] = 1.0
+                    config['CF_err'] = 0.0
+                else:
+                    cf_list = calib_df['Cal. Factor'].values
+                    cf_err_list = calib_df['St. Dev'].values
+                    cf_err = max(cf_err_list*cf_list)
+                    cf_interp = interp1d(wl, cf_list, kind='cubic')
+                    
+                    config['CF'] = cf_interp(wavelength*1e9)  # NIST power-meter calibration factor
+                    config['CF_err'] = cf_err  # Standard error
             if not os.path.exists(switch_path):
                 logger.error(f' No switch file found')
                 sys.exit(1)

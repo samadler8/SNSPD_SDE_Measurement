@@ -531,8 +531,8 @@ def plot_processed_counts_unc(data_filepath='', sde_processed_filepath="", save_
 
 # %% Main Code Block
 if __name__ == '__main__':
-    save_pdf = True
-    # optical_switch_filepath = os.path.join(current_file_dir, 'data_sde', 'optical_switch_calibration_data_cpm_splice2__20250109-180754.pkl')
+    save_pdf = False
+    # optical_switch_filepath = os.path.join(current_file_dir, 'data_sde', 'optical_switch_calibration_data_cpm_splice__20250307-195020.pkl')
     # plot_switch(optical_switch_filepath, save_pdf=save_pdf)
 
     # tau = None
@@ -564,7 +564,8 @@ if __name__ == '__main__':
     # data_filepath = os.path.join(current_file_dir, "data_sde", "SK3_counts_data_snspd_splice1__20250110-155421.pkl")
     # sde_processed_filepath = os.path.join(current_file_dir, 'data_sde', 'final_results_nonlinear_correctionFalse__20250114-095804.pkl')
     data_dir = os.path.join(current_file_dir, 'data_sde')
-    data_filenames = [f for f in os.listdir(data_dir) if f.startswith('SK3_counts_data_snspd_splice1_attval')]
+    data_filenames = [f for f in os.listdir(data_dir) if f.startswith('saaed2um_InGaAs_')]
+    data_filenames = [f for f in data_filenames if "counts" in f]
     sde_processed_filenames = [f for f in os.listdir(data_dir) if f.startswith('final_results')]
     for data_filename in data_filenames:
         data_filepath = os.path.join(data_dir, data_filename)
