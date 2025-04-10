@@ -7,3 +7,5 @@ lmfit
 uncertainties
 openpyxl
 kaleido
+pytesseract
+pyautogui

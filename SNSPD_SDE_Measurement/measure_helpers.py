@@ -10,6 +10,9 @@ import pandas as pd
 
 from pathlib import Path
 from datetime import datetime
+import pytesseract
+import pyautogui
+from PIL import Image
 
 current_file_dir = Path(__file__).parent
 logger = logging.getLogger(__name__)
@@ -905,3 +908,23 @@ def nonlinearity_factor_raw_power_measurements(instruments, now_str="{:%Y%m%d-%H
     logger.info(f"nonlinearity_factor saved to: {filepath}")
     logger.info("Completed: Algorithm S1. Nonlinearity factor raw power measurements")
     return filepath
+
+
+
+# If Tesseract is not in your PATH, specify the path manually
+# pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+
+def capture_screen_and_extract_text(x, y, width, height):
+    logger.info("Take a screenshot of the area you want to capture...")
+    
+    # # Let the user select a region of the screen
+    # screenshot = pyautogui.screenshot()
+    # screenshot.save("full_screenshot.png")
+
+    screenshot = pyautogui.screenshot(region=(x, y, width, height))
+    
+    # Extract text from the screenshot
+    text = pytesseract.image_to_string(screenshot)
+    
+    logger.info("\nExtracted Text:\n")
+    logger.info(text)
