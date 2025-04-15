@@ -11,6 +11,7 @@ import pandas as pd
 from pathlib import Path
 from datetime import datetime
 import pytesseract
+pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 import pyautogui
 from PIL import Image
 
