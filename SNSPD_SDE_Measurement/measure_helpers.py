@@ -10,6 +10,8 @@ import pandas as pd
 
 from pathlib import Path
 from datetime import datetime
+from tqdm import tqdm
+
 import pytesseract
 pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 import pyautogui
@@ -44,7 +46,7 @@ def SNSPD_IV_Curve(instruments, now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()
     total_num_biases = Cur_Array.size
 
     # Measure voltage for each set bias
-    for i in range(total_num_biases):
+    for i in tqdm(total_num_biases):
         set_volt = Volt_Array[i]
         srs.set_voltage(set_volt)
         time.sleep(0.1)  # Wait for stabilization
@@ -97,7 +99,7 @@ def get_counts(Cur_Array, instruments, trigger_voltage=0.12, bias_resistor=100e3
     Volt_Array = np.round(Cur_Array * bias_resistor, decimals=3)
     Count_Array = np.empty((len(Cur_Array), N), dtype=float)
 
-    for i in range(len(Cur_Array)):
+    for i in tqdm(len(Cur_Array)):
         srs.set_voltage(Volt_Array[i])
         time.sleep(0.1)
         temp_cps = np.empty(N, dtype=float)
@@ -195,7 +197,7 @@ def find_min_trigger_threshold(
     return final_trigger_voltage
 
 
-def zero_pm(instruments):
+def zero_ando_pm(instruments):
     sw = instruments['sw']
     detector_port = instruments['detector_port']
     att_list = instruments['att_list']
@@ -213,7 +215,7 @@ def reset_attenuators(instruments):
         att.set_att(0)
         att.enable()
 
-def find_mpm_rng(instruments,rng, N_init=3):
+def find_mpm_rng(instruments, rng, N_init=3):
     mpm = instruments['mpm']
     while True:
         logger.info(f"rng: {rng}")
@@ -265,97 +267,98 @@ def meas_counts(instruments, position, N=3, counting_time=1):
     return cps
 
 # Algorithm S1.1 Missing Algorithm (optical switch calibration)
-def optical_switch_calibration(instruments,now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), cpm_splice='', mpm_type='', wavelength=1550):
+def optical_switch_calibration(instruments,
+                               name="{:%Y%m%d-%H%M%S}".format(datetime.now()),
+                               mpm_types=None,
+                               wavelength=1550):
     """
     Perform optical switch calibration and save the calibration data.
 
     Parameters:
-        now_str (str): Timestamp for the filename. Defaults to current time.
-        num_iterations (int): Number of iterations for data collection. Default is 50.
-        output_dir (str): Directory to save calibration data. Default is 'data_sde'.
-        init_rng: Initial range for power meter.
-        att_list (list): List of attenuator objects to initialize.
-        cpm_splice: Splice identifier for CPM.
-        monitor_port: Monitor port for the optical switch.
-        detector_port: Detector port for the optical switch.
+        instruments (dict): Dictionary of instrument interfaces.
+        name (str): Timestamped name for saving files.
+        mpm_types (list): List of power meter types corresponding to mpms list.
+        wavelength (float): Wavelength to set for power meters (nm).
 
     Returns:
         str: Filepath of the saved calibration data.
     """
-    logger.info("Starting: Algorithm S1.1 Missing Algorithm (optical switch calibration)")
-    logger.warning("Ensure detector fiber it spliced to calibrated power meter")
+    if mpm_types is None:
+        mpm_types = []
 
+    logger.info("Starting: Algorithm S1.1 Optical Switch Calibration")
+    logger.warning("Ensure detector fiber is spliced to calibrated power meter")
 
-    sw=instruments['sw']
-    monitor_port=instruments['monitor_port']
-    laser=instruments['laser']
-    mpm=instruments['mpm']
-    att_list=instruments['att_list']
-    detector_port=instruments['detector_port']
-    cpm=instruments['cpm']
+    sw = instruments['sw']
+    monitor_port = instruments['monitor_port']
+    detector_port = instruments['detector_port']
+    laser = instruments['laser']
+    mpms = instruments['mpms']
+    mpm_sw = instruments['mpm_sw']
+    att_list = instruments['att_list']
+    cpm = instruments['cpm']
 
     # Initialize power meters
     sw.set_route(monitor_port)
     reset_attenuators(instruments)
-    if mpm_type != 'InGaAs':
-        init_rng = find_mpm_rng(0)
-        mpm.set_range(init_rng)
-        mpm.zero()
+    for mpm, mpm_type in zip(mpms, mpm_types):
+        if mpm_type == 'ando':
+            mpm.set_lambda(wavelength)
+            zero_ando_pm()
+            init_rng = find_mpm_rng(0)
+            mpm.set_range(init_rng)
     cpm.set_pm_wavelength(wavelength)
 
-    # Set optical switch to monitoring port and initialize attenuators
-    for att in att_list:
-        att.set_att(0)
-        att.enable()
-
+    # Calibrate CPM to 100 uW
     N = 10
-
-    # Ensure cpm is seeing 100uW. Can assume it's an ando laser
     sw.set_route(detector_port)
-    low_attval = 0
-    high_attval = 10
-    tolerance = 1e-6
-    avg_cpm_power = 0
-    while abs(avg_cpm_power - 100e-6) > tolerance:
-        mid_attval = round((low_attval + high_attval)/2, 3)#Round to 3 decimal places
-        laser.set_att(mid_attval)
-        time.sleep(.1)
-        cpm_powers = [float(cpm.read_power()) for _ in range(N)]
-        avg_cpm_power = sum(cpm_powers)/len(cpm_powers)
-        logger.info(f"Laser attenuation value: {mid_attval}, avg_cpm_power: {avg_cpm_power}")
-
-        if avg_cpm_power < 100e-6:
-            high_attval = mid_attval
+    low_att = 0.0
+    high_att = 10.0
+    tol = 1e-6
+    avg_cpm = 0.0
+    while abs(avg_cpm - 100e-6) > tol:
+        mid = round((low_att + high_att) / 2, 3)
+        laser.set_att(mid)
+        time.sleep(0.1)
+        readings = [float(cpm.read_power()) for _ in range(N)]
+        avg_cpm = sum(readings) / N
+        logger.info(f"Tuning attenuation={mid}, Avg CPM={avg_cpm}")
+        if avg_cpm < 100e-6:
+            high_att = mid
         else:
-            low_attval = mid_attval
+            low_att = mid
 
-    power_mpm = np.empty(N**2, dtype=float)
-    power_cpm = np.empty(N**2, dtype=float)
+    # Prepare storage arrays
+    num_mpm = len(mpms)
+    total_pts = N * N
+    power_mpm = np.empty((total_pts, num_mpm), dtype=float)
+    power_cpm = np.empty(total_pts, dtype=float)
 
     # Collect power data
     for i in range(N):
         sw.set_route(monitor_port)
         time.sleep(0.3)
-        if mpm_type != 'InGaAs':
-            mpm.get_power()
-            for j in range(N):
-                power_mpm[i*N + j] = mpm.get_power()
-            mpm.get_power()
-        else:
-            mpm.get_meter_pow(4)
-            for j in range(N):
-                power_mpm[i*N + j] = mpm.get_meter_pow(4)
-            mpm.get_meter_pow(4)
+        for k, (mpm, mpm_type) in enumerate(zip(mpms, mpm_types)):
+            if mpm_type == 'ando':
+                mpm_sw.set_route(instruments['ando_port'])
+                for j in range(N):
+                    power_mpm[i*N + j, k] = mpm.get_power()
+            elif mpm_type == 'InGaAs':
+                mpm_sw.set_route(instruments['ingaas_port'])
+                for j in range(N):
+                    power_mpm[i*N + j, k] = mpm.get_meter_pow(4)
+            elif mpm_type == 'thermal':
+                mpm_sw.set_route(instruments['thermal_port'])
+                for j in range(N):
+                    power_mpm[i*N + j, k] = capture_screen_and_extract_text(100, 200, 100, 200)
 
         sw.set_route(detector_port)
         time.sleep(0.3)
-        cpm.read_power()
         for j in range(N):
             power_cpm[i*N + j] = cpm.read_power()
-        cpm.read_power()
 
-        logger.info(f"Iteration {i+1}/{N}: MPM Power={power_mpm[i*N:i*N+N]}, CPM Power={power_cpm[i*N:i*N+N]}")
-        logger.info(f"Progress: {round(100 * (i + 1) / N, 2)}%")
+        logger.info(f"Iter {i+1}/{N}: MPM readings={power_mpm[i*N:(i+1)*N, :]}, CPM readings={power_cpm[i*N:(i+1)*N]}")
+        logger.info(f"Progress: {100*(i+1)/N:.1f}%")
 
     # Reset switch and attenuators
     sw.set_route(monitor_port)
@@ -363,32 +366,31 @@ def optical_switch_calibration(instruments,now_str="{:%Y%m%d-%H%M%S}".format(dat
         att.set_att(0)
         att.disable()
 
-    # Save data to a DataFrame
-    data_dict = {
-        'power_mpm': power_mpm, 
-        'power_cpm': power_cpm,
-        }
+    # Build DataFrame
+    col_names = [f"power_mpm_{k}" for k in range(num_mpm)]
+    df = pd.DataFrame(power_mpm, columns=col_names)
+    df['power_cpm'] = power_cpm
 
-    # Save the DataFrame as a pickle file
-    output_dir = os.path.join(current_file_dir, "data_sde")
-    os.makedirs(output_dir, exist_ok=True)
-    filename = f"optical_switch_calibration_data_cpm_splice{cpm_splice}__{now_str}.pkl"
-    filepath = os.path.join(output_dir, filename)
-    with open(filepath, 'wb') as f:
-        pickle.dump(data_dict, f)
-    
-    readable_output_dir = os.path.join(current_file_dir, 'readable_data_sde')
-    os.makedirs(readable_output_dir, exist_ok=True)
-    _, data_filename = os.path.split(os.path.splitext(filepath)[0])
-    json_filename = f'{data_filename}.json'
-    json_filepath = os.path.join(readable_output_dir, json_filename)
-    with open(json_filepath, 'w') as f:
-        json.dump(data_dict, f, indent=4, default=lambda x: x.tolist() if hasattr(x, 'tolist') else str(x))
+    # Save DataFrame
+    current_dir = os.path.dirname(__file__)
+    out_dir = os.path.join(current_dir, 'data_sde')
+    os.makedirs(out_dir, exist_ok=True)
+    fname = f"optical_switch_calibration_{name}.pkl"
+    out_path = os.path.join(out_dir, fname)
+    df.to_pickle(out_path)
 
-    logger.info(f"Optical switch calibration data saved to: {filepath}")
+    # Also save JSON
+    readable_dir = os.path.join(current_dir, 'readable_data_sde')
+    os.makedirs(readable_dir, exist_ok=True)
+    json_name = f"optical_switch_calibration_{name}.json"
+    json_path = os.path.join(readable_dir, json_name)
+    with open(json_path, 'w') as jf:
+        json.dump(df.to_dict(orient='list'), jf, indent=4)
+
+    logger.info(f"Calibration data saved to: {out_path}")
     logger.info("Completed: Algorithm S1.1 Optical Switch Calibration")
 
-    return filepath
+    return out_path
 
 # Algorithm S2. Attenuator Calibration
 def attenuator_calibration(instruments,now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), attval=30, mpm_type=''):
@@ -556,7 +558,7 @@ def sweep_polarizations(instruments,now_str="{:%Y%m%d-%H%M%S}".format(datetime.n
     positions = np.linspace(-60.0, 60.0, num_pols) # Max range is -99 to 100 but I want to limit these edge cases
     positions = np.round(positions, 2)
     pol_data = {}
-    for n in range(num_repeats):
+    for n in tqdm(num_repeats):
         for i, x in enumerate(positions):
             for j, y in enumerate(positions):
                 for k, z in enumerate(positions):

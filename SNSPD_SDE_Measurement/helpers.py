@@ -2,6 +2,8 @@ import os
 import pickle
 import logging
 import math
+import pytesseract
+import pyautogui
 
 import pandas as pd
 import numpy as np
@@ -10,9 +12,16 @@ from pathlib import Path
 from datetime import datetime
 from uncertainties import unumpy as unp
 from uncertainties import ufloat, correlated_values
+from PIL import Image
 
 current_file_dir = Path(__file__).parent
 logger = logging.getLogger(__name__)
+
+def capture_screen_and_extract_text(x, y, width, height):
+    screenshot = pyautogui.screenshot(region=(x, y, width, height))
+    text = pytesseract.image_to_string(screenshot)
+    logger.info(f"\nExtracted Text: {text}\n")
+    return
          
 def get_ic(filepath, threshold=1e-4):
     with open(filepath, 'rb') as file:

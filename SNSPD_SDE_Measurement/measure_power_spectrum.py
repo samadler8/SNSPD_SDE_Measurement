@@ -216,40 +216,109 @@ if __name__ == '__main__':
     now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
     name = 'saaed2um'
 
-    wavelengths = [635, 1100, 1150, 1200, 1250, 1300, 1350, 1400, 1450, 1500, 1525.661, 1550, 1566.314, 1600, 1620.5, 1650, 1700, 2000]
+    # wavelengths = [635, 1100, 1150, 1200, 1250, 1300, 1350, 1400, 1450, 1500, 1525.661, 1550, 1566.314, 1600, 1620.5, 1650, 1700, 2000]
+    wavelengths = [635, 1525.661, 1566.314, 1620.5, 2000]
 
-    
     taus = [2.75, 2.25]
-    nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(instruments, now_str=now_str, taus=taus)
+    # nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(instruments, now_str=now_str, taus=taus)
 
-    # IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name)
-    IV_pickle_filepath = os.path.join(current_file_dir, "data_sde", "saaed2um_IV_curve_data__20250307-182549.pkl")
+    IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name)
+    # IV_pickle_filepath = os.path.join(current_file_dir, "data_sde", "saaed2um_IV_curve_data__20250307-182549.pkl")
 
-    # trigger_voltage = find_min_trigger_threshold(instruments)
-    trigger_voltage = 0.01
+    trigger_voltage = find_min_trigger_threshold(instruments)
+    # trigger_voltage = 0.01
 
     NIST_pm_calib_path = os.path.join(current_file_dir, 'calibration_power_meter', 'SWN HP81521B 2933G05261.xlsx')
     calib_df = pd.read_excel(NIST_pm_calib_path, sheet_name='Data')
     calib_df_wav = calib_df['Wav (nm)'].values
 
-    #light_sources = ['ando_lasers', 'thor_lasers', 'spectrometer']
-    light_sources = ['spectrometer']
+    # light_sources = ['ando_lasers', 'thor_lasers', 'spectrometer']
+    light_sources = ['ando_lasers', 'thor_lasers']
 
-    # mpm_types = ['InGaAs', 'Thermal']
-    mpm_types = ['InGaAs']
+    # mpm_types = ['ando', 'InGaAs', 'Thermal']
+    mpm_types = ['ando','Thermal']
+
+    switch_cal_y_n = input("Do you want to calibrate the optical swtich using the nist calibrated power meter? \n")
+    if switch_cal_y_n in ['1', 'Y', 'y']:
+        input("Ensure spliced to CPM not SNSPD\nPress anything to continue\n")
+        for wavelength in tqdm(wavelengths):
+            if wavelength > max(calib_df_wav) or wavelength < min(calib_df_wav):
+                continue
+            else:
+                now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
+                mpm_types_temp = mpm_types
+                light_sources_temp = light_sources
+
+                if wavelength > 2000:
+                    mpm_types_temp.remove('InGaAs')
+                    mpm_types_temp.remove('ando')
+                    light_sources_temp.remove('spectrometer')
+                elif wavelength > 1700:
+                    mpm_types_temp.remove('InGaAs')
+                    mpm_types_temp.remove('ando')
+                if wavelength < 800:
+                    mpm_types_temp.remove('InGaAs')
+                    mpm_types_temp.remove('ando')
+                    light_sources_temp.remove('spectrometer')
+                if wavelength < 1000:
+                    light_sources_temp.remove('spectrometer')
+
+                if wavelength not in [1566.314, 1525.661, 1620.5]:
+                    light_sources_temp.remove('ando_lasers')
+
+                if wavelength not in [635, 2000]:
+                    light_sources_temp.remove('thor_lasers')
+
+                instruments['mpms'] = mpm_types_temp
+
+
+                # mpm.set_meter_wav(wavelength_nm = wavelength, slot=4)
+
+                for light_source in light_sources_temp:
+                    if light_source == 'ando_laser':
+                        if wavelength==1566.314:
+                            laser_sw.set_route(laser1566_port)
+                            ando_laser = laser1566
+                        elif wavelength==1525.661:
+                            laser_sw.set_route(laser1525_port)
+                            ando_laser = laser1525
+                        elif wavelength==1620.5:
+                            laser_sw.set_route(laser1621_port)
+                            ando_laser = laser1621
+                        instruments['laser'] = ando_laser
+                    
+                    elif light_source == 'thor_laser':
+                        if wavelength==635:
+                            laser_sw.set_route(laser635_port)
+                        elif wavelength==2000:
+                            laser_sw.set_route(laser2000_port)
+                
+
+                    elif light_source == 'spectrometer':
+                        spectrometer.set_wavelength(wavelength)
+                        laser_sw.set_route(spectrometer_port)
+
+                    name_mpms_src_wav = f'{mpm_types_temp}_{light_source}_{wavelength}'
+                    sw.set_route(monitor_port)
+                    optical_switch_calibration_filepath = optical_switch_calibration(instruments, name=name_mpms_src_wav, mpm_types=mpm_types_temp, wavelength=wavelength)
+                    sw.set_route(monitor_port)
+                        
+            
+    input("Ensure spliced to SNSPD not CPM\nPress anything to continue\n")
     for mpm_type in mpm_types:
-        now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
         name_pm = f'{name}_{mpm_type}'
 
         if mpm_type == 'InGaAs':
             mpm_sw.set_route(ingaas_port)
             instruments['mpm'] = ingaas_pm
+        if mpm_type == 'ando':
+            mpm_sw.set_route(ando_port)
+            instruments['mpm'] = ando_pm
         if mpm_type == 'thermal':
             mpm_sw.set_route(thermal_port)
 
         mpm = instruments['mpm']
         for light_source in light_sources:
-            now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
             name_pm_src = f'{name_pm}_{light_source}'
 
             for wavelength in wavelengths:
@@ -258,6 +327,11 @@ if __name__ == '__main__':
 
                 if mpm_type == 'InGaAs':
                     if wavelength < 800 or wavelength > 1700:
+                        continue
+                    mpm.set_meter_wav(wavelength_nm = wavelength, slot=4)
+
+                if mpm_type == 'ando':
+                    if wavelength < 850 or wavelength > 1700:
                         continue
                     mpm.set_meter_wav(wavelength_nm = wavelength, slot=4)
 
@@ -277,23 +351,15 @@ if __name__ == '__main__':
                     ando_laser.enable()
                     ando_laser.std_init()
 
-                    # y_n = input("Do you want to calibrate the optical swtich using the nist calibrated power meter? \n")
-                    # if y_n in ['1', 'Y', 'y']:
-                    #     sw.set_route(monitor_port)
-                    #     input("Ensure spliced to CPM not SNSPD\nPress anything to continue\n")
-                    #     optical_switch_calibration_filepath = optical_switch_calibration(instruments, now_str=now_str, mpm_type=mpm_type, wavelength=wavelength)
-                    #     sw.set_route(monitor_port)
-                    #     input("Ensure spliced to SNSPD not CPM\nPress anything to continue\n")
-
                 if light_source == 'thor_lasers':
                     if wavelength not in [635, 2000]:
                         continue
                     elif wavelength==635:
                         laser_sw.set_route(laser635_port)
-                        #input=("Please make sure this laser is turned on (No remote connection available)\nPress anything to continue\n")
+                        # input=("Please make sure this laser is turned on (No remote connection available)\nPress anything to continue\n")
                     elif wavelength==2000:
                         laser_sw.set_route(laser2000_port)
-                        #laser2000.enable()
+                        # laser2000.enable()
                    
                 if light_source == 'spectrometer':
                     if wavelength < 1000 or wavelength > 2000:
@@ -301,9 +367,6 @@ if __name__ == '__main__':
                     spectrometer.set_wavelength(wavelength)
                     laser_sw.set_route(spectrometer_port)
                     input=("Please make sure light source is turned on\nPress anything to continue\n")
-
-                
-                
 
                 # Find ideal attenuation value (that which gets 300,000 cps at max polarization)
                 attval = get_att_value(instruments, IV_pickle_filepath=IV_pickle_filepath, trigger_voltage=trigger_voltage)
@@ -316,4 +379,16 @@ if __name__ == '__main__':
                 attenuator_calibration_filepath = attenuator_calibration(instruments, now_str=now_str, attval=attval, mpm_type=mpm_type)
 
 
-            
+
+
+#  for mpm_type in mpm_types:
+#             name_pm = f'{name}_{mpm_type}'
+
+#             if mpm_type == 'InGaAs':
+#                 mpm_sw.set_route(ingaas_port)
+#                 instruments['mpm'] = ingaas_pm
+#             if mpm_type == 'ando':
+#                 mpm_sw.set_route(ando_port)
+#                 instruments['mpm'] = ando_pm
+#             if mpm_type == 'thermal':
+#                 mpm_sw.set_route(thermal_port)
