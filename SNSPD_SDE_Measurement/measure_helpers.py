@@ -307,6 +307,8 @@ def optical_switch_calibration(instruments,
             zero_ando_pm()
             init_rng = find_mpm_rng(0)
             mpm.set_range(init_rng)
+        if mpm_type == 'thermal':
+            # mpm.set_lambda(wavelength)
     cpm.set_pm_wavelength(wavelength)
 
     # Calibrate CPM to 100 uW
@@ -393,13 +395,13 @@ def optical_switch_calibration(instruments,
     return out_path
 
 # Algorithm S2. Attenuator Calibration
-def attenuator_calibration(instruments,now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), attval=30, mpm_type=''):
+def attenuator_calibration(instruments,now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), attval=30, mpm_types=''):
     logger.info("Starting: Algorithm S2. Attenuator Calibration")
     
     sw=instruments['sw']
     monitor_port=instruments['monitor_port']
     att1=instruments['att1']
-    mpm=instruments['mpm']
+    mpms=instruments['mpms']
     att_list=instruments['att_list']
     
     
@@ -409,15 +411,16 @@ def attenuator_calibration(instruments,now_str="{:%Y%m%d-%H%M%S}".format(datetim
     N = 100
     sw.set_route(monitor_port)
     att_rng=0
-    init_rng = 0 
-    if mpm_type != 'InGaAs':
-        reset_attenuators(instruments)
-        att1.set_att(attval)
-        att_rng = find_mpm_rng(round(-attval, -1))
-        logger.info(f" att_rng: {att_rng}")
-        reset_attenuators(instruments)
-        init_rng = find_mpm_rng(round(0, -1))
-        logger.info(f" init_rng: {init_rng}")
+    init_rng = 0
+    for mpm, mpm_type in zip(mpms, mpm_types):
+        if mpm_type == 'ando':
+            reset_attenuators(instruments)
+            att1.set_att(attval)
+            att_rng = find_mpm_rng(round(-attval, -1))
+            logger.info(f" att_rng: {att_rng}")
+            reset_attenuators(instruments)
+            init_rng = find_mpm_rng(round(0, -1))
+            logger.info(f" init_rng: {init_rng}")
 
     # Initialize an empty DataFrame to store results
     columns = ['Attenuator', 'Attenuation (dB)', 'Range', 'Power Measurement']
@@ -428,9 +431,9 @@ def attenuator_calibration(instruments,now_str="{:%Y%m%d-%H%M%S}".format(datetim
     rows = []  # Collect rows to add to the DataFrame
     for i, atti in enumerate(att_list):
         # Step 2: Monitor setup for initial power measurements
-        if mpm_type != 'InGaAs':
+        if mpm_type == 'ando':
             mpm.set_range(init_rng)
-            zero_pm()
+            zero_ando_pm()
         sw.set_route(monitor_port)
         reset_attenuators(instruments)
         time.sleep(0.3)
@@ -450,7 +453,7 @@ def attenuator_calibration(instruments,now_str="{:%Y%m%d-%H%M%S}".format(datetim
         # Step 3: Apply attenuation and measure power
         if mpm_type != 'InGaAs':
             mpm.set_range(att_rng)
-            zero_pm()
+            zero_ando_pm()
         sw.set_route(monitor_port)
         reset_attenuators(instruments)
         atti.set_att(attval)
@@ -774,7 +777,7 @@ def nonlinearity_factor_raw_power_measurements(instruments, now_str="{:%Y%m%d-%H
     att_min_max_settings = {}
     for rng in rng_settings:
         mpm.set_range(rng)
-        zero_pm()
+        zero_ando_pm()
         sw.set_route(monitor_port)
         reset_attenuators(instruments)
         middle_a = -rng - 2.5
@@ -867,7 +870,7 @@ def nonlinearity_factor_raw_power_measurements(instruments, now_str="{:%Y%m%d-%H
     i = 0
     for rng in rng_settings:
         mpm.set_range(rng)
-        zero_pm()
+        zero_ando_pm()
         sw.set_route(monitor_port)
         reset_attenuators(instruments)
         for a in att_settings[rng]:
@@ -913,21 +916,3 @@ def nonlinearity_factor_raw_power_measurements(instruments, now_str="{:%Y%m%d-%H
     return filepath
 
 
-
-# If Tesseract is not in your PATH, specify the path manually
-# pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-
-def capture_screen_and_extract_text(x, y, width, height):
-    logger.info("Take a screenshot of the area you want to capture...")
-    
-    # # Let the user select a region of the screen
-    # screenshot = pyautogui.screenshot()
-    # screenshot.save("full_screenshot.png")
-
-    screenshot = pyautogui.screenshot(region=(x, y, width, height))
-    
-    # Extract text from the screenshot
-    text = pytesseract.image_to_string(screenshot)
-    
-    logger.info("\nExtracted Text:\n")
-    logger.info(text)

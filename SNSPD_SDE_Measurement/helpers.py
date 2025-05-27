@@ -17,6 +17,9 @@ from PIL import Image
 current_file_dir = Path(__file__).parent
 logger = logging.getLogger(__name__)
 
+# If Tesseract is not in your PATH, specify the path manually
+# pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+
 def capture_screen_and_extract_text(x, y, width, height):
     screenshot = pyautogui.screenshot(region=(x, y, width, height))
     text = pytesseract.image_to_string(screenshot)
