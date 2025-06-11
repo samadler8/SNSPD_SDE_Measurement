@@ -4,6 +4,7 @@ import logging
 import math
 import pytesseract
 import pyautogui
+import time
 
 import pandas as pd
 import numpy as np
@@ -21,6 +22,7 @@ logger = logging.getLogger(__name__)
 # pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 def capture_screen_and_extract_text(x, y, width, height):
+    time.sleep(0.1)
     screenshot = pyautogui.screenshot(region=(x, y, width, height))
     text = pytesseract.image_to_string(screenshot)
     logger.info(f"\nExtracted Text: {text}\n")

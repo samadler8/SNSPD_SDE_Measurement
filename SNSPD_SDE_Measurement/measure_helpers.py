@@ -308,7 +308,7 @@ def optical_switch_calibration(instruments,
             init_rng = find_mpm_rng(0)
             mpm.set_range(init_rng)
         if mpm_type == 'thermal':
-            # mpm.set_lambda(wavelength)
+            input(f"Please set T-RAD wavelength to: {wavelength}\nPlease set T-RAD range to: 200um\nPress anything to continue\n")
     cpm.set_pm_wavelength(wavelength)
 
     # Calibrate CPM to 100 uW
@@ -352,7 +352,7 @@ def optical_switch_calibration(instruments,
             elif mpm_type == 'thermal':
                 mpm_sw.set_route(instruments['thermal_port'])
                 for j in range(N):
-                    power_mpm[i*N + j, k] = capture_screen_and_extract_text(100, 200, 100, 200)
+                    power_mpm[i*N + j, k] = capture_screen_and_extract_text(20, 100, 200, 70)
 
         sw.set_route(detector_port)
         time.sleep(0.3)
@@ -395,14 +395,16 @@ def optical_switch_calibration(instruments,
     return out_path
 
 # Algorithm S2. Attenuator Calibration
-def attenuator_calibration(instruments,now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), attval=30, mpm_types=''):
+def attenuator_calibration(instruments, now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), wavelength=1550, attval=30, mpm_types=['ando']):
     logger.info("Starting: Algorithm S2. Attenuator Calibration")
     
     sw=instruments['sw']
     monitor_port=instruments['monitor_port']
+    detector_port=instruments['detector_port']
     att1=instruments['att1']
     mpms=instruments['mpms']
     att_list=instruments['att_list']
+    mpm_sw=instruments['mpm_sw']
     
     
     sw.set_route(monitor_port)
@@ -421,6 +423,8 @@ def attenuator_calibration(instruments,now_str="{:%Y%m%d-%H%M%S}".format(datetim
             reset_attenuators(instruments)
             init_rng = find_mpm_rng(round(0, -1))
             logger.info(f" init_rng: {init_rng}")
+        if mpm_type == 'thermal':
+            input(f"Please set T-RAD wavelength to: {wavelength}\nPlease set T-RAD range to: 200um\nPress anything to continue\n")
 
     # Initialize an empty DataFrame to store results
     columns = ['Attenuator', 'Attenuation (dB)', 'Range', 'Power Measurement']
@@ -432,26 +436,29 @@ def attenuator_calibration(instruments,now_str="{:%Y%m%d-%H%M%S}".format(datetim
     for i, atti in enumerate(att_list):
         # Step 2: Monitor setup for initial power measurements
         if mpm_type == 'ando':
+            sw.set_route(detector_port)
             mpm.set_range(init_rng)
             zero_ando_pm()
         sw.set_route(monitor_port)
         reset_attenuators(instruments)
         time.sleep(0.3)
-       
 
-        if mpm_type != 'InGaAs':
-            mpm.get_power()
-            for _ in range(N):
+
+        if mpm_type == 'ando':
+            mpm_sw.set_route(instruments['ando_port'])
+            for j in range(N):
                 init_powers.append(mpm.get_power())
-            mpm.get_power()
-        else:
-            mpm.get_meter_pow(4)
-            for _ in range(N):
+        elif mpm_type == 'InGaAs':
+            mpm_sw.set_route(instruments['ingaas_port'])
+            for j in range(N):
                 init_powers.append(mpm.get_meter_pow(4))
-            mpm.get_meter_pow(4)
+        elif mpm_type == 'thermal':
+            mpm_sw.set_route(instruments['thermal_port'])
+            for j in range(N):
+                init_powers.append(capture_screen_and_extract_text(20, 100, 200, 70))
 
         # Step 3: Apply attenuation and measure power
-        if mpm_type != 'InGaAs':
+        if mpm_type == 'ando':
             mpm.set_range(att_rng)
             zero_ando_pm()
         sw.set_route(monitor_port)
@@ -459,16 +466,18 @@ def attenuator_calibration(instruments,now_str="{:%Y%m%d-%H%M%S}".format(datetim
         atti.set_att(attval)
         temp_powers = []
         time.sleep(0.3)
-        if mpm_type != 'InGaAs':
-            mpm.get_power()
-            for _ in range(N):
+        if mpm_type == 'ando':
+            mpm_sw.set_route(instruments['ando_port'])
+            for j in range(N):
                 temp_powers.append(mpm.get_power())
-            mpm.get_power()
-        else:
-            mpm.get_meter_pow(4)
-            for _ in range(N):
+        elif mpm_type == 'InGaAs':
+            mpm_sw.set_route(instruments['ingaas_port'])
+            for j in range(N):
                 temp_powers.append(mpm.get_meter_pow(4))
-            mpm.get_meter_pow(4)
+        elif mpm_type == 'thermal':
+            mpm_sw.set_route(instruments['thermal_port'])
+            for j in range(N):
+                temp_powers.append(capture_screen_and_extract_text(20, 100, 200, 70))
         
         # Collect the row to add later
         data_temp = {
@@ -517,6 +526,131 @@ def attenuator_calibration(instruments,now_str="{:%Y%m%d-%H%M%S}".format(datetim
     logger.info(f"attenuator_calibration saved to: {filepath}")
     logger.info("Completed: Algorithm S2. Attenuator Calibration")
     return filepath
+
+def attenuator_calibration(instruments, now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), wavelength=1550, attval=30, mpm_types=['ando']):
+    logger.info("Starting: Algorithm S2. Attenuator Calibration")
+    
+    sw = instruments['sw']
+    monitor_port = instruments['monitor_port']
+    detector_port = instruments['detector_port']
+    att1 = instruments['att1']
+    mpms = instruments['mpms']
+    att_list = instruments['att_list']
+    mpm_sw = instruments['mpm_sw']
+    
+    sw.set_route(monitor_port)
+
+    N = 100
+    num_mpms = len(mpms)
+    init_powers = np.empty((N, num_mpms), dtype=object)
+    att_powers = []
+
+    att_rng = 0
+    init_rng = 0
+
+    # Prepare MPMs
+    for mpm, mpm_type in zip(mpms, mpm_types):
+        if mpm_type == 'ando':
+            reset_attenuators(instruments)
+            att1.set_att(attval)
+            att_rng = find_mpm_rng(round(-attval, -1))
+            logger.info(f"att_rng: {att_rng}")
+            reset_attenuators(instruments)
+            init_rng = find_mpm_rng(round(0, -1))
+            logger.info(f"init_rng: {init_rng}")
+        elif mpm_type == 'thermal':
+            input(f"Please set T-RAD wavelength to: {wavelength}\nSet range to: 200um\nPress any key to continue...")
+
+    # Loop through attenuators
+    for i, atti in enumerate(att_list):
+        temp_powers = np.empty((N, num_mpms), dtype=object)
+
+        # Initial power measurements
+        if any(m == 'ando' for m in mpm_types):
+            sw.set_route(detector_port)
+            for mpm, mpm_type in zip(mpms, mpm_types):
+                if mpm_type == 'ando':
+                    mpm.set_range(init_rng)
+                    zero_ando_pm()
+
+        sw.set_route(monitor_port)
+        reset_attenuators(instruments)
+        time.sleep(0.3)
+
+        for k, (mpm, mpm_type) in enumerate(zip(mpms, mpm_types)):
+            if mpm_type == 'ando':
+                mpm_sw.set_route(instruments['ando_port'])
+                init_powers[:, k] = [mpm.get_power() for _ in range(N)]
+            elif mpm_type == 'InGaAs':
+                mpm_sw.set_route(instruments['ingaas_port'])
+                init_powers[:, k] = [mpm.get_meter_pow(4) for _ in range(N)]
+            elif mpm_type == 'thermal':
+                mpm_sw.set_route(instruments['thermal_port'])
+                init_powers[:, k] = [capture_screen_and_extract_text(20, 100, 200, 70) for _ in range(N)]
+
+        # Apply attenuation and measure
+        if any(m == 'ando' for m in mpm_types):
+            for mpm, mpm_type in zip(mpms, mpm_types):
+                if mpm_type == 'ando':
+                    mpm.set_range(att_rng)
+                    zero_ando_pm()
+
+        sw.set_route(monitor_port)
+        reset_attenuators(instruments)
+        atti.set_att(attval)
+        time.sleep(0.3)
+
+        for k, (mpm, mpm_type) in enumerate(zip(mpms, mpm_types)):
+            if mpm_type == 'ando':
+                mpm_sw.set_route(instruments['ando_port'])
+                temp_powers[:, k] = [mpm.get_power() for _ in range(N)]
+            elif mpm_type == 'InGaAs':
+                mpm_sw.set_route(instruments['ingaas_port'])
+                temp_powers[:, k] = [mpm.get_meter_pow(4) for _ in range(N)]
+            elif mpm_type == 'thermal':
+                mpm_sw.set_route(instruments['thermal_port'])
+                temp_powers[:, k] = [capture_screen_and_extract_text(20, 100, 200, 70) for _ in range(N)]
+
+        att_powers.append({
+            'Attenuator': i,
+            'Attenuation (dB)': attval,
+            'Range': att_rng,
+            **{f"Power_MPM_{k}": temp_powers[:, k].tolist() for k in range(num_mpms)}
+        })
+
+        logger.info(f"Attenuator {i} complete")
+        logger.info(f"{round(100 * (i + 1) / len(att_list), 2)}% completed")
+
+    # Save initial powers as final row
+    att_powers.append({
+        'Attenuator': None,
+        'Attenuation (dB)': 0,
+        'Range': init_rng,
+        **{f"Power_MPM_{k}": init_powers[:, k].tolist() for k in range(num_mpms)}
+    })
+
+    for att in att_list:
+        att.set_att(0)
+        att.disable()
+
+    df = pd.DataFrame(att_powers)
+
+    # Save
+    output_dir = os.path.join(current_file_dir, 'data_sde')
+    os.makedirs(output_dir, exist_ok=True)
+    filename = f"attenuator_calibration_data_attval{attval}__{now_str}.pkl"
+    filepath = os.path.join(output_dir, filename)
+    df.to_pickle(filepath)
+
+    readable_output_dir = os.path.join(current_file_dir, 'readable_data_sde')
+    os.makedirs(readable_output_dir, exist_ok=True)
+    csv_filepath = os.path.join(readable_output_dir, f"{os.path.splitext(filename)[0]}.csv")
+    df.to_csv(csv_filepath, index=False)
+
+    logger.info(f"attenuator_calibration saved to: {filepath}")
+    logger.info("Completed: Algorithm S2. Attenuator Calibration")
+    return filepath
+
 
 # Algorithm S3.1. SDE Counts Measurement - Polarization Sweep
 def sweep_polarizations(instruments,now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pickle_filepath='', attval=30, name='', trigger_voltage=0.01, num_pols=13, counting_time=0.5, N=3,bias_resistor=97e3,snspd_splice="1connectors"):
@@ -693,61 +827,6 @@ def SDE_Counts_Measurement(instruments,now_str = "{:%Y%m%d-%H%M%S}".format(datet
     return filepath
 
 
-# Daniel Sorensen Code
-# def optimizePolarization(instruments, biasV = 0.7, biasChannel=1, ttChannel=5, tMeasure=0.5, minimize=False, attValue=28):
-#     sc = serverConnection()
-#     cr = ttCountRate(channel=ttChannel)
-#     pc = instruments.pc
-
-#     def optFunc(v, grad=None):
-#         pc.setAll(v)
-#         counts=cr.measureFor(tMeasure)/tMeasure
-#         logger.info(f"P: {v}, Counts: {counts}")
-#         return counts
-    
-#     instruments.att1.set_att(attValue)
-#     instruments.att2.set_att(attValue)
-#     instruments.att3.set_att(attValue)
-#     instruments.laser.enable()
-#     instruments.switch.set_route(2)
-#     sc.setBias(biasChannel,biasV)
-
-#     opt = nlopt.opt(nlopt.LN_SBPLX,3)
-#     if minimize:
-#         opt.set_min_objective(optFunc)
-#     else:
-#         opt.set_max_objective(optFunc)
-#     opt.set_lower_bounds(np.ones(3)*-99.)
-#     opt.set_upper_bounds(np.ones(3)*99.)
-#     opt.set_xtol_abs(np.ones(3))
-#     opt.set_initial_step(np.ones(3)*30.)
-#     startPol = np.zeros(3)
-#     opt.optimize(startPol)
-
-#     optX = pc.getAxis('X')
-#     optY = pc.getAxis('Y')
-#     optZ = pc.getAxis('Z')
-#     optPol = (optX,optY,optZ)
-#     if minimize:
-#         logger.info("Found minimum polarization:")
-#     else:
-#         logger.info("Found maximum polarization:")
-#     logger.info(optPol)
-#     return optPol
-
-
-# My attempt
-# bounds = [(-99, 100)] * 3
-# def neg_meas_counts(position, *args):
-#     return -meas_counts(position, *args)
-# initial_guess = np.array([0, 0, 0])
-# res_min = scipy.optimize.minimize(meas_counts, initial_guess, args=(instruments, N, counting_time), bounds=bounds)
-# res_max = scipy.optimize.minimize(neg_meas_counts, initial_guess, args=(instruments, N, counting_time), bounds=bounds)
-# pol_counts = [(res_min['x'], res_min['fun']), (res_max['x'], res_max['fun'])]
-# logger.info(pol_counts)
-
-
-
 
 # Algorithm S1. Nonlinearity factor raw power measurements
 def nonlinearity_factor_raw_power_measurements(instruments, now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), taus=[3]):
@@ -915,4 +994,122 @@ def nonlinearity_factor_raw_power_measurements(instruments, now_str="{:%Y%m%d-%H
     logger.info("Completed: Algorithm S1. Nonlinearity factor raw power measurements")
     return filepath
 
+
+#%%
+def get_att_value(instruments, IV_pickle_filepath=None, trigger_voltage=0.1, target_cps=250000, bias_resistor=100e3, counting_time=0.2, N=10, pol_counts_filepath=None):
+    srs = instruments['srs']
+    pc = instruments['pc']
+    counter = instruments['counter']
+    sw = instruments['sw']
+    detector_port = instruments['detector_port']
+    att_list = instruments['att_list']
+    
+    # Set SNSPD bias current to 90%
+    if IV_pickle_filepath is None:
+        ic = 12e-6
+    else:
+        ic = get_ic(IV_pickle_filepath)
+    cur = 0.9*ic
+    srs.set_voltage(cur*bias_resistor)
+    
+    # Set polarization to the max polarization setting or (0, 0, 0) if unknown
+    if pol_counts_filepath is None:
+        maxpol_settings = (0, 0, 0)
+    else:
+        with open(pol_counts_filepath, 'rb') as file:
+            pol_data = pickle.load(file)
+        maxpol_settings = max(pol_data, key=pol_data.get)
+    logger.info(f'maxpol_settings: {maxpol_settings}')
+    pc.set_waveplate_positions(maxpol_settings)
+
+    # Binary search for trigger voltage
+    counter.set_trigger(trigger_voltage=trigger_voltage, slope_positive=True, channel=1)
+    sw.set_route(detector_port)
+    for att in att_list:
+        att.enable()
+
+    low_attval = 0
+    high_attval = 60
+    tolerance = .005
+    while abs(high_attval - low_attval) > tolerance:
+        mid_attval = round((low_attval + high_attval)/2, 3)#Round to 3 decimal places
+       
+        for att in att_list:
+            att.set_att(mid_attval)
+        srs.set_output(output=False)
+        time.sleep(.1)
+        srs.set_output(output=True)
+        time.sleep(0.1)  # Allow system to stabilize
+
+        cps_values = [counter.timed_count(counting_time=0.5) / counting_time for _ in range(N)]
+        if any(x == 0 for x in cps_values):
+            cps_values = [counter.timed_count(counting_time=0.5) / counting_time for _ in range(N)]
+        if any(x == 0 for x in cps_values):
+            logger.error("Received 0 counts. SNSPD appears latched")
+            avg_cps = float('inf')
+        else:
+            avg_cps = np.mean(cps_values)
+        logger.info(f"Attenuation Value: {mid_attval:.3f}, Avg CPS: {avg_cps:.3f}")
+
+        if avg_cps < target_cps:
+            high_attval = mid_attval
+        else:
+            low_attval = mid_attval
+    return mid_attval
+
+
+
+
+# Daniel Sorensen Code
+# def optimizePolarization(instruments, biasV = 0.7, biasChannel=1, ttChannel=5, tMeasure=0.5, minimize=False, attValue=28):
+#     sc = serverConnection()
+#     cr = ttCountRate(channel=ttChannel)
+#     pc = instruments.pc
+
+#     def optFunc(v, grad=None):
+#         pc.setAll(v)
+#         counts=cr.measureFor(tMeasure)/tMeasure
+#         logger.info(f"P: {v}, Counts: {counts}")
+#         return counts
+    
+#     instruments.att1.set_att(attValue)
+#     instruments.att2.set_att(attValue)
+#     instruments.att3.set_att(attValue)
+#     instruments.laser.enable()
+#     instruments.switch.set_route(2)
+#     sc.setBias(biasChannel,biasV)
+
+#     opt = nlopt.opt(nlopt.LN_SBPLX,3)
+#     if minimize:
+#         opt.set_min_objective(optFunc)
+#     else:
+#         opt.set_max_objective(optFunc)
+#     opt.set_lower_bounds(np.ones(3)*-99.)
+#     opt.set_upper_bounds(np.ones(3)*99.)
+#     opt.set_xtol_abs(np.ones(3))
+#     opt.set_initial_step(np.ones(3)*30.)
+#     startPol = np.zeros(3)
+#     opt.optimize(startPol)
+
+#     optX = pc.getAxis('X')
+#     optY = pc.getAxis('Y')
+#     optZ = pc.getAxis('Z')
+#     optPol = (optX,optY,optZ)
+#     if minimize:
+#         logger.info("Found minimum polarization:")
+#     else:
+#         logger.info("Found maximum polarization:")
+#     logger.info(optPol)
+#     return optPol
+
+
+# My attempt
+# bounds = [(-99, 100)] * 3
+# def neg_meas_counts(position, *args):
+#     return -meas_counts(position, *args)
+# initial_guess = np.array([0, 0, 0])
+# res_min = scipy.optimize.minimize(meas_counts, initial_guess, args=(instruments, N, counting_time), bounds=bounds)
+# res_max = scipy.optimize.minimize(neg_meas_counts, initial_guess, args=(instruments, N, counting_time), bounds=bounds)
+# pol_counts = [(res_min['x'], res_min['fun']), (res_max['x'], res_max['fun'])]
+# logger.info(pol_counts)
 
