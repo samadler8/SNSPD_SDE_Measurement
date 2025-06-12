@@ -214,85 +214,85 @@ if __name__ == '__main__':
     taus = [2.75, 2.25]
     nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(instruments, now_str=now_str, taus=taus)
 
-    input("Ensure SNSPD is properly connected to srs and counter\nPress anything to continue\n")
+#     input("Ensure SNSPD is properly connected to srs and counter\nPress anything to continue\n")
 
-    IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name)
-    # IV_pickle_filepath = os.path.join(current_file_dir, "data_sde", "saaed2um_IV_curve_data__20250307-182549.pkl")
+#     IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name)
+#     # IV_pickle_filepath = os.path.join(current_file_dir, "data_sde", "saaed2um_IV_curve_data__20250307-182549.pkl")
  
-    input("Ensure spliced to SNSPD not CPM\nPress anything to continue\n")
+#     input("Ensure spliced to SNSPD not CPM\nPress anything to continue\n")
 
-    trigger_voltage = find_min_trigger_threshold(instruments)
-    # trigger_voltage = 0.01
+#     trigger_voltage = find_min_trigger_threshold(instruments)
+#     # trigger_voltage = 0.01
 
-    for wavelength in tqdm(wavelengths):
-        for mpm_type in mpm_types:
-            now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
-            mpm_types_temp = mpm_types
-            light_sources_temp = light_sources
+#     for wavelength in tqdm(wavelengths):
+#         for mpm_type in mpm_types:
+#             now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
+#             mpm_types_temp = mpm_types
+#             light_sources_temp = light_sources
 
-            if wavelength > 2000:
-                mpm_types_temp.remove('InGaAs')
-                mpm_types_temp.remove('ando')
-                light_sources_temp.remove('spectrometer')
-            elif wavelength > 1700:
-                mpm_types_temp.remove('InGaAs')
-                mpm_types_temp.remove('ando')
-            if wavelength < 800:
-                mpm_types_temp.remove('InGaAs')
-                mpm_types_temp.remove('ando')
-                light_sources_temp.remove('spectrometer')
-            if wavelength < 1000:
-                light_sources_temp.remove('spectrometer')
+#             if wavelength > 2000:
+#                 mpm_types_temp.remove('InGaAs')
+#                 mpm_types_temp.remove('ando')
+#                 light_sources_temp.remove('spectrometer')
+#             elif wavelength > 1700:
+#                 mpm_types_temp.remove('InGaAs')
+#                 mpm_types_temp.remove('ando')
+#             if wavelength < 800:
+#                 mpm_types_temp.remove('InGaAs')
+#                 mpm_types_temp.remove('ando')
+#                 light_sources_temp.remove('spectrometer')
+#             if wavelength < 1000:
+#                 light_sources_temp.remove('spectrometer')
 
-            if wavelength not in [1566.314, 1525.661, 1620.5]:
-                light_sources_temp.remove('ando_laser')
+#             if wavelength not in [1566.314, 1525.661, 1620.5]:
+#                 light_sources_temp.remove('ando_laser')
 
-            if wavelength not in [635, 2000]:
-                light_sources_temp.remove('thor_laser')
+#             if wavelength not in [635, 2000]:
+#                 light_sources_temp.remove('thor_laser')
 
-            instruments['mpms'] = []
-            for mpm_type in mpm_types_temp:
-                if mpm_type == 'ando':
-                    instruments['mpms'].append(instruments['ando_pm'])
-                elif mpm_type == 'InGaAs':
-                    instruments['mpms'].append(instruments['ingaas_pm'])
-                elif mpm_type == 'thermal':
-                    instruments['mpms'].append(None)
+#             instruments['mpms'] = []
+#             for mpm_type in mpm_types_temp:
+#                 if mpm_type == 'ando':
+#                     instruments['mpms'].append(instruments['ando_pm'])
+#                 elif mpm_type == 'InGaAs':
+#                     instruments['mpms'].append(instruments['ingaas_pm'])
+#                 elif mpm_type == 'thermal':
+#                     instruments['mpms'].append(None)
 
-            for light_source in light_sources_temp:
-                if light_source == 'ando_laser':
-                    if wavelength==1566.314:
-                        laser_sw.set_route(laser1566_port)
-                        ando_laser = laser1566
-                    elif wavelength==1525.661:
-                        laser_sw.set_route(laser1525_port)
-                        ando_laser = laser1525
-                    # elif wavelength==1620.5:
-                    #     laser_sw.set_route(laser1621_port)
-                    #     ando_laser = laser1621
-                    instruments['laser'] = ando_laser
+#             for light_source in light_sources_temp:
+#                 if light_source == 'ando_laser':
+#                     if wavelength==1566.314:
+#                         laser_sw.set_route(laser1566_port)
+#                         ando_laser = laser1566
+#                     elif wavelength==1525.661:
+#                         laser_sw.set_route(laser1525_port)
+#                         ando_laser = laser1525
+#                     # elif wavelength==1620.5:
+#                     #     laser_sw.set_route(laser1621_port)
+#                     #     ando_laser = laser1621
+#                     instruments['laser'] = ando_laser
                 
-                elif light_source == 'thor_laser':
-                    if wavelength==635:
-                        laser_sw.set_route(laser635_port)
-                    elif wavelength==2000:
-                        laser_sw.set_route(laser2000_port)
+#                 elif light_source == 'thor_laser':
+#                     if wavelength==635:
+#                         laser_sw.set_route(laser635_port)
+#                     elif wavelength==2000:
+#                         laser_sw.set_route(laser2000_port)
             
 
-                # elif light_source == 'spectrometer':
-                #     spectrometer.set_wavelength(wavelength)
-                #     laser_sw.set_route(spectrometer_port)
+#                 # elif light_source == 'spectrometer':
+#                 #     spectrometer.set_wavelength(wavelength)
+#                 #     laser_sw.set_route(spectrometer_port)
 
-                name_mpms_src_wav = f'{mpm_types_temp}_{light_source}_{wavelength}'
+#                 name_mpms_src_wav = f'{mpm_types_temp}_{light_source}_{wavelength}'
 
-                # Find ideal attenuation value (that which gets 300,000 cps at max polarization)
-                attval = get_att_value(instruments, IV_pickle_filepath=IV_pickle_filepath, trigger_voltage=trigger_voltage, bias_resistor=bias_resistor, counting_time=counting_time,)
-                pol_counts_filepath = sweep_polarizations(instruments, now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, attval=attval, name=name_mpms_src_wav, num_pols=num_pols, trigger_voltage=trigger_voltage, counting_time=counting_time, N=3)
-                # os.path.join(current_file_dir, "data_sde", "saeed2um_pol_data_snspd_splice1__20250115-213240.pkl")
-                attval = get_att_value(instruments, IV_pickle_filepath=IV_pickle_filepath, trigger_voltage=trigger_voltage, bias_resistor=bias_resistor, counting_time=counting_time, pol_counts_filepath=pol_counts_filepath)
-                # attval = 10
+#                 # Find ideal attenuation value (that which gets 300,000 cps at max polarization)
+#                 attval = get_att_value(instruments, IV_pickle_filepath=IV_pickle_filepath, trigger_voltage=trigger_voltage, bias_resistor=bias_resistor, counting_time=counting_time,)
+#                 pol_counts_filepath = sweep_polarizations(instruments, now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, attval=attval, name=name_mpms_src_wav, num_pols=num_pols, trigger_voltage=trigger_voltage, counting_time=counting_time, N=3)
+#                 # os.path.join(current_file_dir, "data_sde", "saeed2um_pol_data_snspd_splice1__20250115-213240.pkl")
+#                 attval = get_att_value(instruments, IV_pickle_filepath=IV_pickle_filepath, trigger_voltage=trigger_voltage, bias_resistor=bias_resistor, counting_time=counting_time, pol_counts_filepath=pol_counts_filepath)
+#                 # attval = 10
 
-                data_filepath = SDE_Counts_Measurement(instruments, now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, pol_counts_filepath=pol_counts_filepath, attval=attval, name=name_mpms_src_wav, trigger_voltage=trigger_voltage,counting_time=counting_time,bias_resistor=bias_resistor)
-                attenuator_calibration_filepath = attenuator_calibration(instruments, now_str=now_str, wavelength=wavelength, attval=attval, mpm_type=mpm_type)
-                optical_switch_calibration(instruments, name=name_mpms_src_wav, mpm_types=mpm_types_temp, wavelength=wavelength)
+#                 data_filepath = SDE_Counts_Measurement(instruments, now_str=now_str, IV_pickle_filepath=IV_pickle_filepath, pol_counts_filepath=pol_counts_filepath, attval=attval, name=name_mpms_src_wav, trigger_voltage=trigger_voltage,counting_time=counting_time,bias_resistor=bias_resistor)
+#                 attenuator_calibration_filepath = attenuator_calibration(instruments, now_str=now_str, wavelength=wavelength, attval=attval, mpm_type=mpm_type)
+#                 optical_switch_calibration(instruments, name=name_mpms_src_wav, mpm_types=mpm_types_temp, wavelength=wavelength)
 # %%
