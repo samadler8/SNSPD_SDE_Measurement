@@ -197,17 +197,17 @@ def find_min_trigger_threshold(
     return final_trigger_voltage
 
 
-def zero_ando_pm(instruments):
+def zero_ando_mpm(instruments):
     sw = instruments['sw']
     detector_port = instruments['detector_port']
     att_list = instruments['att_list']
-    mpm = instruments['mpm']
+    ando_mpm = instruments['ando_mpm']
 
-    sw.set_route(instruments[detector_port])
+    sw.set_route(instruments['detector_port'])
     for att in att_list:
         att.disable()
     time.sleep(0.3)
-    mpm.zero()
+    ando_mpm.zero()
 
 def reset_attenuators(instruments):
     att_list = instruments['att_list']
@@ -216,15 +216,21 @@ def reset_attenuators(instruments):
         att.enable()
 
 def find_mpm_rng(instruments, rng, N_init=3):
-    mpm = instruments['mpm']
+    rng = round(rng, -1)
+    ando_mpm = instruments['ando_mpm']
+    reset_attenuators(instruments)
+    sw = instruments['sw']
+    sw.set_route(instruments['monitor_port'])
+    mpm_sw = instruments['mpm_sw']
+    mpm_sw.set_route(instruments['ando_port'])
     while True:
         logger.info(f"rng: {rng}")
-        mpm.set_range(rng)
+        ando_mpm.set_range(rng)
         time.sleep(0.3)
-        mpm.get_power()
-        powers = [mpm.get_power() for _ in range(N_init)]  # Collect power readings
+        ando_mpm.get_power()
+        powers = [ando_mpm.get_power() for _ in range(N_init)]  # Collect power readings
         logger.info(f"powers: {powers}")
-        check_range = [mpm.check_ideal_rng(power=power, rng=rng) for power in powers]
+        check_range = [ando_mpm.check_ideal_rng(power=power, rng=rng) for power in powers]
         logger.info(f"check_range: {check_range}")
         sum_check_range = sum(check_range)
         logger.info(f"sum_check_range: {sum_check_range}")
@@ -303,12 +309,13 @@ def optical_switch_calibration(instruments,
     reset_attenuators(instruments)
     for mpm, mpm_type in zip(mpms, mpm_types):
         if mpm_type == 'ando':
+            instruments['ando_mpm'] = mpm
             mpm.set_lambda(wavelength)
-            zero_ando_pm(instruments)
-            init_rng = find_mpm_rng(0)
+            zero_ando_mpm(instruments)
+            init_rng = find_mpm_rng(instruments, 0)
             mpm.set_range(init_rng)
         if mpm_type == 'thermal':
-            input(f"Please set T-RAD wavelength to: {wavelength}\nPlease set T-RAD range to: 200um\nPress anything to continue\n")
+            input(f"Please set T-RAD wavelength to: {wavelength}\nPlease set T-RAD range to: 2000nm\nPress anything to continue\n")
     cpm.set_pm_wavelength(wavelength)
 
     # Calibrate CPM to 100 uW
@@ -418,10 +425,10 @@ def attenuator_calibration(instruments, now_str="{:%Y%m%d-%H%M%S}".format(dateti
         if mpm_type == 'ando':
             reset_attenuators(instruments)
             att1.set_att(attval)
-            att_rng = find_mpm_rng(round(-attval, -1))
+            att_rng = find_mpm_rng(instruments, round(-attval, -1))
             logger.info(f" att_rng: {att_rng}")
             reset_attenuators(instruments)
-            init_rng = find_mpm_rng(round(0, -1))
+            init_rng = find_mpm_rng(instruments, round(0, -1))
             logger.info(f" init_rng: {init_rng}")
         if mpm_type == 'thermal':
             input(f"Please set T-RAD wavelength to: {wavelength}\nPlease set T-RAD range to: 200um\nPress anything to continue\n")
@@ -438,7 +445,7 @@ def attenuator_calibration(instruments, now_str="{:%Y%m%d-%H%M%S}".format(dateti
         if mpm_type == 'ando':
             sw.set_route(detector_port)
             mpm.set_range(init_rng)
-            zero_ando_pm(instruments)
+            zero_ando_mpm(instruments)
         sw.set_route(monitor_port)
         reset_attenuators(instruments)
         time.sleep(0.3)
@@ -460,7 +467,7 @@ def attenuator_calibration(instruments, now_str="{:%Y%m%d-%H%M%S}".format(dateti
         # Step 3: Apply attenuation and measure power
         if mpm_type == 'ando':
             mpm.set_range(att_rng)
-            zero_ando_pm(instruments)
+            zero_ando_mpm(instruments)
         sw.set_route(monitor_port)
         reset_attenuators(instruments)
         atti.set_att(attval)
@@ -553,10 +560,10 @@ def attenuator_calibration(instruments, now_str="{:%Y%m%d-%H%M%S}".format(dateti
         if mpm_type == 'ando':
             reset_attenuators(instruments)
             att1.set_att(attval)
-            att_rng = find_mpm_rng(round(-attval, -1))
+            att_rng = find_mpm_rng(instruments, round(-attval, -1))
             logger.info(f"att_rng: {att_rng}")
             reset_attenuators(instruments)
-            init_rng = find_mpm_rng(round(0, -1))
+            init_rng = find_mpm_rng(instruments, round(0, -1))
             logger.info(f"init_rng: {init_rng}")
         elif mpm_type == 'thermal':
             input(f"Please set T-RAD wavelength to: {wavelength}\nSet range to: 200um\nPress any key to continue...")
@@ -571,7 +578,7 @@ def attenuator_calibration(instruments, now_str="{:%Y%m%d-%H%M%S}".format(dateti
             for mpm, mpm_type in zip(mpms, mpm_types):
                 if mpm_type == 'ando':
                     mpm.set_range(init_rng)
-                    zero_ando_pm(instruments)
+                    zero_ando_mpm(instruments)
 
         sw.set_route(monitor_port)
         reset_attenuators(instruments)
@@ -593,7 +600,7 @@ def attenuator_calibration(instruments, now_str="{:%Y%m%d-%H%M%S}".format(dateti
             for mpm, mpm_type in zip(mpms, mpm_types):
                 if mpm_type == 'ando':
                     mpm.set_range(att_rng)
-                    zero_ando_pm(instruments)
+                    zero_ando_mpm(instruments)
 
         sw.set_route(monitor_port)
         reset_attenuators(instruments)
@@ -856,7 +863,7 @@ def nonlinearity_factor_raw_power_measurements(instruments, now_str="{:%Y%m%d-%H
     att_min_max_settings = {}
     for rng in rng_settings:
         mpm.set_range(rng)
-        zero_ando_pm(instruments)
+        zero_ando_mpm(instruments)
         sw.set_route(monitor_port)
         reset_attenuators(instruments)
         middle_a = -rng - 2.5
@@ -949,7 +956,7 @@ def nonlinearity_factor_raw_power_measurements(instruments, now_str="{:%Y%m%d-%H
     i = 0
     for rng in rng_settings:
         mpm.set_range(rng)
-        zero_ando_pm(instruments)
+        zero_ando_mpm(instruments)
         sw.set_route(monitor_port)
         reset_attenuators(instruments)
         for a in att_settings[rng]:

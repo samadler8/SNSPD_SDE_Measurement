@@ -42,8 +42,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Instruments
 GPIB_num = '0'
-
 srs = SIM928(f'GPIB{GPIB_num}::2::INSTR', 5)
 counter = Agilent53131a(f'GPIB{GPIB_num}::5::INSTR')
 laser1566 = AndoAQ82011(f'GPIB{GPIB_num}::4::INSTR', 1)
@@ -55,21 +55,23 @@ att2 = AndoAQ82013(f'GPIB{GPIB_num}::4::INSTR', 5)
 att3 = AndoAQ82013(f'GPIB{GPIB_num}::4::INSTR', 6)
 sw = AndoAQ8201412(f'GPIB{GPIB_num}::4::INSTR', 7, 1)
 mpm_sw = AndoAQ8201412(f'GPIB{GPIB_num}::4::INSTR', 7, 2)
-ando_pm = AndoAQ82012(f'GPIB{GPIB_num}::4::INSTR', 8)
-
+ando_mpm = AndoAQ82012(f'GPIB{GPIB_num}::4::INSTR', 8)
 # laser635 = ThorLabsLFLTM('COMxxxx')
 # laser2000 = ThorLabsLFLTM('COMxxxx')
-
 pc = FiberControlMPC101(f'GPIB{GPIB_num}::3::INSTR')
 multi = Agilent34411A(f'GPIB{GPIB_num}::21::INSTR')
 # ingaas_pm=Agilent8164A('GPIB0::23::INSTR')
 # spectrometer=HoribaIHR320()
 cpm = Agilent8163A(f'GPIB{GPIB_num}::9::INSTR', 1)
 
-
+# Switches
 monitor_port = 1
 detector_port = 2
+# ingaas_port = 1
+ando_port = 2
+thermal_port = 1
 
+ # Lasers
 laser1566_port=1
 laser2000_port=2
 # spectrometer_port=3
@@ -77,16 +79,8 @@ laser635_port=3
 laser1525_port=4
 # laser1621_port=5
 
-# ingaas_port = 1
-ando_port = 1
-thermal_port = 2
-
 FilterLP1000 = 4
-
 att_list = [att1, att2, att3]
-
-
-
 
 instruments = {'srs': srs,
     'counter': counter,
@@ -103,7 +97,7 @@ instruments = {'srs': srs,
     'att_list': att_list,
     'pc': pc,
     'cpm': cpm,
-    'ando_pm': ando_pm,
+    'ando_mpm': ando_mpm,
     'laser635_port': laser635_port,
     'laser1525_port': laser1525_port,
     # 'spectrometer_port': spectrometer_port,
@@ -140,7 +134,7 @@ if __name__ == '__main__':
     light_sources = ['ando_laser', 'thor_laser']
 
     # mpm_types = ['ando', 'InGaAs', 'thermal']
-    mpm_types = ['ando','thermal']
+    mpm_types = ['ando', 'thermal']
 
     switch_cal_y_n = input("Do you want to calibrate the optical swtich using the nist calibrated power meter? \n")
     if switch_cal_y_n in ['1', 'Y', 'y']:
@@ -150,33 +144,47 @@ if __name__ == '__main__':
                 continue
             else:
                 now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
-                mpm_types_temp = mpm_types
-                light_sources_temp = light_sources
+                mpm_types_temp = mpm_types.copy()
+                light_sources_temp = light_sources.copy()
 
                 if wavelength > 2000:
-                    mpm_types_temp.remove('InGaAs')
-                    mpm_types_temp.remove('ando')
-                    light_sources_temp.remove('spectrometer')
+                    if 'InGaAs' in mpm_types_temp:
+                        mpm_types_temp.remove('InGaAs')
+                    if 'ando' in mpm_types_temp:
+                        mpm_types_temp.remove('ando')
+                    if 'spectrometer' in light_sources_temp:
+                        light_sources_temp.remove('spectrometer')
+
                 elif wavelength > 1700:
-                    mpm_types_temp.remove('InGaAs')
-                    mpm_types_temp.remove('ando')
+                    if 'InGaAs' in mpm_types_temp:
+                        mpm_types_temp.remove('InGaAs')
+                    if 'ando' in mpm_types_temp:
+                        mpm_types_temp.remove('ando')
+
                 if wavelength < 800:
-                    mpm_types_temp.remove('InGaAs')
-                    mpm_types_temp.remove('ando')
-                    light_sources_temp.remove('spectrometer')
+                    if 'InGaAs' in mpm_types_temp:
+                        mpm_types_temp.remove('InGaAs')
+                    if 'ando' in mpm_types_temp:
+                        mpm_types_temp.remove('ando')
+                    if 'spectrometer' in light_sources_temp:
+                        light_sources_temp.remove('spectrometer')
+
                 if wavelength < 1000:
-                    light_sources_temp.remove('spectrometer')
+                    if 'spectrometer' in light_sources_temp:
+                        light_sources_temp.remove('spectrometer')
 
                 if wavelength not in [1566.314, 1525.661, 1620.5]:
-                    light_sources_temp.remove('ando_laser')
+                    if 'ando_laser' in light_sources_temp:
+                        light_sources_temp.remove('ando_laser')
 
                 if wavelength not in [635, 2000]:
-                    light_sources_temp.remove('thor_laser')
+                    if 'thor_laser' in light_sources_temp:
+                        light_sources_temp.remove('thor_laser')
 
                 instruments['mpms'] = []
                 for mpm_type in mpm_types_temp:
                     if mpm_type == 'ando':
-                        instruments['mpms'].append(instruments['ando_pm'])
+                        instruments['mpms'].append(instruments['ando_mpm'])
                     elif mpm_type == 'InGaAs':
                         instruments['mpms'].append(instruments['ingaas_pm'])
                     elif mpm_type == 'thermal':
@@ -184,27 +192,27 @@ if __name__ == '__main__':
 
                 for light_source in light_sources_temp:
                     if light_source == 'ando_laser':
-                        if wavelength==1566.314:
+                        if wavelength == 1566.314:
                             laser_sw.set_route(laser1566_port)
                             ando_laser = laser1566
-                        elif wavelength==1525.661:
+                        elif wavelength == 1525.661:
                             laser_sw.set_route(laser1525_port)
                             ando_laser = laser1525
-                        # elif wavelength==1620.5:
+                        # elif wavelength == 1620.5:
                         #     laser_sw.set_route(laser1621_port)
                         #     ando_laser = laser1621
                         instruments['laser'] = ando_laser
-                    
+
                     elif light_source == 'thor_laser':
-                        if wavelength==635:
+                        if wavelength == 635:
                             laser_sw.set_route(laser635_port)
-                        elif wavelength==2000:
+                        elif wavelength == 2000:
                             laser_sw.set_route(laser2000_port)
-                
 
                     # elif light_source == 'spectrometer':
                     #     spectrometer.set_wavelength(wavelength)
                     #     laser_sw.set_route(spectrometer_port)
+
 
                     name_mpms_src_wav = f'{mpm_types_temp}_{light_source}_{wavelength}'
                     sw.set_route(monitor_port)
@@ -253,7 +261,7 @@ if __name__ == '__main__':
 #             instruments['mpms'] = []
 #             for mpm_type in mpm_types_temp:
 #                 if mpm_type == 'ando':
-#                     instruments['mpms'].append(instruments['ando_pm'])
+#                     instruments['mpms'].append(instruments['ando_mpm'])
 #                 elif mpm_type == 'InGaAs':
 #                     instruments['mpms'].append(instruments['ingaas_pm'])
 #                 elif mpm_type == 'thermal':
