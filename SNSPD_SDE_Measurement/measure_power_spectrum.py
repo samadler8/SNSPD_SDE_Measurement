@@ -60,8 +60,8 @@ ando_mpm = AndoAQ82012(f'GPIB{GPIB_num}::4::INSTR', 8)
 # laser2000 = ThorLabsLFLTM('COMxxxx')
 pc = FiberControlMPC101(f'GPIB{GPIB_num}::3::INSTR')
 multi = Agilent34411A(f'GPIB{GPIB_num}::21::INSTR')
-# ingaas_pm=Agilent8164A('GPIB0::23::INSTR')
-# spectrometer=HoribaIHR320()
+# ingaas_mpm = Agilent8164A('GPIB0::23::INSTR')
+# spectrometer = HoribaIHR320()
 cpm = Agilent8163A(f'GPIB{GPIB_num}::9::INSTR', 1)
 
 # Switches
@@ -71,7 +71,7 @@ detector_port = 2
 ando_port = 2
 thermal_port = 1
 
- # Lasers
+# Lasers
 laser1566_port=1
 laser2000_port=2
 # spectrometer_port=3
@@ -82,7 +82,8 @@ laser1525_port=4
 FilterLP1000 = 4
 att_list = [att1, att2, att3]
 
-instruments = {'srs': srs,
+instruments = {
+    'srs': srs,
     'counter': counter,
     'laser_sw': laser_sw,
     'sw': sw,
@@ -108,7 +109,7 @@ instruments = {'srs': srs,
     'detector_port': detector_port,
     # 'spectrometer': spectrometer,
     'FilterLP1000': FilterLP1000,
-    # 'ingaas_pm':ingaas_pm,
+    # 'ingaas_mpm':ingaas_mpm,
     }
 
 max_cur = 15e-6
@@ -140,84 +141,57 @@ if __name__ == '__main__':
     if switch_cal_y_n in ['1', 'Y', 'y']:
         input("Ensure spliced to CPM not SNSPD\nPress anything to continue\n")
         for wavelength in tqdm(wavelengths):
-            if wavelength > max(calib_df_wav) or wavelength < min(calib_df_wav):
+            if not (min(calib_df_wav) <= wavelength <= max(calib_df_wav)):
                 continue
-            else:
-                now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
-                mpm_types_temp = mpm_types.copy()
-                light_sources_temp = light_sources.copy()
+            now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now())
+            mpm_types_temp = mpm_types.copy()
+            light_sources_temp = light_sources.copy()
 
-                if wavelength > 2000:
-                    if 'InGaAs' in mpm_types_temp:
-                        mpm_types_temp.remove('InGaAs')
-                    if 'ando' in mpm_types_temp:
-                        mpm_types_temp.remove('ando')
-                    if 'spectrometer' in light_sources_temp:
-                        light_sources_temp.remove('spectrometer')
+            if wavelength > 2000 or wavelength > 1700:
+                mpm_types_temp = [t for t in mpm_types_temp if t not in ['InGaAs', 'ando']]
+            if wavelength < 1000:
+                light_sources_temp = [ls for ls in light_sources_temp if ls != 'spectrometer']
+            if wavelength < 800:
+                mpm_types_temp = [t for t in mpm_types_temp if t not in ['InGaAs', 'ando']]
+                light_sources_temp = [ls for ls in light_sources_temp if ls != 'spectrometer']
+            if wavelength not in [1525.661, 1566.314, 1620.5]:
+                light_sources_temp = [ls for ls in light_sources_temp if ls != 'ando_laser']
+            if wavelength not in [635, 2000]:
+                light_sources_temp = [ls for ls in light_sources_temp if ls != 'thor_laser']
 
-                elif wavelength > 1700:
-                    if 'InGaAs' in mpm_types_temp:
-                        mpm_types_temp.remove('InGaAs')
-                    if 'ando' in mpm_types_temp:
-                        mpm_types_temp.remove('ando')
+            instruments['mpms'] = []
+            for mpm_type in mpm_types_temp:
+                if mpm_type == 'ando':
+                    instruments['mpms'].append(instruments['ando_mpm'])
+                elif mpm_type == 'InGaAs':
+                    instruments['mpms'].append(instruments['ingaas_mpm'])
+                elif mpm_type == 'thermal':
+                    instruments['mpms'].append(None)
 
-                if wavelength < 800:
-                    if 'InGaAs' in mpm_types_temp:
-                        mpm_types_temp.remove('InGaAs')
-                    if 'ando' in mpm_types_temp:
-                        mpm_types_temp.remove('ando')
-                    if 'spectrometer' in light_sources_temp:
-                        light_sources_temp.remove('spectrometer')
+            for light_source in light_sources_temp:
+                if light_source == 'ando_laser':
+                    if wavelength == 1566.314:
+                        laser_sw.set_route(laser1566_port)
+                        ando_laser = laser1566
+                    elif wavelength == 1525.661:
+                        laser_sw.set_route(laser1525_port)
+                        ando_laser = laser1525
+                    # elif wavelength == 1620.5:
+                    #     laser_sw.set_route(laser1621_port)
+                    #     ando_laser = laser1621
+                    instruments['laser'] = ando_laser
+                elif light_source == 'thor_laser':
+                    if wavelength == 635:
+                        laser_sw.set_route(laser635_port)
+                    elif wavelength == 2000:
+                        laser_sw.set_route(laser2000_port)
+                # elif light_source == 'spectrometer':
+                #     spectrometer.set_wavelength(wavelength)
+                #     laser_sw.set_route(spectrometer_port)
 
-                if wavelength < 1000:
-                    if 'spectrometer' in light_sources_temp:
-                        light_sources_temp.remove('spectrometer')
+                name_mpms_src_wav = f'{mpm_types_temp}_{light_source}_{wavelength}_{now_str}'
+                optical_switch_calibration_filepath = optical_switch_calibration(instruments, name=name_mpms_src_wav, mpm_types=mpm_types_temp, wavelength=wavelength)
 
-                if wavelength not in [1566.314, 1525.661, 1620.5]:
-                    if 'ando_laser' in light_sources_temp:
-                        light_sources_temp.remove('ando_laser')
-
-                if wavelength not in [635, 2000]:
-                    if 'thor_laser' in light_sources_temp:
-                        light_sources_temp.remove('thor_laser')
-
-                instruments['mpms'] = []
-                for mpm_type in mpm_types_temp:
-                    if mpm_type == 'ando':
-                        instruments['mpms'].append(instruments['ando_mpm'])
-                    elif mpm_type == 'InGaAs':
-                        instruments['mpms'].append(instruments['ingaas_pm'])
-                    elif mpm_type == 'thermal':
-                        instruments['mpms'].append(None)
-
-                for light_source in light_sources_temp:
-                    if light_source == 'ando_laser':
-                        if wavelength == 1566.314:
-                            laser_sw.set_route(laser1566_port)
-                            ando_laser = laser1566
-                        elif wavelength == 1525.661:
-                            laser_sw.set_route(laser1525_port)
-                            ando_laser = laser1525
-                        # elif wavelength == 1620.5:
-                        #     laser_sw.set_route(laser1621_port)
-                        #     ando_laser = laser1621
-                        instruments['laser'] = ando_laser
-
-                    elif light_source == 'thor_laser':
-                        if wavelength == 635:
-                            laser_sw.set_route(laser635_port)
-                        elif wavelength == 2000:
-                            laser_sw.set_route(laser2000_port)
-
-                    # elif light_source == 'spectrometer':
-                    #     spectrometer.set_wavelength(wavelength)
-                    #     laser_sw.set_route(spectrometer_port)
-
-
-                    name_mpms_src_wav = f'{mpm_types_temp}_{light_source}_{wavelength}'
-                    sw.set_route(monitor_port)
-                    optical_switch_calibration_filepath = optical_switch_calibration(instruments, name=name_mpms_src_wav, mpm_types=mpm_types_temp, wavelength=wavelength)
-                    sw.set_route(monitor_port)
                         
     taus = [2.75, 2.25]
     nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(instruments, now_str=now_str, taus=taus)
@@ -263,7 +237,7 @@ if __name__ == '__main__':
 #                 if mpm_type == 'ando':
 #                     instruments['mpms'].append(instruments['ando_mpm'])
 #                 elif mpm_type == 'InGaAs':
-#                     instruments['mpms'].append(instruments['ingaas_pm'])
+#                     instruments['mpms'].append(instruments['ingaas_mpm'])
 #                 elif mpm_type == 'thermal':
 #                     instruments['mpms'].append(None)
 

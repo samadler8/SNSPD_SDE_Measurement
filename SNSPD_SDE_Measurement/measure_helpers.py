@@ -4,6 +4,7 @@ import time
 import logging
 import json
 from helpers import *
+import scipy.optimize as opt
 
 import numpy as np
 import pandas as pd
@@ -203,49 +204,69 @@ def zero_ando_mpm(instruments):
     att_list = instruments['att_list']
     ando_mpm = instruments['ando_mpm']
 
-    sw.set_route(instruments['detector_port'])
-    for att in att_list:
-        att.disable()
-    time.sleep(0.3)
-    ando_mpm.zero()
+    logger.info("Zeroing Ando MPM...")
+    try:
+        sw.set_route(detector_port)
+        for att in att_list:
+            att.disable()
+        time.sleep(0.3)
+        ando_mpm.zero()
+        logger.info("Ando MPM zeroed successfully.")
+    except Exception as e:
+        logger.error(f"Failed to zero Ando MPM: {e}")
+    return
 
 def reset_attenuators(instruments):
     att_list = instruments['att_list']
-    for att in att_list:
-        att.set_att(0)
-        att.enable()
+    logger.info("Resetting attenuators to 0 dB...")
+    for i, att in enumerate(att_list):
+        try:
+            att.set_att(0)
+            att.enable()
+            logger.info(f"Attenuator {i} reset.")
+        except Exception as e:
+            logger.error(f"Failed to reset attenuator {i}: {e}")
+    return
 
-def find_mpm_rng(instruments, rng, N_init=3):
+def find_mpm_rng(instruments, rng, N_init=3, max_attempts=10):
     rng = round(rng, -1)
     ando_mpm = instruments['ando_mpm']
     reset_attenuators(instruments)
+
     sw = instruments['sw']
     sw.set_route(instruments['monitor_port'])
     mpm_sw = instruments['mpm_sw']
     mpm_sw.set_route(instruments['ando_port'])
-    while True:
-        logger.info(f"rng: {rng}")
-        ando_mpm.set_range(rng)
-        time.sleep(0.3)
-        ando_mpm.get_power()
-        powers = [ando_mpm.get_power() for _ in range(N_init)]  # Collect power readings
-        logger.info(f"powers: {powers}")
-        check_range = [ando_mpm.check_ideal_rng(power=power, rng=rng) for power in powers]
-        logger.info(f"check_range: {check_range}")
-        sum_check_range = sum(check_range)
-        logger.info(f"sum_check_range: {sum_check_range}")
-        if all(el == 0 for el in check_range):
-            return rng
-        elif sum_check_range > 0:
-            rng += 10
-        elif sum_check_range < 0:
-            rng -= 10
-        if rng < -60:
-            logger.error("Range setting is being set below -60")
+
+    attempts = 0
+    while attempts < max_attempts:
+        logger.info(f"Trying range setting: {rng} dBm")
+        try:
+            ando_mpm.set_range(rng)
+            time.sleep(0.3)
+            powers = [ando_mpm.get_power() for _ in range(N_init)]
+            check_range = [ando_mpm.check_ideal_rng(power=power, rng=rng) for power in powers]
+            logger.info(f"Powers: {powers}, Check results: {check_range}")
+
+            if all(el == 0 for el in check_range):
+                logger.info(f"Found suitable range: {rng} dBm")
+                return rng
+            elif sum(check_range) > 0:
+                rng += 10
+            elif sum(check_range) < 0:
+                rng -= 10
+
+            if rng < -60 or rng > 30:
+                logger.error(f"Range setting out of bounds: {rng} dBm. Aborting.")
+                break
+            attempts += 1
+
+        except Exception as e:
+            logger.error(f"Error during range finding: {e}")
             break
-        if rng > 30:
-            logger.error("Range setting is being set above 30")
-            break
+
+    logger.error("Failed to find ideal range within max attempts.")
+    return None
 
 def meas_counts(instruments, position, N=3, counting_time=1):
     pc = instruments['pc']
@@ -274,7 +295,7 @@ def meas_counts(instruments, position, N=3, counting_time=1):
 
 # Algorithm S1.1 Missing Algorithm (optical switch calibration)
 def optical_switch_calibration(instruments,
-                               name="{:%Y%m%d-%H%M%S}".format(datetime.now()),
+                               name=None,
                                mpm_types=None,
                                wavelength=1550):
     """
@@ -289,6 +310,9 @@ def optical_switch_calibration(instruments,
     Returns:
         str: Filepath of the saved calibration data.
     """
+    if name is None:
+        name = datetime.now().strftime("%Y%m%d-%H%M%S")
+
     if mpm_types is None:
         mpm_types = []
 
@@ -305,8 +329,6 @@ def optical_switch_calibration(instruments,
     cpm = instruments['cpm']
 
     # Initialize power meters
-    sw.set_route(monitor_port)
-    reset_attenuators(instruments)
     for mpm, mpm_type in zip(mpms, mpm_types):
         if mpm_type == 'ando':
             instruments['ando_mpm'] = mpm
@@ -315,7 +337,7 @@ def optical_switch_calibration(instruments,
             init_rng = find_mpm_rng(instruments, 0)
             mpm.set_range(init_rng)
         if mpm_type == 'thermal':
-            input(f"Please set T-RAD wavelength to: {wavelength}\nPlease set T-RAD range to: 2000nm\nPress anything to continue\n")
+            input(f"Please set T-RAD wavelength to: {wavelength} nm\nPlease set T-RAD range to: 2 mW\nPress anything to continue\n")
     cpm.set_pm_wavelength(wavelength)
 
     # Calibrate CPM to 100 uW
@@ -325,7 +347,9 @@ def optical_switch_calibration(instruments,
     high_att = 10.0
     tol = 1e-6
     avg_cpm = 0.0
-    while abs(avg_cpm - 100e-6) > tol:
+    max_iter = 20
+    iter_count = 0
+    while abs(avg_cpm - 100e-6) > tol and iter_count < max_iter:
         mid = round((low_att + high_att) / 2, 3)
         laser.set_att(mid)
         time.sleep(0.1)
@@ -336,6 +360,9 @@ def optical_switch_calibration(instruments,
             high_att = mid
         else:
             low_att = mid
+        iter_count += 1
+    if iter_count == max_iter:
+        logger.warning("CPM calibration loop hit maximum iterations without convergence.")
 
     # Prepare storage arrays
     num_mpm = len(mpms)
@@ -402,8 +429,10 @@ def optical_switch_calibration(instruments,
     return out_path
 
 # Algorithm S2. Attenuator Calibration
-def attenuator_calibration(instruments, now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), wavelength=1550, attval=30, mpm_types=['ando']):
+def attenuator_calibration(instruments, now_str=None, wavelength=1550, attval=30, mpm_types=['ando']):
     logger.info("Starting: Algorithm S2. Attenuator Calibration")
+    if now_str is None:
+        now_str = datetime.now().strftime("%Y%m%d-%H%M%S")
     
     sw=instruments['sw']
     monitor_port=instruments['monitor_port']
@@ -534,8 +563,10 @@ def attenuator_calibration(instruments, now_str="{:%Y%m%d-%H%M%S}".format(dateti
     logger.info("Completed: Algorithm S2. Attenuator Calibration")
     return filepath
 
-def attenuator_calibration(instruments, now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), wavelength=1550, attval=30, mpm_types=['ando']):
+def attenuator_calibration(instruments, now_str=None, wavelength=1550, attval=30, mpm_types=['ando']):
     logger.info("Starting: Algorithm S2. Attenuator Calibration")
+    if now_str is None:
+        now_str = datetime.now().strftime("%Y%m%d-%H%M%S")
     
     sw = instruments['sw']
     monitor_port = instruments['monitor_port']
@@ -660,7 +691,7 @@ def attenuator_calibration(instruments, now_str="{:%Y%m%d-%H%M%S}".format(dateti
 
 
 # Algorithm S3.1. SDE Counts Measurement - Polarization Sweep
-def sweep_polarizations(instruments,now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pickle_filepath='', attval=30, name='', trigger_voltage=0.01, num_pols=13, counting_time=0.5, N=3,bias_resistor=97e3,snspd_splice="1connectors"):
+def sweep_polarizations(instruments, now_str=None, IV_pickle_filepath='', attval=30, name='', trigger_voltage=0.01, num_pols=13, counting_time=0.5, N=3,bias_resistor=97e3,snspd_splice="1connectors"):
     """Sweep through all polarizations to find max and min counts.
     Args:
         detector (object): Detector object with a `get_counts()` method.
@@ -670,6 +701,8 @@ def sweep_polarizations(instruments,now_str="{:%Y%m%d-%H%M%S}".format(datetime.n
     """
     logger.info("Starting: Algorithm S3.1. SDE Counts Measurement - Polarization Sweep")
     logger.warning("Ensure detector fiber it spliced to SNSPD")
+    if now_str is None:
+        now_str = datetime.now().strftime("%Y%m%d-%H%M%S")
 
     counter=instruments['counter']
     sw=instruments['sw']
@@ -750,9 +783,11 @@ def sweep_polarizations(instruments,now_str="{:%Y%m%d-%H%M%S}".format(datetime.n
     return filepath
 
 # Algorithm S3.2. SDE Counts Measurement - True Counting
-def SDE_Counts_Measurement(instruments,now_str = "{:%Y%m%d-%H%M%S}".format(datetime.now()), IV_pickle_filepath='', pol_counts_filepath='', attval=30, name='', trigger_voltage=0.01, bias_resistor=97e3,counting_time=1,snspd_splice="1connectors",):    
+def SDE_Counts_Measurement(instruments, now_str=None, IV_pickle_filepath='', pol_counts_filepath='', attval=30, name='', trigger_voltage=0.01, bias_resistor=97e3,counting_time=1,snspd_splice="1connectors",):    
     logger.info("Starting: Algorithm S3.2. SDE Counts Measurement - True Counting")
     logger.warning("Ensure detector fiber it spliced to SNSPD")
+    if now_str is None:
+        now_str = datetime.now().strftime("%Y%m%d-%H%M%S")
 
     monitor_port=instruments['monitor_port']
     sw=instruments['sw']
@@ -836,8 +871,10 @@ def SDE_Counts_Measurement(instruments,now_str = "{:%Y%m%d-%H%M%S}".format(datet
 
 
 # Algorithm S1. Nonlinearity factor raw power measurements
-def nonlinearity_factor_raw_power_measurements(instruments, now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()), taus=[3]):
+def nonlinearity_factor_raw_power_measurements(instruments, now_str=None, taus=[3]):
     logger.info("Starting: Algorithm S1. Nonlinearity factor raw power measurements")
+    if now_str is None:
+        now_str = datetime.now().strftime("%Y%m%d-%H%M%S")
 
     mpm = instruments['mpm']
     sw = instruments['sw']
@@ -1067,7 +1104,7 @@ def get_att_value(instruments, IV_pickle_filepath=None, trigger_voltage=0.1, tar
 
 
 
-# Daniel Sorensen Code
+# # Daniel Sorensen Code
 # def optimizePolarization(instruments, biasV = 0.7, biasChannel=1, ttChannel=5, tMeasure=0.5, minimize=False, attValue=28):
 #     sc = serverConnection()
 #     cr = ttCountRate(channel=ttChannel)
@@ -1110,7 +1147,7 @@ def get_att_value(instruments, IV_pickle_filepath=None, trigger_voltage=0.1, tar
 #     return optPol
 
 
-# My attempt
+# # My attempt
 # bounds = [(-99, 100)] * 3
 # def neg_meas_counts(position, *args):
 #     return -meas_counts(position, *args)
@@ -1120,3 +1157,103 @@ def get_att_value(instruments, IV_pickle_filepath=None, trigger_voltage=0.1, tar
 # pol_counts = [(res_min['x'], res_min['fun']), (res_max['x'], res_max['fun'])]
 # logger.info(pol_counts)
 
+
+# ChatGPT attempt
+def meas_cps(instruments, pos, N=3, counting_time=1):
+    pc = instruments['pc']
+    counter = instruments['counter']
+    srs = instruments['srs']
+    att_list = instruments['att_list']
+
+    pc.set_waveplate_positions(pos)
+    time.sleep(0.3)
+
+    def get_cps():
+        return [counter.timed_count(counting_time=counting_time) / counting_time for _ in range(N)]
+
+    cps = get_cps()
+    attempts = 0
+    while np.mean(cps) == 0 and attempts < 3:
+        logger.warning("Getting 0 counts. Resetting SRS and attenuators.")
+        srs.set_output(False)
+        for att in att_list:
+            att.disable()
+        time.sleep(0.2)
+        srs.set_output(True)
+        for att in att_list:
+            att.enable()
+        time.sleep(0.5)
+        cps = get_cps()
+        attempts += 1
+
+    return cps
+
+def avg_meas_counts(instruments, pos, N=3, counting_time=1):
+    """Wrapper for noisy measurement averaging."""
+    try:
+        cps = meas_cps(instruments, pos, N=N, counting_time=counting_time)
+        mean_cps = np.mean(cps)
+        logger.info(f"Tested {pos}: {mean_cps:.1f} cps")
+        return mean_cps
+    except Exception as e:
+        logger.error(f"Measurement failed at {pos}: {e}")
+        return np.nan  # Safe fallback value
+        
+def find_extreme_polarizations(
+    instruments,
+    N=3,
+    counting_time=0.5,
+    coarse_grid_points=7,
+    coarse_range=60,
+    fine_bounds=((-99, 100), (-99, 100), (-99, 100)),
+):
+    """
+    Hybrid coarse + optimization search for max/min polarization settings.
+
+    Returns:
+        max_pol (tuple), min_pol (tuple), count_at_max (float), count_at_min (float)
+    """
+
+    # === COARSE GRID SEARCH ===
+    logger.info("Starting coarse grid search...")
+    positions = np.linspace(-coarse_range, coarse_range, coarse_grid_points)
+    best_pos = None
+    worst_pos = None
+    best_val = -np.inf
+    worst_val = np.inf
+
+    for x in tqdm(positions, desc="Coarse X"):
+        for y in positions:
+            for z in positions:
+                pos = (x, y, z)
+                val = avg_meas_counts(instruments, pos, N=N, counting_time=counting_time)
+                if np.isnan(val):
+                    continue
+                if val > best_val:
+                    best_val = val
+                    best_pos = pos
+                if val < worst_val:
+                    worst_val = val
+                    worst_pos = pos
+
+    logger.info(f"Best coarse pos: {best_pos} @ {best_val:.1f} cps")
+    logger.info(f"Worst coarse pos: {worst_pos} @ {worst_val:.1f} cps")
+
+    # === FINE OPTIMIZATION ===
+    def neg_avg_counts(x): return -avg_meas_counts(instruments, tuple(x), N=N, counting_time=counting_time)
+    def pos_avg_counts(x): return avg_meas_counts(instruments, tuple(x), N=N, counting_time=counting_time)
+
+    logger.info("Refining max polarization with optimizer...")
+    res_max = opt.minimize(neg_avg_counts, best_pos, bounds=fine_bounds, method='L-BFGS-B', options={'maxiter': 100})
+    logger.info("Refining min polarization with optimizer...")
+    res_min = opt.minimize(pos_avg_counts, worst_pos, bounds=fine_bounds, method='L-BFGS-B', options={'maxiter': 100})
+
+    max_pol = tuple(res_max.x)
+    min_pol = tuple(res_min.x)
+    count_at_max = -res_max.fun
+    count_at_min = res_min.fun
+
+    logger.info(f"MAX polarization: {max_pol}, counts: {count_at_max:.1f}")
+    logger.info(f"MIN polarization: {min_pol}, counts: {count_at_min:.1f}")
+
+    return max_pol, min_pol
