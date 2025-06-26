@@ -414,16 +414,17 @@ def optical_switch_calibration(instruments,
     fname = f"optical_switch_calibration_{name}.pkl"
     out_path = os.path.join(out_dir, fname)
     df.to_pickle(out_path)
-
-    # Also save JSON
-    readable_dir = os.path.join(current_dir, 'readable_data_sde')
-    os.makedirs(readable_dir, exist_ok=True)
-    json_name = f"optical_switch_calibration_{name}.json"
-    json_path = os.path.join(readable_dir, json_name)
-    with open(json_path, 'w') as jf:
-        json.dump(df.to_dict(orient='list'), jf, indent=4)
-
     logger.info(f"Calibration data saved to: {out_path}")
+
+    # Save DataFrame as CSV (human-readable)
+    current_dir = os.path.dirname(__file__)
+    csv_dir = os.path.join(current_dir, 'readable_data_sde')
+    os.makedirs(csv_dir, exist_ok=True)
+    csv_name = f"optical_switch_calibration_{name}.csv"
+    csv_path = os.path.join(csv_dir, csv_name)
+    df.to_csv(csv_path, index=False)
+    logger.info(f"Calibration data saved to: {csv_path}")
+    
     logger.info("Completed: Algorithm S1.1 Optical Switch Calibration")
 
     return out_path
@@ -551,144 +552,20 @@ def attenuator_calibration(instruments, now_str=None, wavelength=1550, attval=30
     filename = f"attenuator_calibration_data_attval{attval}__{now_str}.pkl"
     filepath = os.path.join(output_dir, filename)
     df.to_pickle(filepath)
-    
-    readable_output_dir = os.path.join(current_file_dir, 'readable_data_sde')
-    os.makedirs(readable_output_dir, exist_ok=True)
-    _, data_filename = os.path.split(os.path.splitext(filepath)[0])
-    csv_filename = f'{data_filename}.csv'
-    csv_filepath = os.path.join(readable_output_dir, csv_filename)
-    df.to_csv(csv_filepath, index=False)
-
     logger.info(f"attenuator_calibration saved to: {filepath}")
-    logger.info("Completed: Algorithm S2. Attenuator Calibration")
-    return filepath
-
-def attenuator_calibration(instruments, now_str=None, wavelength=1550, attval=30, mpm_types=['ando']):
-    logger.info("Starting: Algorithm S2. Attenuator Calibration")
-    if now_str is None:
-        now_str = datetime.now().strftime("%Y%m%d-%H%M%S")
     
-    sw = instruments['sw']
-    monitor_port = instruments['monitor_port']
-    detector_port = instruments['detector_port']
-    att1 = instruments['att1']
-    mpms = instruments['mpms']
-    att_list = instruments['att_list']
-    mpm_sw = instruments['mpm_sw']
+    # Save DataFrame as CSV (human-readable)
+    current_dir = os.path.dirname(__file__)
+    csv_dir = os.path.join(current_dir, 'readable_data_sde')
+    os.makedirs(csv_dir, exist_ok=True)
+    csv_name = f"attenuator_calibration_data_attval{attval}__{now_str}.csv"
+    csv_path = os.path.join(csv_dir, csv_name)
+    df.to_csv(csv_path, index=False)
+    logger.info(f"attenuator_calibration saved to: {csv_path}")
     
-    sw.set_route(monitor_port)
-
-    N = 100
-    num_mpms = len(mpms)
-    init_powers = np.empty((N, num_mpms), dtype=object)
-    att_powers = []
-
-    att_rng = 0
-    init_rng = 0
-
-    # Prepare MPMs
-    for mpm, mpm_type in zip(mpms, mpm_types):
-        if mpm_type == 'ando':
-            reset_attenuators(instruments)
-            att1.set_att(attval)
-            att_rng = find_mpm_rng(instruments, round(-attval, -1))
-            logger.info(f"att_rng: {att_rng}")
-            reset_attenuators(instruments)
-            init_rng = find_mpm_rng(instruments, round(0, -1))
-            logger.info(f"init_rng: {init_rng}")
-        elif mpm_type == 'thermal':
-            input(f"Please set T-RAD wavelength to: {wavelength}\nSet range to: 200um\nPress any key to continue...")
-
-    # Loop through attenuators
-    for i, atti in enumerate(att_list):
-        temp_powers = np.empty((N, num_mpms), dtype=object)
-
-        # Initial power measurements
-        if any(m == 'ando' for m in mpm_types):
-            sw.set_route(detector_port)
-            for mpm, mpm_type in zip(mpms, mpm_types):
-                if mpm_type == 'ando':
-                    mpm.set_range(init_rng)
-                    zero_ando_mpm(instruments)
-
-        sw.set_route(monitor_port)
-        reset_attenuators(instruments)
-        time.sleep(0.3)
-
-        for k, (mpm, mpm_type) in enumerate(zip(mpms, mpm_types)):
-            if mpm_type == 'ando':
-                mpm_sw.set_route(instruments['ando_port'])
-                init_powers[:, k] = [mpm.get_power() for _ in range(N)]
-            elif mpm_type == 'InGaAs':
-                mpm_sw.set_route(instruments['ingaas_port'])
-                init_powers[:, k] = [mpm.get_meter_pow(4) for _ in range(N)]
-            elif mpm_type == 'thermal':
-                mpm_sw.set_route(instruments['thermal_port'])
-                init_powers[:, k] = [capture_screen_and_extract_text(20, 100, 200, 70) for _ in range(N)]
-
-        # Apply attenuation and measure
-        if any(m == 'ando' for m in mpm_types):
-            for mpm, mpm_type in zip(mpms, mpm_types):
-                if mpm_type == 'ando':
-                    mpm.set_range(att_rng)
-                    zero_ando_mpm(instruments)
-
-        sw.set_route(monitor_port)
-        reset_attenuators(instruments)
-        atti.set_att(attval)
-        time.sleep(0.3)
-
-        for k, (mpm, mpm_type) in enumerate(zip(mpms, mpm_types)):
-            if mpm_type == 'ando':
-                mpm_sw.set_route(instruments['ando_port'])
-                temp_powers[:, k] = [mpm.get_power() for _ in range(N)]
-            elif mpm_type == 'InGaAs':
-                mpm_sw.set_route(instruments['ingaas_port'])
-                temp_powers[:, k] = [mpm.get_meter_pow(4) for _ in range(N)]
-            elif mpm_type == 'thermal':
-                mpm_sw.set_route(instruments['thermal_port'])
-                temp_powers[:, k] = [capture_screen_and_extract_text(20, 100, 200, 70) for _ in range(N)]
-
-        att_powers.append({
-            'Attenuator': i,
-            'Attenuation (dB)': attval,
-            'Range': att_rng,
-            **{f"Power_MPM_{k}": temp_powers[:, k].tolist() for k in range(num_mpms)}
-        })
-
-        logger.info(f"Attenuator {i} complete")
-        logger.info(f"{round(100 * (i + 1) / len(att_list), 2)}% completed")
-
-    # Save initial powers as final row
-    att_powers.append({
-        'Attenuator': None,
-        'Attenuation (dB)': 0,
-        'Range': init_rng,
-        **{f"Power_MPM_{k}": init_powers[:, k].tolist() for k in range(num_mpms)}
-    })
-
-    for att in att_list:
-        att.set_att(0)
-        att.disable()
-
-    df = pd.DataFrame(att_powers)
-
-    # Save
-    output_dir = os.path.join(current_file_dir, 'data_sde')
-    os.makedirs(output_dir, exist_ok=True)
-    filename = f"attenuator_calibration_data_attval{attval}__{now_str}.pkl"
-    filepath = os.path.join(output_dir, filename)
-    df.to_pickle(filepath)
-
-    readable_output_dir = os.path.join(current_file_dir, 'readable_data_sde')
-    os.makedirs(readable_output_dir, exist_ok=True)
-    csv_filepath = os.path.join(readable_output_dir, f"{os.path.splitext(filename)[0]}.csv")
-    df.to_csv(csv_filepath, index=False)
-
-    logger.info(f"attenuator_calibration saved to: {filepath}")
     logger.info("Completed: Algorithm S2. Attenuator Calibration")
-    return filepath
 
+    return filepath
 
 # Algorithm S3.1. SDE Counts Measurement - Polarization Sweep
 def sweep_polarizations(instruments, now_str=None, IV_pickle_filepath='', attval=30, name='', trigger_voltage=0.01, num_pols=13, counting_time=0.5, N=3,bias_resistor=97e3,snspd_splice="1connectors"):
@@ -768,17 +645,21 @@ def sweep_polarizations(instruments, now_str=None, IV_pickle_filepath='', attval
     filepath = os.path.join(output_dir, filename)
     with open(filepath, "wb") as file:
         pickle.dump(data_dict, file)
-
-    readable_output_dir = os.path.join(current_file_dir, 'readable_data_sde')
-    os.makedirs(readable_output_dir, exist_ok=True)
-    _, data_filename = os.path.split(os.path.splitext(filepath)[0])
-    json_filename = f'{data_filename}.json'
-    json_filepath = os.path.join(readable_output_dir, json_filename)
-    data_dict_json = {str(k): v for k, v in data_dict.items()}
-    with open(json_filepath, 'w') as f:
-        json.dump(data_dict_json, f, indent=4)
-    
     logger.info(f"Polarization data saved to: {filepath}")
+
+    # Save data_dict as a readable CSV
+    csv_dir = os.path.join(current_file_dir, 'readable_data_sde')
+    os.makedirs(csv_dir, exist_ok=True)
+    csv_filename = f"{name}_pol_data_snspd_splice{snspd_splice}__{now_str}.csv"
+    csv_filepath = os.path.join(csv_dir, csv_filename)
+
+    # Convert dict with tuple keys to DataFrame
+    df = pd.DataFrame(
+        [{'pol_x': k[0], 'pol_y': k[1], 'pol_z': k[2], 'mean_cps': v} for k, v in data_dict.items()]
+    )
+    df.to_csv(csv_filepath, index=False)
+    logger.info(f"Polarization data saved to: {csv_filepath}")
+    
     logger.info("Completed: Algorithm S3.1. SDE Counts Measurement - Polarization Sweep")
     return filepath
 
@@ -855,16 +736,25 @@ def SDE_Counts_Measurement(instruments, now_str=None, IV_pickle_filepath='', pol
     filepath = os.path.join(output_dir, filename)
     with open(filepath, "wb") as file:
         pickle.dump(data_dict, file)
-
-    readable_output_dir = os.path.join(current_file_dir, 'readable_data_sde')
-    os.makedirs(readable_output_dir, exist_ok=True)
-    _, data_filename = os.path.split(os.path.splitext(filepath)[0])
-    json_filename = f'{data_filename}.json'
-    json_filepath = os.path.join(readable_output_dir, json_filename)
-    with open(json_filepath, 'w') as f:
-        json.dump(data_dict, f, indent=4, default=lambda x: x.tolist() if hasattr(x, 'tolist') else str(x))
-    
     logger.info(f"data_dict saved to: {filepath}")
+
+    # Save as readable CSV
+    csv_dir = os.path.join(current_file_dir, 'readable_data_sde')
+    os.makedirs(csv_dir, exist_ok=True)
+    csv_filename = f"{name}_counts_data_snspd_splice{snspd_splice}_attval{attval}__{now_str}.csv"
+    csv_filepath = os.path.join(csv_dir, csv_filename)
+    df = pd.DataFrame({
+        'bias_current': Cur_Array,
+        'dark_counts': Dark_Count_Array,
+        'maxpol_counts': Maxpol_Count_Array,
+        'minpol_counts': Minpol_Count_Array
+    })
+    with open(csv_filepath, 'w') as f:
+        f.write(f"# Max polarization settings: {maxpol_settings}\n")
+        f.write(f"# Min polarization settings: {minpol_settings}\n")
+        df.to_csv(f, index=False)
+    logger.info(f"Counts data saved to: {csv_filepath}")
+
     logger.info("Completed: Algorithm S3.2. SDE Counts Measurement - True Counting")
     return filepath
 
@@ -1025,16 +915,26 @@ def nonlinearity_factor_raw_power_measurements(instruments, now_str=None, taus=[
     filename = f'nonlinear_calibration_data__{now_str}.pkl'
     filepath = os.path.join(output_dir, filename)
     df.to_pickle(filepath)
-    
-    # This is untested
-    readable_output_dir = os.path.join(current_file_dir, 'readable_data_sde')
-    os.makedirs(readable_output_dir, exist_ok=True)
-    _, data_filename = os.path.split(os.path.splitext(filepath)[0])
-    csv_filename = f'{data_filename}.csv'
-    csv_filepath = os.path.join(readable_output_dir, csv_filename)
-    df.to_csv(csv_filepath, index=False)
-
     logger.info(f"nonlinearity_factor saved to: {filepath}")
+
+    # Save CSV (human-readable)
+    expanded_data = []
+    for rng, a1, a2, power_list in data:
+        for power in power_list:
+            expanded_data.append({
+                'Range': rng,
+                'Attenuator 1': a1,
+                'Attenuator 2': a2,
+                'Power (W)': power
+            })
+    df = pd.DataFrame(expanded_data)
+    csv_dir = os.path.join(current_file_dir, "readable_data_sde")
+    os.makedirs(csv_dir, exist_ok=True)
+    csv_filename = f'nonlinear_calibration_data__{now_str}.csv'
+    csv_filepath = os.path.join(csv_dir, csv_filename)
+    df.to_csv(csv_filepath, index=False)
+    logger.info(f"nonlinearity_factor data saved to: {csv_filepath}")
+
     logger.info("Completed: Algorithm S1. Nonlinearity factor raw power measurements")
     return filepath
 
