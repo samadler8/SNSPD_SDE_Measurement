@@ -47,7 +47,7 @@ def SNSPD_IV_Curve(instruments, now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()
     total_num_biases = Cur_Array.size
 
     # Measure voltage for each set bias
-    for i in tqdm(total_num_biases):
+    for i in tqdm(range(total_num_biases)):
         set_volt = Volt_Array[i]
         srs.set_voltage(set_volt)
         time.sleep(0.1)  # Wait for stabilization
@@ -63,6 +63,12 @@ def SNSPD_IV_Curve(instruments, now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()
         'Volt_Meas_Array': Volt_Meas_Array, 
     }
 
+    df = pd.DataFrame({
+        'Current (A)': Cur_Array,
+        'Measured Voltage (V)': Volt_Meas_Array
+    })
+
+
     output_dir = os.path.join(current_file_dir, 'data_sde')
     os.makedirs(output_dir, exist_ok=True)
     filename = f"{name}_IV_curve_data__{now_str}.pkl"
@@ -72,9 +78,10 @@ def SNSPD_IV_Curve(instruments, now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()
 
     readable_output_dir = os.path.join(current_file_dir, 'readable_data_sde')
     os.makedirs(readable_output_dir, exist_ok=True)
-    json_filepath = f'{os.path.splitext(filepath)[0]}.json'
-    with open(json_filepath, 'w') as f:
-        json.dump(data_dict, f, indent=4, default=lambda x: x.tolist() if hasattr(x, 'tolist') else str(x))
+    csv_filename = f"{name}_IV_curve_data__{now_str}.csv"
+    csv_filepath = os.path.join(readable_output_dir, csv_filename)
+    df.to_csv(csv_filepath, index=False)
+
 
     logger.info(f"IV curve data saved to: {filepath}")
     logger.info("COMPLETED: SNSPD IV Curve")
