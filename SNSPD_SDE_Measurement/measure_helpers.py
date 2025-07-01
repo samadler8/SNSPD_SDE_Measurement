@@ -81,6 +81,8 @@ def SNSPD_IV_Curve(instruments, now_str="{:%Y%m%d-%H%M%S}".format(datetime.now()
     csv_filename = f"{name}_IV_curve_data__{now_str}.csv"
     csv_filepath = os.path.join(readable_output_dir, csv_filename)
     df.to_csv(csv_filepath, index=False)
+    logger.info(f"CSV data saved to: {csv_filepath}")
+    assert os.path.exists(csv_filepath), f"CSV file was not created at {csv_filepath}"
 
 
     logger.info(f"IV curve data saved to: {filepath}")

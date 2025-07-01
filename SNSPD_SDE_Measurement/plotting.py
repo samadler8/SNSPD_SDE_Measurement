@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 def plot_IV_curve(IV_pickle_filepath='', save_pdf=False):
     with open(IV_pickle_filepath, 'rb') as file:
         IV_data_dict = pickle.load(file)
-
+    print(IV_data_dict)
     ic = get_ic(IV_pickle_filepath)
 
     # Plot the IV curve
@@ -555,8 +555,8 @@ if __name__ == '__main__':
     
     
 
-    # IV_pickle_filepath = os.path.join(current_file_dir, 'data_sde', 'SK3_IV_curve_data__20250114-175627.pkl')
-    # plot_IV_curve(IV_pickle_filepath=IV_pickle_filepath, save_pdf=save_pdf)
+    IV_pickle_filepath = os.path.join(current_file_dir, 'data_sde', 'saaed2um_IV_curve_data__20250701-171155.pkl')
+    plot_IV_curve(IV_pickle_filepath=IV_pickle_filepath, save_pdf=save_pdf)
     
     # pol_counts_filepath = os.path.join(current_file_dir, "data_sde", "SK3_pol_data_snspd_splice1connectors__20250116-130752.pkl")
     # plot_polarization_sweep(pol_counts_filepath=pol_counts_filepath, save_pdf=save_pdf)

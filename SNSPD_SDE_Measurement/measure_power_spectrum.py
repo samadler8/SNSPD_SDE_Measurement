@@ -125,7 +125,7 @@ if __name__ == '__main__':
     name = 'saaed2um'
 
     # wavelengths = [635, 1100, 1150, 1200, 1250, 1300, 1350, 1400, 1450, 1500, 1525.661, 1550, 1566.314, 1600, 1620.5, 1650, 1700, 2000]
-    wavelengths = [635, 1525.661, 1566.314, 2000]
+    wavelengths = [ 1525.661, 1566.314, 2000]
 
     NIST_pm_calib_path = os.path.join(current_file_dir, 'calibration_power_meter', 'SWN HP81521B 2933G05261.xlsx')
     calib_df = pd.read_excel(NIST_pm_calib_path, sheet_name='Data')
@@ -198,7 +198,7 @@ if __name__ == '__main__':
 
 #     input("Ensure SNSPD is properly connected to srs and counter\nPress anything to continue\n")
 
-#     IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name)
+    # IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name)
 #     # IV_pickle_filepath = os.path.join(current_file_dir, "data_sde", "saaed2um_IV_curve_data__20250307-182549.pkl")
  
 #     input("Ensure spliced to SNSPD not CPM\nPress anything to continue\n")

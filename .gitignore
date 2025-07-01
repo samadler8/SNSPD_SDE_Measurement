@@ -1,14 +1,14 @@
 /*.pyc
 *.DS_Store
 *.mat
-*.pickle
+# *.pickle
 *.zip
 *.pyc
-*.png
-*.pdf
-*.log
-*.json
-*.csv
+# *.png
+# *.pdf
+# *.log
+# *.json
+# *.csv
 
 
 
