@@ -356,7 +356,7 @@ def optical_switch_calibration(instruments,
     high_att = 10.0
     tol = 1e-6
     avg_cpm = 0.0
-    max_iter = 20
+    max_iter = 50
     iter_count = 0
     while abs(avg_cpm - 100e-6) > tol and iter_count < max_iter:
         mid = round((low_att + high_att) / 2, 3)
@@ -395,7 +395,12 @@ def optical_switch_calibration(instruments,
             elif mpm_type == 'thermal':
                 mpm_sw.set_route(instruments['thermal_port'])
                 for j in range(N):
-                    power_mpm[i*N + j, k] = capture_screen_and_extract_text(20, 100, 200, 70)
+                    reading = capture_screen_and_extract_text(20, 100, 200, 70)
+                    try:
+                        power_mpm[i*N + j, k] = float(reading)
+                    except (ValueError, TypeError):
+                        logger.warning(f"Failed to parse thermal reading at i={i}, j={j}: {reading}")
+                        power_mpm[i*N + j, k] = np.nan  # Or you could retry instead
 
         sw.set_route(detector_port)
         time.sleep(0.3)

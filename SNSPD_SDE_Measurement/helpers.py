@@ -26,7 +26,7 @@ def capture_screen_and_extract_text(x, y, width, height):
     screenshot = pyautogui.screenshot(region=(x, y, width, height))
     text = pytesseract.image_to_string(screenshot)
     logger.info(f"\nExtracted Text: {text}\n")
-    return
+    return text
          
 def get_ic(filepath, threshold=1e-4):
     with open(filepath, 'rb') as file:

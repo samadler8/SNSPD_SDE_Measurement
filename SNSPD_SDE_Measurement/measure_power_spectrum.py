@@ -194,12 +194,12 @@ if __name__ == '__main__':
 
                         
     taus = [2.75, 2.25]
-    nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(instruments, now_str=now_str, taus=taus)
+    # nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(instruments, now_str=now_str, taus=taus)
 
-#     input("Ensure SNSPD is properly connected to srs and counter\nPress anything to continue\n")
+    # input("Ensure SNSPD is properly connected to srs and counter\nPress anything to continue\n")
 
     # IV_pickle_filepath = SNSPD_IV_Curve(instruments, now_str=now_str, max_cur=max_cur, bias_resistor=bias_resistor, name=name)
-#     # IV_pickle_filepath = os.path.join(current_file_dir, "data_sde", "saaed2um_IV_curve_data__20250307-182549.pkl")
+    # IV_pickle_filepath = os.path.join(current_file_dir, "data_sde", "saaed2um_IV_curve_data__20250307-182549.pkl")
  
 #     input("Ensure spliced to SNSPD not CPM\nPress anything to continue\n")
 
