@@ -125,7 +125,7 @@ if __name__ == '__main__':
     name = 'saaed2um'
 
     # wavelengths = [635, 1100, 1150, 1200, 1250, 1300, 1350, 1400, 1450, 1500, 1525.661, 1550, 1566.314, 1600, 1620.5, 1650, 1700, 2000]
-    wavelengths = [ 1525.661, 1566.314, 2000]
+    wavelengths = [635, 1525.661, 1566.314, 2000]
 
     NIST_pm_calib_path = os.path.join(current_file_dir, 'calibration_power_meter', 'SWN HP81521B 2933G05261.xlsx')
     calib_df = pd.read_excel(NIST_pm_calib_path, sheet_name='Data')
@@ -193,7 +193,7 @@ if __name__ == '__main__':
                 optical_switch_calibration_filepath = optical_switch_calibration(instruments, name=name_mpms_src_wav, mpm_types=mpm_types_temp, wavelength=wavelength)
 
                         
-    taus = [2.75, 2.25]
+    # taus = [2.75, 2.25]
     # nonlinearity_factor_filepath = nonlinearity_factor_raw_power_measurements(instruments, now_str=now_str, taus=taus)
 
     # input("Ensure SNSPD is properly connected to srs and counter\nPress anything to continue\n")

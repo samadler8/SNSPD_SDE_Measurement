@@ -346,7 +346,7 @@ def optical_switch_calibration(instruments,
             init_rng = find_mpm_rng(instruments, 0)
             mpm.set_range(init_rng)
         if mpm_type == 'thermal':
-            input(f"Please set T-RAD wavelength to: {wavelength} nm\nPlease set T-RAD range to: 2 mW\nPress anything to continue\n")
+            input(f"Please set T-RAD wavelength to: {wavelength} nm\nPlease set T-RAD range to: 200 uW\nPress anything to continue\n")
     cpm.set_pm_wavelength(wavelength)
 
     # Calibrate CPM to 100 uW
@@ -394,10 +394,11 @@ def optical_switch_calibration(instruments,
                     power_mpm[i*N + j, k] = mpm.get_meter_pow(4)
             elif mpm_type == 'thermal':
                 mpm_sw.set_route(instruments['thermal_port'])
+                time.sleep(25)
                 for j in range(N):
                     reading = capture_screen_and_extract_text(20, 100, 200, 70)
                     try:
-                        power_mpm[i*N + j, k] = float(reading)
+                        power_mpm[i*N + j, k] = float(reading)*1e-6
                     except (ValueError, TypeError):
                         logger.warning(f"Failed to parse thermal reading at i={i}, j={j}: {reading}")
                         power_mpm[i*N + j, k] = np.nan  # Or you could retry instead
